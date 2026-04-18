@@ -1,0 +1,59 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if the user is authenticated and belongs to the specified org
+    function isOrgMember(orgId) {
+      return request.auth != null && request.auth.token.org == orgId;
+    }
+
+    // Rules for /organizations
+    match /organizations/{orgId} {
+      // Readable only by members of that org
+      allow read: if isOrgMember(orgId);
+      // Let's assume writes are from server admin only, or allow very restricted updates
+      allow write: if false;
+    }
+
+    // Rules for /assets
+    match /assets/{assetId} {
+      // Only authenticated users can read/modify their own org's assets
+      // For read/update/delete, we check the existing resource
+      allow read, update, delete: if request.auth != null && resource.data.owner_org == request.auth.token.org;
+      // For create, we check the incoming data payload
+      allow create: if request.auth != null && request.resource.data.owner_org == request.auth.token.org;
+    }
+
+    // Rules for /violations 
+    match /violations/{violationId} {
+      // Typically need to ensure the parent asset owner_org matches the token.
+      // But if violation documents don't store owner_org directly and only asset_id, 
+      // we might need to use get() to read the asset. 
+      // Let's assume the PRD meant violations also carry org data, or we just restrict by asset.
+      // Since PRD didn't explicitly mention owner_org on violations, I will get() the parent asset.
+      allow read, update, delete: if request.auth != null && 
+        get(/databases/$(database)/documents/assets/$(resource.data.asset_id)).data.owner_org == request.auth.token.org;
+        
+      allow create: if request.auth != null && 
+        get(/databases/$(database)/documents/assets/$(request.resource.data.asset_id)).data.owner_org == request.auth.token.org;
+    }
+
+    // Rules for /audit_log
+    match /audit_log/{logId} {
+      // write-only from server (no client writes)
+      // Since it's server-only for writes, we block all client writes. Admin SDK will bypass this.
+      allow write: if false;
+      // Depending on UI needs, clients might be allowed to read their own org's logs.
+      // Easiest is to block client read completely unless specifically requested.
+      allow read: if false; 
+    }
+    
+    // Rules for /scans
+    match /scans/{scanId} {
+      allow write: if false; // Only cloud scheduler / server updates scans
+      allow read: if request.auth != null && 
+        get(/databases/$(database)/documents/assets/$(resource.data.asset_id)).data.owner_org == request.auth.token.org;
+    }
+  }
+}
