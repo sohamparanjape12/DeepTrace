@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #FAFAFA;
+  --foreground: #1A1A1A;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-jakarta), sans-serif;
+  letter-spacing: -0.015em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer base {
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-display tracking-tight leading-[1.05];
+  }
+}
+
+@layer utilities {
+  .bento-card {
+    @apply bg-brand-surface border border-brand-border rounded-xl transition-all duration-300;
+  }
+
+  .bento-card:hover {
+    @apply border-zinc-300 shadow-soft-lg;
+  }
+
+  .glass-pill {
+    @apply bg-white/80 backdrop-blur-xl border border-white/30 rounded-full shadow-soft;
+  }
+
+  .macro-spacing {
+    @apply py-16 md:py-14;
+  }
+
+  .text-meta {
+    @apply text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted;
+  }
+}
+
+/* Scroll Hide */
+::-webkit-scrollbar {
+  display: none;
+}
+
+* {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
