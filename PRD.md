@@ -36,7 +36,7 @@ AI Violation Classification → Real-Time Alert → Dashboard Review
 | Styling | Tailwind CSS + shadcn/ui | Rapid, professional UI |
 | Auth | Firebase Auth | Google-native, fast setup |
 | Database | Firebase Firestore | Real-time sync, no schema friction |
-| File Storage | Firebase Storage | Direct asset upload |
+| File Storage | Cloudinary | Direct asset upload, Next.js SDK, 25GB free tier |
 | Internet Scan | Google Cloud Vision API (Web Detection) | 1,000 free units/month — more than enough for a hackathon |
 | AI Embedding | Gemini Embedding API (`text-embedding-004`) | Free tier via Google AI Studio, replaces Vertex AI Embeddings |
 | Vector Search | FAISS (in-memory, Node.js via `faiss-node`) | Free, no infra, runs inside Cloud Run — drop Vertex AI Vector Search |
@@ -66,7 +66,7 @@ AI Violation Classification → Real-Time Alert → Dashboard Review
   - pHash + dHash fingerprint (stored in Firestore)
   - Vertex AI multimodal embedding (stored in Vector Search index)
   - Metadata: owner, timestamp, tags, rights tier (editorial / commercial / all-rights)
-- Asset stored in Firebase Storage with access control
+- Asset stored in Cloudinary with public HTTPS URL
 - Upload confirmation + unique Asset ID returned
 
 **Fields per asset:**
@@ -217,7 +217,7 @@ This is the "transparency and disputes" requirement from the problem statement.
 ## 8. 9-Day Build Plan
 
 ### Day 1–2 — Infrastructure + Auth (Soham + Patil)
-- Firebase project setup (Auth, Firestore, Storage, Functions)
+- Firebase project setup (Auth, Firestore, Functions) and Cloudinary
 - Cloud Vision API enabled + service account configured
 - Vertex AI project + multimodal embedding model enabled
 - Next.js project scaffold with Tailwind + shadcn/ui
@@ -225,7 +225,7 @@ This is the "transparency and disputes" requirement from the problem statement.
 - Basic layout shell: sidebar nav, header
 
 ### Day 3–4 — Asset Upload + Scan Pipeline (Soham + Mitansh)
-- Asset upload UI (drag-and-drop → Firebase Storage)
+- Asset upload UI (drag-and-drop → Cloudinary via API route)
 - Fingerprint generation on upload (pHash via Sharp + custom hash)
 - Cloud Vision Web Detection API call on upload
 - Raw results written to Firestore
@@ -311,7 +311,7 @@ Return clean, typed TypeScript. Use async/await throughout. Add JSDoc comments o
 ### Mitansh — Frontend + Dashboard + Data Visualisation
 **Focus:** Asset library UI, upload flow, dashboard analytics charts, real-time violation feed
 
-- Builds asset library grid, upload drag-and-drop (Firebase Storage direct upload)
+- Builds asset library grid, upload drag-and-drop (Cloudinary API route upload)
 - Dashboard charts: violation trend (Recharts LineChart), severity breakdown (PieChart), top infringing domains (BarChart)
 - Real-time violation feed via Firestore `onSnapshot` listener
 - Email alert settings UI in /settings page
@@ -323,7 +323,7 @@ Soham has already set up the project scaffold, Tailwind, shadcn/ui, and Firebase
 
 Your job: build the asset library, upload flow, and dashboard analytics UI.
 
-Tech stack: Next.js latest, TypeScript, Tailwind CSS, shadcn/ui, Firebase client SDK (Firestore + Storage), Recharts.
+Tech stack: Next.js latest, TypeScript, Tailwind CSS, shadcn/ui, Firebase client SDK (Firestore), Cloudinary, Recharts.
 
 Tasks:
 
@@ -336,7 +336,7 @@ Tasks:
 2. /app/assets/upload/page.tsx — Upload Flow
    - Drag-and-drop zone (use react-dropzone)
    - Form fields: tags (multi-select: sport, event, player), rights_tier (select: editorial / commercial / all_rights / no_reuse)
-   - On submit: upload file to Firebase Storage at /assets/{uuid}/{filename}
+   - On submit: upload file to Cloudinary via /api/assets/upload
    - Write asset document to Firestore /assets collection (see PRD schema)
    - After Firestore write, call POST /api/scan/{assetId} to trigger the first scan
    - Show progress states: uploading → registering → scanning → done
@@ -416,7 +416,7 @@ Return TypeScript with full types. No any types.
 ### Patil — Firebase + Cloud Functions + Auth + Alerts
 **Focus:** Firebase project setup, Firestore schema + security rules, Cloud Functions, email alerts, environment config
 
-- Sets up Firebase project (Auth, Firestore, Storage, Functions)
+- Sets up Firebase project (Auth, Firestore, Functions) and Cloudinary
 - Deploys Cloud Functions: alert trigger on new CRITICAL violation, scheduled rescan cron
 - Configures Firebase Auth with Google Sign-In
 - Writes Firestore security rules
@@ -585,7 +585,7 @@ SMTP_PASS=                  # Gmail App Password (not account password)
 > **Cost note:** All services used are on free tiers for hackathon scale.
 > Cloud Vision Web Detection: 1,000 free units/month.
 > Gemini 1.5 Flash via Google AI Studio: free (15 RPM, 1M TPM).
-> Firebase Spark plan: free (Firestore 1GB, Storage 5GB, Functions 2M invocations).
+> Firebase Spark plan: free (Firestore 1GB, Functions 2M invocations). Cloudinary 25GB free tier.
 > Vercel Hobby: free. Gmail SMTP: free. Total infra cost = $0.
 
 ---
