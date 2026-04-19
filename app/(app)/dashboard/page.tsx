@@ -9,10 +9,12 @@ import { TrendAnalysis } from '@/components/dashboard/TrendAnalysis';
 import { MarketLeakage, RegionData } from '@/components/dashboard/MarketLeakage';
 import Link from 'next/link';
 import { db } from '@/lib/firebase';
+import { useAuth } from '@/lib/auth-context';
 import { collection, getDocs, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import type { Violation } from '@/types';
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const [totalAssets, setTotalAssets] = useState(0);
   const [activeViolations, setActiveViolations] = useState(0);
   const [severityCounts, setSeverityCounts] = useState({ CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 });
@@ -25,13 +27,20 @@ export default function DashboardPage() {
   const [marketLeakageData, setMarketLeakageData] = useState<RegionData[]>([]);
 
   useEffect(() => {
+    if (!user) return;
+
     const fetchAssets = async () => {
-      const snap = await getDocs(collection(db, 'assets'));
+      const q = query(collection(db, 'assets'), where('owner_id', '==', user.uid));
+      const snap = await getDocs(q);
       setTotalAssets(snap.size);
     };
     fetchAssets();
 
-    const q = query(collection(db, 'violations'), orderBy('detected_at', 'desc'));
+    const q = query(
+      collection(db, 'violations'), 
+      where('owner_id', '==', user.uid),
+      orderBy('detected_at', 'desc')
+    );
     const unsubscribe = onSnapshot(q, (snapshot) => {
       let activeCount = 0;
       let critical = 0, high = 0, medium = 0, low = 0;

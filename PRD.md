@@ -36,7 +36,7 @@ AI Violation Classification → Real-Time Alert → Dashboard Review
 | Styling | Tailwind CSS + shadcn/ui | Rapid, professional UI |
 | Auth | Firebase Auth | Google-native, fast setup |
 | Database | Firebase Firestore | Real-time sync, no schema friction |
-| File Storage | Cloudinary | Direct asset upload, Next.js SDK, 25GB free tier |
+| File Storage | Cloudinary | 25GB free tier, transformation API, easy global delivery |
 | Internet Scan | Google Cloud Vision API (Web Detection) | 1,000 free units/month — more than enough for a hackathon |
 | AI Embedding | Gemini Embedding API (`text-embedding-004`) | Free tier via Google AI Studio, replaces Vertex AI Embeddings |
 | Vector Search | FAISS (in-memory, Node.js via `faiss-node`) | Free, no infra, runs inside Cloud Run — drop Vertex AI Vector Search |
@@ -66,12 +66,13 @@ AI Violation Classification → Real-Time Alert → Dashboard Review
   - pHash + dHash fingerprint (stored in Firestore)
   - Vertex AI multimodal embedding (stored in Vector Search index)
   - Metadata: owner, timestamp, tags, rights tier (editorial / commercial / all-rights)
-- Asset stored in Cloudinary with public HTTPS URL
+- Asset stored in Firebase Storage with scoped path: `assets/{userId}/{assetId}/{fileName}`
 - Upload confirmation + unique Asset ID returned
 
 **Fields per asset:**
 ```
 asset_id        string   auto-generated UUID
+owner_id        string   user ID for isolation
 owner_org       string   organization name
 uploaded_at     timestamp
 rights_tier     enum     [editorial, commercial, all_rights, no_reuse]
@@ -116,6 +117,7 @@ Step 5 — Fire alert if severity >= HIGH
 
 ```
 violation_id      string
+owner_id          string   user ID for isolation
 asset_id          string   (ref)
 detected_at       timestamp
 match_url         string   URL where image was found
@@ -169,6 +171,12 @@ Every scan, classification decision, and status change is written to an immutabl
 - Previous state → new state
 
 This is the "transparency and disputes" requirement from the problem statement.
+
+### 5.7 Data Isolation & Multi-Tenancy
+- All data (assets, violations, audit logs) is strictly scoped to the `owner_id` (the authenticated user's UID).
+- Users can only access documents where `owner_id == request.auth.uid`.
+- This is enforced at both the application level (filtered queries) and the database level (Firestore Security Rules).
+
 
 ---
 
@@ -528,21 +536,21 @@ Respond with:
   name, plan, created_at, alert_email, alert_threshold
 
 /assets/{asset_id}
-  owner_org, uploaded_at, rights_tier, tags,
+  owner_id, owner_org, uploaded_at, rights_tier, tags,
   phash, embedding_id, storage_url,
   scan_status, last_scanned_at
 
 /violations/{violation_id}
-  asset_id, detected_at, match_url, match_type,
+  owner_id, asset_id, detected_at, match_url, match_type,
   page_context, gemini_class, gemini_reasoning,
   severity, status, reviewed_by
 
 /audit_log/{log_id}
-  timestamp, action, actor, asset_id,
+  owner_id, timestamp, action, actor, asset_id,
   violation_id, prev_state, new_state
 
 /scans/{scan_id}
-  asset_id, triggered_at, trigger_type,
+  owner_id, asset_id, triggered_at, trigger_type,
   raw_vision_response, matches_count, status
 ```
 
