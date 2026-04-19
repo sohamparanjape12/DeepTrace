@@ -32,7 +32,11 @@ export async function POST(
     }
 
     const asset = assetDoc.data() as Asset;
-    await assetRef.update({ scanStatus: 'scanning', lastScannedAt: new Date() });
+    await assetRef.update({ scan_status: 'scanning', lastScannedAt: new Date() });
+
+    if (!asset.storageUrl) {
+      return NextResponse.json({ error: 'Asset has no storage URL' }, { status: 400 });
+    }
 
     // 2. Call Google Cloud Vision API Web Detection
     // Note: visionClient handles authentication via GOOGLE_APPLICATION_CREDENTIALS
@@ -40,7 +44,7 @@ export async function POST(
     const webDetection = result.webDetection;
 
     if (!webDetection) {
-      await assetRef.update({ scanStatus: 'clean' });
+      await assetRef.update({ scan_status: 'clean' });
       return NextResponse.json({ matchesFound: 0, message: 'No matches found' });
     }
 
@@ -48,16 +52,19 @@ export async function POST(
     const violationsFound: Violation[] = [];
     
     // Helper to process match groups
-    const processMatchGroup = (urls: any[], type: MatchType) => {
-      urls?.forEach((urlObj) => {
+    const processMatchGroup = (urls: any[] | null | undefined, type: MatchType) => {
+      if (!urls) return;
+      urls.forEach((urlObj) => {
+        if (!urlObj.url) return;
         violationsFound.push({
-          id: uuidv4(),
-          assetId,
-          detectedAt: new Date(),
-          matchUrl: urlObj.url,
-          matchType: type,
+          violation_id: uuidv4(),
+          asset_id: assetId,
+          detected_at: new Date().toISOString(),
+          match_url: urlObj.url,
+          match_type: type,
           status: 'open',
           severity: 'LOW', // Initial severity, updated by classify
+          gemini_class: 'NEEDS_REVIEW' // Default placeholder
         });
       });
     };
@@ -74,14 +81,14 @@ export async function POST(
 
     violationsFound.forEach((violation) => {
       // Find page context if available
-      const page = pageMatches.find(p => p.fullMatchingImages?.some(img => img.url === violation.matchUrl) || 
-                                         p.partialMatchingImages?.some(img => img.url === violation.matchUrl));
+      const page = pageMatches.find(p => p.fullMatchingImages?.some(img => img.url === violation.match_url) || 
+                                         p.partialMatchingImages?.some(img => img.url === violation.match_url));
       
-      if (page) {
-        violation.pageTitle = page.pageTitle;
+      if (page && page.pageTitle) {
+        violation.page_context = page.pageTitle;
       }
 
-      const violationRef = db.collection('violations').doc(violation.id);
+      const violationRef = db.collection('violations').doc(violation.violation_id);
       batch.set(violationRef, violation);
 
       // Trigger classification (fire-and-forget or tracked)
@@ -92,20 +99,20 @@ export async function POST(
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            violationId: violation.id,
-            matchUrl: violation.matchUrl,
-            pageTitle: violation.pageTitle,
-            assetRightsTier: asset.rightsTier,
-            ownerOrg: asset.ownerOrg,
-            matchType: violation.matchType
+            violationId: violation.violation_id,
+            matchUrl: violation.match_url,
+            pageTitle: violation.page_context,
+            assetRightsTier: asset.rights_tier,
+            ownerOrg: asset.owner_org,
+            matchType: violation.match_type
           }),
-        }).catch(err => console.error(`Classification trigger failed for ${violation.id}`, err))
+        }).catch(err => console.error(`Classification trigger failed for ${violation.violation_id}`, err))
       );
     });
 
     await batch.commit();
     await assetRef.update({ 
-      scanStatus: violationsFound.length > 0 ? 'violations_found' : 'clean' 
+      scan_status: violationsFound.length > 0 ? 'violations_found' : 'clean' 
     });
 
     // We don't necessarily await classification here if we want to return fast
