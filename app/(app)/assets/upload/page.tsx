@@ -7,6 +7,9 @@ import { UploadZone } from '@/components/shared/UploadZone';
 import { Button } from '@/components/ui/Button';
 import { ArrowLeft, Scan } from 'lucide-react';
 import Link from 'next/link';
+import { collection, serverTimestamp, doc, setDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { v4 as uuidv4 } from 'uuid';
 
 const RIGHTS_TIERS = [
   { value: 'editorial', label: 'Editorial — News reporting use only' },
@@ -38,26 +41,62 @@ export default function UploadPage() {
     e.preventDefault();
     if (!file || !assetName || !ownerOrg) return;
     setIsUploading(true);
+    setUploadProgress(10); // Fake progress to show activity
 
-    // Simulate upload progress
-    for (let i = 0; i <= 100; i += 20) {
-      await new Promise(r => setTimeout(r, 100));
-      setUploadProgress(i);
+    try {
+      // 1. Upload to Cloudinary API route
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const uploadRes = await fetch('/api/assets/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error('Failed to upload image');
+      }
+
+      const { url: downloadURL } = await uploadRes.json();
+      setUploadProgress(50); // Fake progress
+      
+      // 2. Save asset metadata to Firestore
+      const assetId = uuidv4();
+      
+      await setDoc(doc(db, 'assets', assetId), {
+        asset_id: assetId,
+        name: assetName,
+        owner_org: ownerOrg,
+        uploaded_at: serverTimestamp(),
+        rights_tier: rightsTier,
+        tags: selectedTags,
+        scan_status: 'scanning',
+        storageUrl: downloadURL,
+        thumbnailUrl: downloadURL,
+      });
+      setUploadProgress(80); // Fake progress
+
+      // 3. Trigger Scan
+      await fetch('/api/scan/' + assetId, { method: 'POST' }).catch(() => null);
+      setUploadProgress(100);
+
+      setIsUploading(false);
+      setIsSuccess(true);
+
+      const steps = ['Finalizing Upload', 'AI Analysis Started', 'Global Web Scan Initiated'];
+      for (let i = 0; i < steps.length; i++) {
+        setSuccessStep(i);
+        await new Promise(r => setTimeout(r, 800));
+      }
+
+      setTimeout(() => {
+        router.push('/assets/' + assetId);
+      }, 500);
+
+    } catch (e) {
+      console.error(e);
+      setIsUploading(false);
     }
-
-    setIsUploading(false);
-    setIsSuccess(true);
-
-    // Dramatic multi-step success logic
-    const steps = ['Finalizing Upload', 'AI Analysis Started', 'Global Web Scan Initiated'];
-    for (let i = 0; i < steps.length; i++) {
-      setSuccessStep(i);
-      await new Promise(r => setTimeout(r, 800));
-    }
-
-    setTimeout(() => {
-      router.push('/assets');
-    }, 500);
   };
 
   const isFormValid = file && assetName.trim() && ownerOrg.trim();
@@ -204,3 +243,4 @@ export default function UploadPage() {
     </div>
   );
 }
+

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Marquee } from '@/components/shared/Marquee';
 import { Shield, Search, AlertCircle, BarChart3, ArrowUpRight, Globe, Zap, Fingerprint, ChevronRight } from 'lucide-react';
+import Link from 'next/link';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -108,7 +109,7 @@ export default function Home() {
             <span className="absolute -bottom-1 left-0 w-0 h-px bg-brand-text transition-all group-hover:w-full" />
           </a>
         </div>
-        <Button variant="primary" size="sm" className="whitespace-nowrap">Secure Asset</Button>
+        <Link className="whitespace-nowrap" href="/dashboard">Secure Asset</Link>
       </nav>
 
       {/* Hero: Artistic Asymmetry */}
