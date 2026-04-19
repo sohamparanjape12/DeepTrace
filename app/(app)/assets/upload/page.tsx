@@ -31,23 +31,66 @@ export default function UploadPage() {
     setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
   };
 
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [successStep, setSuccessStep] = useState(0);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file || !assetName || !ownerOrg) return;
     setIsUploading(true);
 
-    // Simulate upload progress for demo
-    for (let i = 0; i <= 100; i += 10) {
-      await new Promise(r => setTimeout(r, 120));
+    // Simulate upload progress
+    for (let i = 0; i <= 100; i += 20) {
+      await new Promise(r => setTimeout(r, 100));
       setUploadProgress(i);
     }
 
-    // In production: upload to Firebase Storage → write to Firestore → call /api/scan/[assetId]
-    await new Promise(r => setTimeout(r, 500));
-    router.push('/assets');
+    setIsUploading(false);
+    setIsSuccess(true);
+
+    // Dramatic multi-step success logic
+    const steps = ['Finalizing Upload', 'AI Analysis Started', 'Global Web Scan Initiated'];
+    for (let i = 0; i < steps.length; i++) {
+      setSuccessStep(i);
+      await new Promise(r => setTimeout(r, 800));
+    }
+
+    setTimeout(() => {
+      router.push('/assets');
+    }, 500);
   };
 
   const isFormValid = file && assetName.trim() && ownerOrg.trim();
+
+  if (isSuccess) {
+    const steps = ['Finalizing Upload', 'AI Analysis Started', 'Global Web Scan Initiated'];
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-in fade-in zoom-in duration-500">
+        <div className="relative">
+          <div className="w-24 h-24 rounded-full border-4 border-brand-text/10 flex items-center justify-center">
+            <Scan className="w-10 h-10 text-brand-text animate-pulse" />
+          </div>
+          <div className="absolute inset-0 border-4 border-brand-text rounded-full border-t-transparent animate-spin" />
+        </div>
+        
+        <div className="text-center space-y-2">
+          <h2 className="text-4xl font-display font-black uppercase tracking-tighter italic">Scanning Web</h2>
+          <p className="text-brand-muted font-medium">Please wait while DeepTrace propagates your asset fingerprints.</p>
+        </div>
+
+        <div className="w-full max-w-sm space-y-4">
+          {steps.map((step, i) => (
+            <div key={step} className="flex items-center gap-4 transition-all duration-300">
+              <div className={`w-2 h-2 rounded-full transition-all duration-500 ${i <= successStep ? 'bg-brand-text scale-125' : 'bg-zinc-200'}`} />
+              <p className={`text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${i <= successStep ? 'text-brand-text transform translate-x-2' : 'text-zinc-300'}`}>
+                {step}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

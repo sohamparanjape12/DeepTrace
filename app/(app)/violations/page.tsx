@@ -9,42 +9,42 @@ import type { Severity, Violation } from '@/types';
 
 const MOCK_VIOLATIONS: Violation[] = [
   {
-    violation_id: 'v1', asset_id: 'a1', detected_at: '2026-04-18T08:12:00Z',
+    violation_id: 'v1', asset_id: 'a1', asset_name: 'UCL Hero', detected_at: '2026-04-18T08:12:00Z',
     match_url:  'https://reddit.com/r/soccer/post/a1b2c3',
     match_type: 'full_match', gemini_class: 'UNAUTHORIZED', severity: 'CRITICAL', status: 'open',
     gemini_reasoning: 'Full-resolution match uploaded commercially on Reddit without license. Rights tier is commercial — unauthorized use confirmed.',
     assetThumbnailUrl: 'https://picsum.photos/seed/ucl/400/250',
   },
   {
-    violation_id: 'v2', asset_id: 'a2', detected_at: '2026-04-18T07:30:00Z',
+    violation_id: 'v2', asset_id: 'a2', asset_name: 'Wimbledon', detected_at: '2026-04-18T07:30:00Z',
     match_url: 'https://theguardian.com/sport/2026/article',
     match_type: 'partial_match', gemini_class: 'EDITORIAL_FAIR_USE', severity: 'LOW', status: 'open',
     gemini_reasoning: 'News article clearly within editorial fair use guidelines.',
     assetThumbnailUrl: 'https://picsum.photos/seed/tennis/400/250',
   },
   {
-    violation_id: 'v3', asset_id: 'a1', detected_at: '2026-04-17T22:00:00Z',
+    violation_id: 'v3', asset_id: 'a1', asset_name: 'UCL Hero', detected_at: '2026-04-17T22:00:00Z',
     match_url: 'https://sportsblog.net/match-highlights-embed',
     match_type: 'full_match', gemini_class: 'UNAUTHORIZED', severity: 'HIGH', status: 'open',
     gemini_reasoning: 'Unattributed full repost on a for-profit aggregator site.',
     assetThumbnailUrl: 'https://picsum.photos/seed/ucl/400/250',
   },
   {
-    violation_id: 'v4', asset_id: 'a3', detected_at: '2026-04-17T18:15:00Z',
+    violation_id: 'v4', asset_id: 'a3', asset_name: 'IPL 2026', detected_at: '2026-04-17T18:15:00Z',
     match_url: 'https://twitter.com/user/status/xyzabc',
     match_type: 'visually_similar', gemini_class: 'NEEDS_REVIEW', severity: 'MEDIUM', status: 'open',
     gemini_reasoning: 'Visually similar crop; context is promotional but ambiguous licensing.',
     assetThumbnailUrl: 'https://picsum.photos/seed/cricket/400/250',
   },
   {
-    violation_id: 'v5', asset_id: 'a5', detected_at: '2026-04-17T10:00:00Z',
+    violation_id: 'v5', asset_id: 'a5', asset_name: 'Monaco Pit', detected_at: '2026-04-17T10:00:00Z',
     match_url: 'https://motorsportweek.com/article/monaco-pit-analysis',
     match_type: 'full_match', gemini_class: 'UNAUTHORIZED', severity: 'CRITICAL', status: 'resolved',
     gemini_reasoning: 'Full-res commercial usage confirmed; marked resolved after takedown.',
     assetThumbnailUrl: 'https://picsum.photos/seed/f1/400/250',
   },
   {
-    violation_id: 'v6', asset_id: 'a4', detected_at: '2026-04-16T08:40:00Z',
+    violation_id: 'v6', asset_id: 'a4', asset_name: 'NBA Dunk', detected_at: '2026-04-16T08:40:00Z',
     match_url: 'https://instagram.com/p/abcdefxyz',
     match_type: 'full_match', gemini_class: 'UNAUTHORIZED', severity: 'HIGH', status: 'disputed',
     gemini_reasoning: 'Possible influencer partnership post; awaiting contract verification.',

@@ -9,19 +9,19 @@ import { useAuth } from '@/lib/auth-context';
 type AlertThreshold = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'ALL';
 
 const THRESHOLDS: { value: AlertThreshold; label: string; desc: string }[] = [
-  { value: 'CRITICAL', label: 'Critical Only',    desc: 'Only alert on confirmed critical violations' },
-  { value: 'HIGH',     label: 'High & Above',     desc: 'Alert on high and critical violations' },
-  { value: 'MEDIUM',   label: 'Medium & Above',   desc: 'Alert on medium, high, and critical' },
-  { value: 'ALL',      label: 'All Violations',   desc: 'Alert on every new violation detected' },
+  { value: 'CRITICAL', label: 'Critical Only', desc: 'Only alert on confirmed critical violations' },
+  { value: 'HIGH', label: 'High & Above', desc: 'Alert on high and critical violations' },
+  { value: 'MEDIUM', label: 'Medium & Above', desc: 'Alert on medium, high, and critical' },
+  { value: 'ALL', label: 'All Violations', desc: 'Alert on every new violation detected' },
 ];
 
 export default function SettingsPage() {
   const { user } = useAuth();
-  const [threshold, setThreshold]     = useState<AlertThreshold>('HIGH');
+  const [threshold, setThreshold] = useState<AlertThreshold>('HIGH');
   const [emailAlerts, setEmailAlerts] = useState(true);
-  const [digest, setDigest]           = useState(false);
-  const [slackUrl, setSlackUrl]       = useState('');
-  const [saved, setSaved]             = useState(false);
+  const [digest, setDigest] = useState(false);
+  const [slackUrl, setSlackUrl] = useState('');
+  const [saved, setSaved] = useState(false);
 
   const handleSave = () => {
     setSaved(true);
@@ -29,7 +29,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-12 max-w-3xl">
+    <div className="space-y-12">
       <PageHeader title="Settings" subtitle="Configure your organization's alert and scan preferences." />
 
       {/* Org Profile */}
@@ -70,11 +70,10 @@ export default function SettingsPage() {
             <button
               key={value}
               onClick={() => setThreshold(value)}
-              className={`px-5 py-4 rounded-xl border text-left transition-all ${
-                threshold === value
+              className={`px-5 py-4 rounded-xl border text-left transition-all ${threshold === value
                   ? 'border-brand-text bg-brand-text text-white'
                   : 'border-brand-border bg-white text-brand-text hover:border-zinc-400'
-              }`}
+                }`}
             >
               <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${threshold === value ? 'text-white/60' : 'text-brand-muted'}`}>{value}</p>
               <p className="text-sm font-bold">{label}</p>
@@ -141,9 +140,9 @@ export default function SettingsPage() {
         </div>
         <div className="space-y-4">
           {[
-            { label: 'Gemini API Key',        value: process.env.NEXT_PUBLIC_FIREBASE_API_KEY ? '●●●●●●●●●●●●' : 'Not configured' },
-            { label: 'Firebase Project ID',   value: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? 'Not configured' },
-            { label: 'Storage Bucket',        value: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ?? 'Not configured' },
+            { label: 'Gemini API Key', value: '●●●●●●●●●●●●' },
+            { label: 'Firebase Project ID', value: '●●●●●●●●●●' },
+            { label: 'Storage Bucket', value: '●●●●●●●●●●●●●●●●' },
           ].map(({ label, value }) => (
             <div key={label} className="flex items-center justify-between p-4 bg-zinc-50 rounded-xl border border-brand-border">
               <p className="text-xs font-bold text-brand-text">{label}</p>

@@ -10,16 +10,23 @@ import { Button } from '@/components/ui/Button';
 import type { Asset, Violation } from '@/types';
 
 // Mock data — swap with Firestore reads when keys are live
-const MOCK_ASSET: Asset = {
+const MOCK_ASSET: Asset & { last_scanned_at: string } = {
   asset_id: 'a1',
   name: 'Champions League Final — Hero Shot',
   owner_org: 'UEFA Media',
   uploaded_at: '2026-04-15T10:00:00Z',
+  last_scanned_at: '2026-04-18T20:45:00Z',
   rights_tier: 'commercial',
   tags: ['Football', 'UCL', 'Final'],
   scan_status: 'violations_found',
   thumbnailUrl: 'https://picsum.photos/seed/ucl/1200/750',
 };
+
+const MOCK_SCANS = [
+  { id: 's3', timestamp: '2026-04-18T20:45:00Z', status: 'violations_found', results: '2 violations detected' },
+  { id: 's2', timestamp: '2026-04-17T21:10:00Z', status: 'violations_found', results: '1 violation detected' },
+  { id: 's1', timestamp: '2026-04-16T19:00:00Z', status: 'clean',            results: '0 violations detected' },
+];
 
 const MOCK_VIOLATIONS: Violation[] = [
   {
@@ -108,6 +115,15 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
               <div className="flex items-start gap-3">
                 <Scan className="w-4 h-4 text-brand-muted mt-0.5 shrink-0" />
                 <div>
+                  <p className="text-meta mb-1">Last Scanned</p>
+                  <p className="text-sm font-bold text-brand-text">
+                    {new Date(asset.last_scanned_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <Scan className="w-4 h-4 text-brand-muted mt-0.5 shrink-0" />
+                <div>
                   <p className="text-meta mb-1">Rights Tier</p>
                   <p className="text-sm font-bold text-brand-text">{rightsTierLabels[asset.rights_tier]}</p>
                 </div>
@@ -150,25 +166,57 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       </div>
 
-      {/* Violations for this asset */}
-      <div className="space-y-6">
-        <h2 className="font-display font-black uppercase text-xl">
-          Violations <span className="text-brand-muted">({MOCK_VIOLATIONS.length})</span>
-        </h2>
-        {MOCK_VIOLATIONS.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center border border-dashed border-brand-border rounded-2xl gap-4">
-            <p className="font-display font-black text-3xl text-zinc-200 uppercase">Clean</p>
-            <p className="text-brand-muted text-sm">No violations detected for this asset.</p>
-          </div>
-        ) : (
-          <div className="space-y-5">
-            {MOCK_VIOLATIONS.map(v => (
-              <Link key={v.violation_id} href={`/violations/${v.violation_id}`}>
-                <ViolationCard violation={v} className="hover:shadow-soft-lg transition-shadow" />
-              </Link>
+      {/* Scan History and Violations */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+        {/* Violations for this asset */}
+        <div className="lg:col-span-2 space-y-6">
+          <h2 className="font-display font-black uppercase text-xl text-white">
+            Violations <span className="opacity-40">({MOCK_VIOLATIONS.length})</span>
+          </h2>
+          {MOCK_VIOLATIONS.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-24 text-center border border-dashed border-brand-border rounded-2xl gap-4">
+              <p className="font-display font-black text-3xl text-zinc-200 uppercase">Clean</p>
+              <p className="text-brand-muted text-sm">No violations detected for this asset.</p>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {MOCK_VIOLATIONS.map(v => (
+                <Link key={v.violation_id} href={`/violations/${v.violation_id}`}>
+                  <ViolationCard violation={v} className="hover:shadow-soft-lg transition-shadow" />
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Scan Timeline */}
+        <div className="space-y-6">
+          <h2 className="font-display font-black uppercase text-xl text-white">Scan History</h2>
+          <div className="bento-card overflow-hidden divide-y divide-brand-border">
+            {MOCK_SCANS.map((scan) => (
+              <div key={scan.id} className="p-4 flex gap-4 hover:bg-zinc-50 transition-colors group">
+                <div className="mt-1 flex flex-col items-center">
+                  <div className={`w-2 h-2 rounded-full ${scan.status === 'clean' ? 'bg-green-500' : 'bg-brand-accent'}`} />
+                  <div className="w-px flex-1 bg-brand-border my-1" />
+                </div>
+                <div className="space-y-1 flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-brand-muted">
+                      {new Date(scan.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                    </p>
+                    <Badge variant={scan.status === 'clean' ? 'success' : 'error'} className="scale-75 origin-right">
+                      {scan.status === 'clean' ? 'Clean' : 'Alert'}
+                    </Badge>
+                  </div>
+                  <p className="text-xs font-bold text-brand-text">{scan.results}</p>
+                </div>
+              </div>
             ))}
+            <div className="p-4 bg-zinc-50 border-t border-brand-border">
+              <p className="text-[10px] font-bold text-brand-muted uppercase tracking-widest text-center">Scan Frequency: Every 24 Hours</p>
+            </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
