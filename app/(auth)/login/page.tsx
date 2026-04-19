@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import { Shield, Chrome } from 'lucide-react';
+import { Shield } from 'lucide-react';
 
 export default function LoginPage() {
   const { user, loading, signInWithGoogle } = useAuth();

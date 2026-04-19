@@ -45,3 +45,13 @@ export interface AuditEntry {
   prev_state?: string;
   next_state?: string;
 }
+
+export interface ClassifyParams {
+  violationId: string;
+  matchUrl: string;
+  pageTitle?: string;
+  assetRightsTier: string;
+  ownerOrg: string;
+  matchType: string;
+}
+
