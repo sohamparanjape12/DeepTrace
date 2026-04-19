@@ -17,6 +17,11 @@ export async function POST(
 ) {
   const { assetId } = params;
 
+  const authHeader = req.headers.get('authorization');
+  if (authHeader !== `Bearer ${process.env.INTERNAL_CRON_KEY}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     // 1. Fetch asset from Firestore
     const assetRef = db.collection('assets').doc(assetId);
