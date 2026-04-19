@@ -14,6 +14,7 @@ export interface Asset {
   uploaded_at: string;        // ISO string
   rights_tier: RightsTier;
   tags: string[];
+  category: 'match_highlights' | 'exclusive_shoot' | 'archival' | 'editorial';
   phash?: string;
   scan_status: ScanStatus;
   thumbnailUrl?: string;
@@ -23,6 +24,7 @@ export interface Asset {
 export interface Violation {
   violation_id: string;
   asset_id: string;
+  asset_name?: string;
   detected_at: string;        // ISO string
   match_url: string;
   match_type: MatchType;
@@ -33,7 +35,13 @@ export interface Violation {
   status: ViolationStatus;
   reviewed_by?: string;
   assetThumbnailUrl?: string;
-  asset_name?: string;
+  
+  // Business Impact Fields
+  estimated_reach?: number;
+  monetized_usage?: boolean;
+  brand_sensitivity?: 'high' | 'medium' | 'low';
+  revenue_risk?: number;
+  region?: string;
 }
 
 export interface AuditEntry {
