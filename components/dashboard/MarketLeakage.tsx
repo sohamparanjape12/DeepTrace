@@ -2,16 +2,24 @@
 
 import { Globe } from 'lucide-react';
 
-const regions = [
-  { name: 'Western Europe', leakage: 42, risk: 'High', color: 'bg-red-500' },
-  { name: 'MENA Region', leakage: 28, risk: 'Medium', color: 'bg-orange-400' },
-  { name: 'India / S. Asia', leakage: 18, risk: 'Medium', color: 'bg-amber-400' },
-  { name: 'Southeast Asia', leakage: 12, risk: 'Low', color: 'bg-zinc-400' },
-];
+export interface RegionData {
+  name: string;
+  leakage: number;
+  risk: string;
+  color: string;
+}
 
-export function MarketLeakage() {
+export function MarketLeakage({ regions }: { regions?: RegionData[] }) {
+  const displayRegions = regions && regions.length > 0 ? regions : [
+    { name: 'Western Europe', leakage: 0, risk: 'Low', color: 'bg-zinc-400' },
+  ];
+
+  const highestRiskRegion = displayRegions.reduce((prev, current) => 
+    (prev.leakage > current.leakage) ? prev : current
+  );
+
   return (
-    <div className="bento-card p-8 space-y-6 flex flex-col justify-between">
+    <div className="bento-card p-8 space-y-6 flex flex-col justify-between h-full">
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <h3 className="font-display font-black uppercase text-sm tracking-tight text-brand-text">Market Leakage</h3>
@@ -21,7 +29,7 @@ export function MarketLeakage() {
       </div>
 
       <div className="space-y-5">
-        {regions.map((region) => (
+        {displayRegions.map((region) => (
           <div key={region.name} className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-brand-text">{region.name}</span>
@@ -41,9 +49,15 @@ export function MarketLeakage() {
       </div>
 
       <div className="pt-4 border-t border-brand-border">
-        <p className="text-[10px] font-bold text-brand-muted leading-relaxed">
-          Highest commercial leakage detected in <span className="text-red-600">Western Europe</span> due to unauthorized match-day streaming.
-        </p>
+        {highestRiskRegion.leakage > 0 ? (
+          <p className="text-[10px] font-bold text-brand-muted leading-relaxed">
+            Highest commercial leakage detected in <span className={highestRiskRegion.color.replace('bg-', 'text-')}>{highestRiskRegion.name}</span> based on live detection data.
+          </p>
+        ) : (
+          <p className="text-[10px] font-bold text-brand-muted leading-relaxed">
+            No significant leakage detected currently.
+          </p>
+        )}
       </div>
     </div>
   );
