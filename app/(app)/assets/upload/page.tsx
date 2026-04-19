@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { collection, serverTimestamp, doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { v4 as uuidv4 } from 'uuid';
+import { useAuth } from '@/lib/auth-context';
 
 const RIGHTS_TIERS = [
   { value: 'editorial', label: 'Editorial — News reporting use only' },
@@ -21,6 +22,7 @@ const RIGHTS_TIERS = [
 const SPORTS_TAGS = ['Football', 'Basketball', 'Cricket', 'Tennis', 'F1', 'Golf', 'Rugby', 'Cycling', 'Swimming', 'Athletics'];
 
 export default function UploadPage() {
+  const { user } = useAuth();
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [assetName, setAssetName] = useState('');
@@ -39,14 +41,15 @@ export default function UploadPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file || !assetName || !ownerOrg) return;
+    if (!file || !assetName || !ownerOrg || !user) return;
     setIsUploading(true);
     setUploadProgress(10); // Fake progress to show activity
 
     try {
-      // 1. Upload to Cloudinary API route
+      // 1. Upload via API route (now handles Firebase Storage)
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('userId', user.uid);
       
       const uploadRes = await fetch('/api/assets/upload', {
         method: 'POST',
@@ -54,7 +57,9 @@ export default function UploadPage() {
       });
 
       if (!uploadRes.ok) {
-        throw new Error('Failed to upload image');
+        const errorData = await uploadRes.json().catch(() => ({}));
+        console.error('Upload API Error:', errorData);
+        throw new Error(errorData.error || 'Failed to upload image');
       }
 
       const { url: downloadURL } = await uploadRes.json();
@@ -65,9 +70,10 @@ export default function UploadPage() {
       
       await setDoc(doc(db, 'assets', assetId), {
         asset_id: assetId,
+        owner_id: user.uid,
         name: assetName,
         owner_org: ownerOrg,
-        uploaded_at: serverTimestamp(),
+        uploaded_at: new Date().toISOString(),
         rights_tier: rightsTier,
         tags: selectedTags,
         scan_status: 'scanning',

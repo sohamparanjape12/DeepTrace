@@ -9,6 +9,7 @@ export type MatchType = 'full_match' | 'partial_match' | 'visually_similar';
 
 export interface Asset {
   asset_id: string;
+  owner_id: string;            // User ID for multi-tenant isolation
   name: string;
   owner_org: string;
   uploaded_at: string;        // ISO string
@@ -23,6 +24,7 @@ export interface Asset {
 
 export interface Violation {
   violation_id: string;
+  owner_id: string;            // User ID for multi-tenant isolation
   asset_id: string;
   asset_name?: string;
   detected_at: string;        // ISO string

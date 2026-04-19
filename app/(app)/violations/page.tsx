@@ -7,15 +7,22 @@ import { ViolationCard } from '@/components/shared/ViolationCard';
 import { FilterTabs } from '@/components/shared/FilterTabs';
 import type { Severity, Violation } from '@/types';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { useAuth } from '@/lib/auth-context';
+import { collection, onSnapshot, query, orderBy, doc, updateDoc, where } from 'firebase/firestore';
 
 export default function ViolationsPage() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('all');
   const [violations, setViolations] = useState<Violation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const q = query(collection(db, 'violations'), orderBy('detected_at', 'desc'));
+    if (!user) return;
+    const q = query(
+      collection(db, 'violations'), 
+      where('owner_id', '==', user.uid),
+      orderBy('detected_at', 'desc')
+    );
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const vData = snapshot.docs.map(doc => doc.data() as Violation);
       setViolations(vData);

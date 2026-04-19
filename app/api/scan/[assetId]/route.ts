@@ -58,6 +58,7 @@ export async function POST(
         if (!urlObj.url) return;
         violationsFound.push({
           violation_id: uuidv4(),
+          owner_id: asset.owner_id, // Inherit from asset
           asset_id: assetId,
           detected_at: new Date().toISOString(),
           match_url: urlObj.url,

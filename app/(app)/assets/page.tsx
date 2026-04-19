@@ -9,17 +9,21 @@ import { FilterTabs } from '@/components/shared/FilterTabs';
 import { Button } from '@/components/ui/Button';
 import type { Asset } from '@/types';
 import { db } from '@/lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { useAuth } from '@/lib/auth-context';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 
 export default function AssetsPage() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('all');
   const [assets, setAssets] = useState<Asset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function fetchAssets() {
+      if (!user) return;
       try {
-        const snapshot = await getDocs(collection(db, 'assets'));
+        const q = query(collection(db, 'assets'), where('owner_id', '==', user.uid));
+        const snapshot = await getDocs(q);
         const assetsData = snapshot.docs.map(doc => doc.data() as Asset);
         setAssets(assetsData);
       } catch (err) {
@@ -29,7 +33,7 @@ export default function AssetsPage() {
       }
     }
     fetchAssets();
-  }, []);
+  }, [user]);
 
   const TABS = [
     { key: 'all',              label: 'All',       count: assets.length },

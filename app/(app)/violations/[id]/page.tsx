@@ -1,48 +1,99 @@
-'use client';
+"use client"
 
-import { use, useState } from 'react';
+import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ExternalLink, Calendar, Globe, Cpu, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Calendar, Globe, Cpu, CheckCircle, AlertTriangle, XCircle, Shield } from 'lucide-react';
 import { SeverityChip } from '@/components/shared/SeverityChip';
 import { Button } from '@/components/ui/Button';
 import { clsx } from 'clsx';
 import type { Violation } from '@/types';
-
-const MOCK_VIOLATION: Violation = {
-  violation_id: 'v1',
-  asset_id: 'a1',
-  detected_at: '2026-04-18T08:12:00Z',
-  match_url: 'https://reddit.com/r/soccer/post/a1b2c3',
-  match_type: 'full_match',
-  page_context: 'r/soccer — "Best shots from UCL Final 2026" — Reddit post with 4.2k upvotes featuring embedded full-resolution image.',
-  gemini_class: 'UNAUTHORIZED',
-  gemini_reasoning: 'The image appears in its full resolution without any attribution. The page context shows it\'s used on a monetized platform (Reddit with Reddit Premium integrations). The rights tier is "commercial" — any commercial display without explicit license violates the rights holder\'s IP. Classification: UNAUTHORIZED. Confidence: 0.94.',
-  severity: 'CRITICAL',
-  status: 'open',
-  assetThumbnailUrl: 'https://picsum.photos/seed/ucl/800/500',
-};
+import { useAuth } from '@/lib/auth-context';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 const classConfig = {
-  UNAUTHORIZED:       { label: 'Unauthorized',  classes: 'text-red-700 bg-red-50 border-red-200' },
+  UNAUTHORIZED: { label: 'Unauthorized', classes: 'text-red-700 bg-red-50 border-red-200' },
   EDITORIAL_FAIR_USE: { label: 'Editorial Fair Use', classes: 'text-amber-700 bg-amber-50 border-amber-200' },
-  NEEDS_REVIEW:       { label: 'NEEDS REVIEW',  classes: 'text-blue-700 bg-blue-50 border-blue-200' },
-  AUTHORIZED:         { label: 'Authorized',    classes: 'text-green-700 bg-green-50 border-green-200' },
+  NEEDS_REVIEW: { label: 'NEEDS REVIEW', classes: 'text-blue-700 bg-blue-50 border-blue-200' },
+  AUTHORIZED: { label: 'Authorized', classes: 'text-green-700 bg-green-50 border-green-200' },
 };
 
 const matchTypeLabels: Record<string, string> = {
-  full_match:       'Full Match',
-  partial_match:    'Partial Match',
+  full_match: 'Full Match',
+  partial_match: 'Partial Match',
   visually_similar: 'Visually Similar',
 };
 
 export default function ViolationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [violation, setViolation] = useState<Violation>(MOCK_VIOLATION);
-  const cls = classConfig[violation.gemini_class];
+  const { user } = useAuth();
+  const [violation, setViolation] = useState<Violation | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUnauthorized, setIsUnauthorized] = useState(false);
 
-  const handleAction = (status: Violation['status']) => {
-    setViolation(prev => ({ ...prev, status }));
+  useEffect(() => {
+    if (!user || !id) return;
+
+    async function fetchViolation() {
+      try {
+        const vDoc = await getDoc(doc(db, 'violations', id));
+        if (!vDoc.exists()) {
+          setIsLoading(false);
+          return;
+        }
+
+        const data = vDoc.data() as Violation;
+        if (data.owner_id !== user.uid) {
+          setIsUnauthorized(true);
+          setIsLoading(false);
+          return;
+        }
+
+        setViolation(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchViolation();
+  }, [id, user]);
+
+  const handleAction = async (status: Violation['status']) => {
+    if (!violation || !user) return;
+    try {
+      await updateDoc(doc(db, 'violations', violation.violation_id), { status });
+      setViolation(prev => prev ? { ...prev, status } : null);
+    } catch (e) {
+      console.error(e);
+    }
   };
+
+  if (isLoading) return <div className="p-12 animate-pulse space-y-8">
+    <div className="h-10 w-48 bg-zinc-100 rounded-lg" />
+    <div className="h-96 bg-zinc-100 rounded-2xl" />
+  </div>;
+
+  if (isUnauthorized) return (
+    <div className="flex flex-col items-center justify-center py-32 text-center gap-6">
+      <Shield className="w-16 h-16 text-red-500 opacity-20" />
+      <h2 className="text-3xl font-display font-black uppercase tracking-tighter italic">Access Denied</h2>
+      <p className="text-brand-muted max-w-md">You do not have permission to view this violation. Isolation protocols are active.</p>
+      <Link href="/violations">
+        <Button>Return to Violations</Button>
+      </Link>
+    </div>
+  );
+
+  if (!violation) return (
+    <div className="py-32 text-center space-y-4">
+      <h2 className="text-3xl font-display font-black uppercase">Violation Not Found</h2>
+      <Link href="/violations"><Button variant="ghost">Back to violations</Button></Link>
+    </div>
+  );
+
+  const cls = classConfig[violation.gemini_class];
 
   return (
     <div className="space-y-12 max-w-4xl">
@@ -92,9 +143,9 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
         <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-brand-border border-t border-brand-border">
           {[
             { icon: Calendar, label: 'Detected', value: new Date(violation.detected_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) },
-            { icon: Globe,    label: 'Match Type', value: matchTypeLabels[violation.match_type] },
-            { icon: Globe,    label: 'Source Domain', value: (() => { try { return new URL(violation.match_url).hostname; } catch { return '—'; } })() },
-            { icon: Cpu,      label: 'Gemini Model', value: 'Gemini 1.5 Flash' },
+            { icon: Globe, label: 'Match Type', value: matchTypeLabels[violation.match_type] },
+            { icon: Globe, label: 'Source Domain', value: (() => { try { return new URL(violation.match_url).hostname; } catch { return '—'; } })() },
+            { icon: Cpu, label: 'Gemini Model', value: 'Gemini 1.5 Flash' },
           ].map(({ icon: Icon, label, value }) => (
             <div key={label} className="p-6 space-y-1">
               <p className="text-meta flex items-center gap-1.5"><Icon className="w-3 h-3" />{label}</p>
