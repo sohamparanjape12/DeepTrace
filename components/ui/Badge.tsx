@@ -9,10 +9,10 @@ interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: 'default' | 'error' | 'success' | 'info' | 'warning';
 }
 
-export function Badge({ 
-  className, 
-  variant = 'default', 
-  ...props 
+export function Badge({
+  className,
+  variant = 'default',
+  ...props
 }: BadgeProps) {
   const variants = {
     default: 'bg-zinc-100 text-zinc-900 border-zinc-200',
@@ -25,7 +25,7 @@ export function Badge({
   return (
     <div
       className={cn(
-        'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.05em] transition-colors',
+        'inline-flex items-center justify-center w-full rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.05em] transition-colors',
         variants[variant],
         className
       )}
