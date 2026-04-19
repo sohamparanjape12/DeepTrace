@@ -11,7 +11,7 @@ export function PageHeader({ title, subtitle, actions, className }: PageHeaderPr
   return (
     <div className={clsx('flex flex-col gap-6 mb-12', className)}>
       <div className="space-y-4 max-w-5xl">
-        <h1 className="text-6xl md:text-8xl font-display tracking-tight text-brand-text">
+        <h1 className="text-6xl md:text-8xl font-display tracking-tight text-brand-text" style={{ lineHeight: '0.9' }}>
           {title}
         </h1>
         {subtitle && (
