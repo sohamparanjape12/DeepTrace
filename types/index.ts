@@ -33,6 +33,7 @@ export interface Violation {
   status: ViolationStatus;
   reviewed_by?: string;
   assetThumbnailUrl?: string;
+  asset_name?: string;
 }
 
 export interface AuditEntry {

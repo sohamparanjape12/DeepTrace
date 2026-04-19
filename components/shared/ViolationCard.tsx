@@ -14,7 +14,7 @@ interface ViolationCardProps {
 const classConfig = {
   UNAUTHORIZED:       { label: 'Unauthorized',       classes: 'text-red-600 bg-red-50' },
   EDITORIAL_FAIR_USE: { label: 'Fair Use',           classes: 'text-amber-700 bg-amber-50' },
-  NEEDS_REVIEW:       { label: 'Needs Review',       classes: 'text-blue-600 bg-blue-50' },
+  NEEDS_REVIEW:       { label: 'NEEDS REVIEW',       classes: 'text-blue-600 bg-blue-50' },
   AUTHORIZED:         { label: 'Authorized',         classes: 'text-green-700 bg-green-50' },
 };
 
@@ -52,21 +52,28 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
             <span className={clsx('text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full', cls.classes)}>
               {cls.label}
             </span>
+            {violation.asset_name && (
+              <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 border border-brand-border px-2 py-0.5 rounded ml-1">
+                {violation.asset_name}
+              </span>
+            )}
             <span className="text-[11px] text-brand-muted ml-auto">
               {new Date(violation.detected_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </span>
           </div>
-          <a
-            href={violation.match_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 group/link hover:text-brand-accent transition-colors"
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              window.open(violation.match_url, '_blank', 'noopener,noreferrer');
+            }}
+            className="flex items-center gap-2 group/link hover:text-brand-accent transition-colors cursor-pointer w-fit"
           >
             <p className="text-sm font-bold text-brand-text group-hover/link:text-brand-accent transition-colors truncate max-w-md">
               {domain}
             </p>
             <ExternalLink className="w-3.5 h-3.5 text-brand-muted group-hover/link:text-brand-accent transition-colors shrink-0" />
-          </a>
+          </div>
           {violation.gemini_reasoning && (
             <p className="text-xs text-brand-muted leading-relaxed line-clamp-2 font-medium">
               {violation.gemini_reasoning}

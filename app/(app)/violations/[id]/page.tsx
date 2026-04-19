@@ -25,7 +25,7 @@ const MOCK_VIOLATION: Violation = {
 const classConfig = {
   UNAUTHORIZED:       { label: 'Unauthorized',  classes: 'text-red-700 bg-red-50 border-red-200' },
   EDITORIAL_FAIR_USE: { label: 'Editorial Fair Use', classes: 'text-amber-700 bg-amber-50 border-amber-200' },
-  NEEDS_REVIEW:       { label: 'Needs Review',  classes: 'text-blue-700 bg-blue-50 border-blue-200' },
+  NEEDS_REVIEW:       { label: 'NEEDS REVIEW',  classes: 'text-blue-700 bg-blue-50 border-blue-200' },
   AUTHORIZED:         { label: 'Authorized',    classes: 'text-green-700 bg-green-50 border-green-200' },
 };
 
