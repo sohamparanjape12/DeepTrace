@@ -37,6 +37,17 @@ export interface Violation {
   status: ViolationStatus;
   reviewed_by?: string;
   assetThumbnailUrl?: string;
+  confidence?: number;
+  similarityScore?: number;
+  commercialSignal?: boolean;
+  watermarkLikelyRemoved?: boolean;
+  // snake_case aliases used by Firestore / classify.ts
+  commercial_signal?: boolean;
+  watermark_likely_removed?: boolean;
+  visual_match_score?: number;
+  contextual_match_score?: number;
+  reasoning_steps?: string[];
+  is_derivative_work?: boolean;
   
   // Business Impact Fields
   estimated_reach?: number;
@@ -61,8 +72,10 @@ export interface ClassifyParams {
   violationId: string;
   matchUrl: string;
   pageTitle?: string;
+  pageDescription?: string;
   assetRightsTier: string;
   ownerOrg: string;
   matchType: string;
+  tags?: string[];
 }
 
