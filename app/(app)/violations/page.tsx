@@ -8,7 +8,7 @@ import { FilterTabs } from '@/components/shared/FilterTabs';
 import type { Severity, Violation } from '@/types';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth-context';
-import { collection, onSnapshot, query, orderBy, doc, updateDoc, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, where } from 'firebase/firestore';
 
 export default function ViolationsPage() {
   const { user } = useAuth();
@@ -47,17 +47,21 @@ export default function ViolationsPage() {
     ? violations
     : violations.filter(v => v.severity === (activeTab as Severity));
 
-  const handleResolve = async (id: string) => {
-    try { await updateDoc(doc(db, 'violations', id), { status: 'resolved' }); } catch (e) { console.error(e); }
+  const handleStatusChange = async (id: string, status: string) => {
+    try {
+      await fetch(`/api/violations/${id}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, reviewed_by: 'user' }),
+      });
+    } catch (err) {
+      console.error('Failed to update violation status:', err);
+    }
   };
 
-  const handleDispute = async (id: string) => {
-    try { await updateDoc(doc(db, 'violations', id), { status: 'disputed' }); } catch (e) { console.error(e); }
-  };
-
-  const handleFalsePositive = async (id: string) => {
-    try { await updateDoc(doc(db, 'violations', id), { status: 'false_positive' }); } catch (e) { console.error(e); }
-  };
+  const handleResolve = (id: string) => handleStatusChange(id, 'resolved');
+  const handleDispute = (id: string) => handleStatusChange(id, 'disputed');
+  const handleFalsePositive = (id: string) => handleStatusChange(id, 'false_positive');
 
   return (
     <div className="space-y-12">
