@@ -1,4 +1,5 @@
 "use client"
+import React from 'react';
 
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
@@ -47,7 +48,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
         }
 
         const data = assetDoc.data() as Asset;
-        if (data.owner_id !== user.uid) {
+        if (!user || data.owner_id !== user.uid) {
           setIsUnauthorized(true);
           setIsLoading(false);
           return;
@@ -77,13 +78,15 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
     fetchData();
   }, [id, user]);
 
-  if (isLoading) return <div className="p-12 animate-pulse space-y-8">
-    <div className="h-10 w-64 bg-zinc-100 rounded-lg" />
-    <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-      <div className="lg:col-span-3 aspect-video bg-zinc-100 rounded-xl" />
-      <div className="lg:col-span-2 h-64 bg-zinc-100 rounded-xl" />
+  if (isLoading) return (
+    <div className="p-12 animate-pulse space-y-8">
+      <div className="h-10 w-64 bg-zinc-100 rounded-lg" />
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+        <div className="lg:col-span-3 aspect-video bg-zinc-100 rounded-xl" />
+        <div className="lg:col-span-2 h-64 bg-zinc-100 rounded-xl" />
+      </div>
     </div>
-  </div>;
+  );
 
   if (isUnauthorized) return (
     <div className="flex flex-col items-center justify-center py-32 text-center gap-6">
@@ -121,11 +124,19 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
         {/* Thumbnail */}
         <div className="lg:col-span-3 aspect-video rounded-xl overflow-hidden bg-zinc-100 border border-brand-border relative group">
-          <img
-            src={asset.thumbnailUrl}
-            alt={asset.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-          />
+          {asset.thumbnailUrl ? (
+            <img
+              src={asset.thumbnailUrl}
+              alt={asset.name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <span className="text-zinc-300 font-display font-black text-3xl uppercase tracking-tight">
+                {asset.name.slice(0, 2)}
+              </span>
+            </div>
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
           <div className="absolute bottom-6 left-6">
             <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
@@ -158,7 +169,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
                 <div>
                   <p className="text-meta mb-1">Last Scanned</p>
                   <p className="text-sm font-bold text-brand-text">
-                    {new Date(asset.last_scanned_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                    {asset.last_scanned_at ? new Date(asset.last_scanned_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Never'}
                   </p>
                 </div>
               </div>

@@ -13,9 +13,9 @@ const visionClient = new ImageAnnotatorClient();
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: { assetId: string } }
+  { params }: { params: Promise<{ assetId: string }> }
 ) {
-  const { assetId } = params;
+  const { assetId } = await params;
 
   const authHeader = req.headers.get('authorization');
   if (authHeader !== `Bearer ${process.env.INTERNAL_CRON_KEY}`) {
