@@ -116,7 +116,7 @@ export default function DashboardPage() {
       setTotalRevenueRisk(totalRisk);
 
       // Process domains
-      const colors = ['text-red-600', 'text-orange-500', 'text-amber-500', 'text-zinc-600', 'text-brand-text'];
+      const colors = ['text-red-500', 'text-orange-500', 'text-amber-500', 'text-brand-muted', 'text-brand-text'];
       const sortedDomains = Object.entries(domains)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
@@ -141,7 +141,7 @@ export default function DashboardPage() {
 
       // Process Market Leakage
       const totalRegions = Object.values(regionMap).reduce((a,b)=>a+b, 0);
-      const regionColors = ['bg-red-500', 'bg-orange-400', 'bg-amber-400', 'bg-zinc-400', 'bg-brand-text'];
+      const regionColors = ['bg-red-500', 'bg-orange-400', 'bg-amber-400', 'bg-brand-muted', 'bg-brand-text'];
       const sortedRegions = Object.entries(regionMap)
          .sort((a,b) => b[1] - a[1])
          .slice(0, 4)
@@ -185,7 +185,7 @@ export default function DashboardPage() {
           <Badge variant="info" className="px-4 py-2 text-[10px] font-black uppercase tracking-tighter cursor-help">
             SLA: {avgTimeToAction} Resolution
           </Badge>
-          <div className="h-8 w-px bg-zinc-100 hidden md:block" />
+          <div className="h-8 w-px bg-brand-border hidden md:block" />
           <p className="text-[10px] font-black uppercase tracking-widest text-brand-muted">Last Update: Just Now</p>
         </div>
       </div>
@@ -251,7 +251,7 @@ export default function DashboardPage() {
                       <span className="text-xs font-bold text-brand-text">{sev.name}</span>
                       <span className="text-xs font-black text-brand-text">{sev.count}</span>
                     </div>
-                    <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-brand-border rounded-full overflow-hidden">
                       <div 
                         className={`h-full ${sev.color} rounded-full transition-all duration-1000`} 
                         style={{ width: `${pct}%` }} 
@@ -277,7 +277,7 @@ export default function DashboardPage() {
           </div>
           <div className="space-y-4">
             {topRiskSources.length === 0 ? (
-              <p className="text-sm text-zinc-400">No domains found.</p>
+              <p className="text-sm text-brand-muted">No domains found.</p>
             ) : topRiskSources.map((source) => (
               <Link
                 key={source.domain}
@@ -309,12 +309,12 @@ export default function DashboardPage() {
           </div>
           <div className="space-y-4">
             {recentViolations.length === 0 ? (
-              <p className="text-sm text-zinc-400">No recent violations.</p>
+              <p className="text-sm text-brand-muted">No recent violations.</p>
             ) : recentViolations.map((v) => (
               <Link
                 key={v.violation_id}
                 href={`/violations/${v.violation_id}`}
-                className="flex items-center gap-4 p-3 rounded-xl hover:bg-zinc-50 transition-colors border border-transparent hover:border-brand-border"
+                className="flex items-center gap-4 p-3 rounded-xl hover:bg-brand-bg transition-colors border border-transparent hover:border-brand-border"
               >
                 <div className={`w-1.5 h-1.5 rounded-full ${v.severity === 'CRITICAL' ? 'bg-red-500 animate-pulse' : 'bg-orange-500'}`} />
                 <div className="flex-1 min-w-0">

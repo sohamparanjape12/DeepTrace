@@ -44,7 +44,7 @@ export default function SettingsPage() {
             <input
               type="text"
               defaultValue="UEFA Media"
-              className="w-full px-4 py-3 rounded-xl border border-brand-border bg-white text-sm font-medium text-brand-text focus:outline-none focus:ring-2 focus:ring-brand-text/20 focus:border-brand-text transition-all"
+              className="w-full px-4 py-3 rounded-xl border border-brand-border bg-brand-surface text-sm font-medium text-brand-text focus:outline-none focus:ring-2 focus:ring-brand-text/20 focus:border-brand-text transition-all"
             />
           </div>
           <div className="space-y-2">
@@ -52,7 +52,7 @@ export default function SettingsPage() {
             <input
               type="email"
               defaultValue={user?.email ?? 'admin@example.com'}
-              className="w-full px-4 py-3 rounded-xl border border-brand-border bg-white text-sm font-medium text-brand-text focus:outline-none focus:ring-2 focus:ring-brand-text/20 focus:border-brand-text transition-all"
+              className="w-full px-4 py-3 rounded-xl border border-brand-border bg-brand-surface text-sm font-medium text-brand-text focus:outline-none focus:ring-2 focus:ring-brand-text/20 focus:border-brand-text transition-all"
             />
           </div>
         </div>
@@ -71,13 +71,13 @@ export default function SettingsPage() {
               key={value}
               onClick={() => setThreshold(value)}
               className={`px-5 py-4 rounded-xl border text-left transition-all ${threshold === value
-                  ? 'border-brand-text bg-brand-text text-white'
-                  : 'border-brand-border bg-white text-brand-text hover:border-zinc-400'
+                  ? 'border-brand-text bg-brand-text text-brand-bg shadow-lg shadow-brand-text/10'
+                  : 'border-brand-border bg-brand-surface text-brand-text hover:border-brand-muted'
                 }`}
             >
-              <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${threshold === value ? 'text-white/60' : 'text-brand-muted'}`}>{value}</p>
+              <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${threshold === value ? 'text-brand-bg/60' : 'text-brand-muted'}`}>{value}</p>
               <p className="text-sm font-bold">{label}</p>
-              <p className={`text-xs mt-1 ${threshold === value ? 'text-white/60' : 'text-brand-muted'}`}>{desc}</p>
+              <p className={`text-xs mt-1 ${threshold === value ? 'text-brand-bg/60' : 'text-brand-muted'}`}>{desc}</p>
             </button>
           ))}
         </div>
@@ -98,9 +98,9 @@ export default function SettingsPage() {
             </div>
             <button
               onClick={() => setEmailAlerts(p => !p)}
-              className={`w-12 h-6 rounded-full transition-all duration-300 relative ${emailAlerts ? 'bg-brand-text' : 'bg-zinc-200'}`}
+              className={`w-12 h-6 rounded-full transition-all duration-300 relative ${emailAlerts ? 'bg-brand-text' : 'bg-brand-muted/20'}`}
             >
-              <div className={`absolute w-5 h-5 rounded-full bg-white shadow top-0.5 transition-all duration-300 ${emailAlerts ? 'left-6.5' : 'left-0.5'}`} />
+              <div className={`absolute w-5 h-5 rounded-full bg-brand-bg shadow top-0.5 transition-all duration-300 ${emailAlerts ? 'left-6.5' : 'left-0.5'}`} />
             </button>
           </div>
 
@@ -112,21 +112,21 @@ export default function SettingsPage() {
             </div>
             <button
               onClick={() => setDigest(p => !p)}
-              className={`w-12 h-6 rounded-full transition-all duration-300 relative ${digest ? 'bg-brand-text' : 'bg-zinc-200'}`}
+              className={`w-12 h-6 rounded-full transition-all duration-300 relative ${digest ? 'bg-brand-text' : 'bg-brand-muted/20'}`}
             >
-              <div className={`absolute w-5 h-5 rounded-full bg-white shadow top-0.5 transition-all duration-300 ${digest ? 'left-6.5' : 'left-0.5'}`} />
+              <div className={`absolute w-5 h-5 rounded-full bg-brand-bg shadow top-0.5 transition-all duration-300 ${digest ? 'left-6.5' : 'left-0.5'}`} />
             </button>
           </div>
 
           {/* Slack Webhook */}
           <div className="space-y-2">
-            <label className="text-meta">Slack Webhook URL <span className="text-zinc-300 normal-case font-normal">(optional)</span></label>
+            <label className="text-meta">Slack Webhook URL <span className="text-brand-muted/40 normal-case font-normal">(optional)</span></label>
             <input
               type="url"
               value={slackUrl}
               onChange={e => setSlackUrl(e.target.value)}
               placeholder="https://hooks.slack.com/services/..."
-              className="w-full px-4 py-3 rounded-xl border border-brand-border bg-white text-sm font-medium text-brand-text placeholder:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-brand-text/20 focus:border-brand-text transition-all font-mono text-xs"
+              className="w-full px-4 py-3 rounded-xl border border-brand-border bg-brand-surface text-sm font-medium text-brand-text placeholder:text-brand-muted/30 focus:outline-none focus:ring-2 focus:ring-brand-text/20 focus:border-brand-text transition-all font-mono text-xs"
             />
           </div>
         </div>
@@ -144,7 +144,7 @@ export default function SettingsPage() {
             { label: 'Firebase Project ID', value: '●●●●●●●●●●' },
             { label: 'Storage Bucket', value: '●●●●●●●●●●●●●●●●' },
           ].map(({ label, value }) => (
-            <div key={label} className="flex items-center justify-between p-4 bg-zinc-50 rounded-xl border border-brand-border">
+            <div key={label} className="flex items-center justify-between p-4 bg-brand-bg rounded-xl border border-brand-border">
               <p className="text-xs font-bold text-brand-text">{label}</p>
               <p className="text-xs font-mono text-brand-muted">{value}</p>
             </div>
@@ -159,7 +159,7 @@ export default function SettingsPage() {
           <Save className="w-4 h-4" />
           {saved ? 'Settings Saved ✓' : 'Save Settings'}
         </Button>
-        {saved && <p className="text-sm font-bold text-green-600">Your preferences have been updated.</p>}
+        {saved && <p className="text-sm font-bold text-brand-green-text">Your preferences have been updated.</p>}
       </div>
     </div>
   );

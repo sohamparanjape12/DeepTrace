@@ -7,10 +7,10 @@ interface StatusBadgeProps {
 
 export function StatusBadge({ status }: StatusBadgeProps) {
   const configs: Record<ScanStatus, { label: string; variant: 'default' | 'accent' | 'muted' | 'outline' }> = {
-    pending: { label: 'Pending', variant: 'outline' },
-    scanning: { label: 'Scanning', variant: 'default' },
-    clean: { label: 'Clean', variant: 'muted' },
-    violations_found: { label: 'Violations Found', variant: 'accent' },
+    pending: { label: 'Pending', variant: 'default' },
+    scanning: { label: 'Scanning', variant: 'info' },
+    clean: { label: 'Clean', variant: 'success' },
+    violations_found: { label: 'Violations Found', variant: 'error' },
   };
 
   const { label, variant } = configs[status];

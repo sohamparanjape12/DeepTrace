@@ -4,14 +4,15 @@ interface PageHeaderProps {
   title: string;
   subtitle?: string;
   actions?: React.ReactNode;
+  variant?: "primary" | "secondary";
   className?: string;
 }
 
-export function PageHeader({ title, subtitle, actions, className }: PageHeaderProps) {
+export function PageHeader({ title, subtitle, actions, variant, className }: PageHeaderProps) {
   return (
-    <div className={clsx('flex flex-col gap-6 mb-12', className)}>
+    <div className={clsx('flex flex-col gap-6 mb-12', className, variant === "secondary" && "mb-6")}>
       <div className="space-y-4 max-w-5xl">
-        <h1 className="text-6xl md:text-8xl font-display tracking-tight text-brand-text" style={{ lineHeight: '0.9' }}>
+        <h1 className={`text-6xl md:text-8xl font-display tracking-tight ${variant === "secondary" ? "text-4xl md:text-6xl" : "text-brand-text"}`} style={{ lineHeight: '1' }}>
           {title}
         </h1>
         {subtitle && (

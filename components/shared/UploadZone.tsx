@@ -50,7 +50,7 @@ export function UploadZone({ onFileSelect, isUploading, uploadProgress = 0, clas
           <div className="absolute inset-0 bg-black/20" />
           <button
             onClick={reset}
-            className="absolute top-4 right-4 p-2 rounded-full bg-white/90 hover:bg-white transition-colors"
+            className="absolute top-4 right-4 p-2 rounded-full bg-brand-surface/90 hover:bg-brand-surface transition-colors shadow-soft"
           >
             <X className="w-4 h-4 text-brand-text" />
           </button>
@@ -58,13 +58,13 @@ export function UploadZone({ onFileSelect, isUploading, uploadProgress = 0, clas
             <div className="absolute bottom-0 left-0 right-0">
               <div className="h-1 bg-white/20">
                 <div
-                  className="h-full bg-white transition-all duration-500 ease-out"
+                  className="h-full bg-brand-accent transition-all duration-500 ease-out"
                   style={{ width: `${uploadProgress}%` }}
                 />
               </div>
-              <div className="px-6 py-4 bg-black/40 backdrop-blur-sm flex items-center justify-between">
+              <div className="px-6 py-4 bg-black/60 backdrop-blur-sm flex items-center justify-between">
                 <p className="text-[10px] font-black uppercase tracking-widest text-white">
-                  Uploading to Firebase Storage…
+                  Uploading to Cloudinary…
                 </p>
                 <p className="text-[10px] font-black text-white">{uploadProgress}%</p>
               </div>
@@ -81,24 +81,24 @@ export function UploadZone({ onFileSelect, isUploading, uploadProgress = 0, clas
           className={clsx(
             'w-full aspect-video rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-6 transition-all duration-300',
             dragOver
-              ? 'border-brand-text bg-zinc-50 scale-[1.01]'
-              : 'border-zinc-200 bg-zinc-50 hover:border-zinc-400 hover:bg-white',
+              ? 'border-brand-text bg-brand-bg scale-[1.01]'
+              : 'border-brand-border bg-brand-bg hover:border-brand-muted hover:bg-brand-surface',
           )}
         >
           <div className={clsx(
             'p-5 rounded-2xl transition-all duration-300',
-            dragOver ? 'bg-brand-text' : 'bg-white border border-zinc-200',
+            dragOver ? 'bg-brand-text' : 'bg-brand-surface border border-brand-border',
           )}>
             {dragOver
-              ? <ImageIcon className="w-8 h-8 text-white" />
-              : <Upload className="w-8 h-8 text-zinc-400" />
+              ? <ImageIcon className="w-8 h-8 text-brand-bg" />
+              : <Upload className="w-8 h-8 text-brand-muted" />
             }
           </div>
           <div className="text-center space-y-2">
             <p className="font-display font-bold text-brand-text text-lg">
               {dragOver ? 'Drop it here' : 'Drag & drop or click to upload'}
             </p>
-            <p className="text-meta text-zinc-400">PNG, JPG, WebP up to 20MB</p>
+            <p className="text-meta text-brand-muted">PNG, JPG, WebP up to 20MB</p>
           </div>
         </button>
       )}

@@ -12,10 +12,10 @@ interface ViolationCardProps {
 }
 
 const classConfig = {
-  UNAUTHORIZED:       { label: 'Unauthorized',       classes: 'text-red-600 bg-red-50' },
-  EDITORIAL_FAIR_USE: { label: 'Fair Use',           classes: 'text-amber-700 bg-amber-50' },
-  NEEDS_REVIEW:       { label: 'NEEDS REVIEW',       classes: 'text-blue-600 bg-blue-50' },
-  AUTHORIZED:         { label: 'Authorized',         classes: 'text-green-700 bg-green-50' },
+  UNAUTHORIZED:       { label: 'Unauthorized',       classes: 'text-brand-red-text bg-brand-red-muted border-brand-red-text/20' },
+  EDITORIAL_FAIR_USE: { label: 'Fair Use',           classes: 'text-amber-700 bg-amber-50 border-amber-200' },
+  NEEDS_REVIEW:       { label: 'NEEDS REVIEW',       classes: 'text-brand-blue-text bg-brand-blue-muted border-brand-blue-text/20' },
+  AUTHORIZED:         { label: 'Authorized',         classes: 'text-brand-green-text bg-brand-green-muted border-brand-green-text/20' },
 };
 
 export function ViolationCard({ violation, className, onResolve, onDispute, onFalsePositive }: ViolationCardProps) {
@@ -29,7 +29,7 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
       className,
     )}>
       {/* Thumbnail */}
-      <div className="w-full md:w-40 md:shrink-0 aspect-video md:aspect-auto bg-zinc-100 relative overflow-hidden">
+      <div className="w-full md:w-40 md:shrink-0 aspect-video md:aspect-auto bg-brand-bg relative overflow-hidden">
         {violation.assetThumbnailUrl ? (
           <img
             src={violation.assetThumbnailUrl}
@@ -37,11 +37,11 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-zinc-100">
-            <span className="text-2xl font-display font-black text-zinc-300">DT</span>
+          <div className="w-full h-full flex items-center justify-center bg-brand-bg">
+            <span className="text-2xl font-display font-black text-brand-muted">DT</span>
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent to-white/5" />
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent to-brand-border/10" />
       </div>
 
       {/* Content */}
@@ -49,11 +49,11 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-3">
             <SeverityChip severity={violation.severity} />
-            <span className={clsx('text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full', cls.classes)}>
+            <span className={clsx('text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border', cls.classes)}>
               {cls.label}
             </span>
             {violation.asset_name && (
-              <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 border border-brand-border px-2 py-0.5 rounded ml-1">
+              <span className="text-[10px] font-black uppercase tracking-widest text-brand-muted border border-brand-border px-2 py-0.5 rounded ml-1">
                 {violation.asset_name}
               </span>
             )}
@@ -83,10 +83,10 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
 
         {/* Actions */}
         {violation.status === 'open' && (
-          <div className="flex items-center gap-3 pt-2 border-t border-zinc-50">
+          <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
             <button
               onClick={(e) => { e.stopPropagation(); e.preventDefault(); onResolve?.(violation.violation_id); }}
-              className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-green-700 hover:text-green-800 transition-colors"
+              className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:opacity-80 transition-opacity"
             >
               <CheckCircle className="w-3.5 h-3.5" /> Resolve
             </button>
@@ -105,7 +105,7 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
           </div>
         )}
         {violation.status !== 'open' && (
-          <p className="text-[10px] font-black uppercase tracking-widest text-brand-muted capitalize pt-2 border-t border-zinc-50">
+          <p className="text-[10px] font-black uppercase tracking-widest text-brand-muted capitalize pt-2 border-t border-brand-border">
             Status: {violation.status}
           </p>
         )}

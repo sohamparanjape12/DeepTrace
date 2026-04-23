@@ -44,7 +44,7 @@ export default function Home() {
       },
       scale: 0.9,
       y: -10,
-      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+      backgroundColor: 'var(--brand-surface-glass)',
     });
 
     // 3. 3D Bento Reveal
@@ -109,7 +109,11 @@ export default function Home() {
             <span className="absolute -bottom-1 left-0 w-0 h-px bg-brand-text transition-all group-hover:w-full" />
           </a>
         </div>
-        <Link className="whitespace-nowrap" href="/dashboard">Secure Asset</Link>
+        <Link className="whitespace-nowrap m-0" href="/dashboard">
+          <Button variant='primary' className="whitespace-nowrap rounded-full m-0 px-4 py-2">
+            Secure Asset
+          </Button>
+        </Link>
       </nav>
 
       {/* Hero: Artistic Asymmetry */}
@@ -138,7 +142,7 @@ export default function Home() {
         </div>
 
         <div className="lg:w-2/5 w-full relative">
-          <div className="aspect-[5/6] m-12 rounded-xl bg-zinc-200 overflow-hidden relative grayscale hover:grayscale-0 transition-all duration-1000 shadow-soft-lg group border border-brand-border">
+          <div className="aspect-[5/6] m-12 rounded-xl bg-brand-surface overflow-hidden relative grayscale hover:grayscale-0 transition-all duration-1000 shadow-soft-lg group border border-brand-border">
             <img
               src="https://picsum.photos/seed/trace/1200/1500"
               alt="Digital Forensics"
@@ -146,7 +150,7 @@ export default function Home() {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-brand-bg/80 via-transparent to-transparent" />
             <div className="absolute bottom-12 left-8 right-8">
-              <Card className="p-6 backdrop-blur-2xl bg-white/10 border-white/20">
+              <Card className="p-6 backdrop-blur-2xl bg-brand-surface/40 border-brand-border/50">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-2.5 h-2.5 rounded-full bg-brand-accent animate-pulse" />
@@ -161,19 +165,19 @@ export default function Home() {
       </section>
 
       {/* Infinite Marquee: Live Infrastructure Feed */}
-      <section className="marquee-section border-y border-brand-border py-14 overflow-hidden bg-white/50 backdrop-blur-sm">
+      <section className="marquee-section border-y border-brand-border py-14 overflow-hidden bg-brand-surface/30 backdrop-blur-sm">
         <Marquee speed={70}>
           <div className="flex items-center gap-32 py-4">
-            <span className="text-meta whitespace-nowrap flex items-center gap-4 text-zinc-400">
+            <span className="text-meta whitespace-nowrap flex items-center gap-4 text-brand-muted">
               <Fingerprint className="w-5 h-5 text-brand-text" /> Asset Fingerprinting Active
             </span>
-            <span className="text-meta whitespace-nowrap flex items-center gap-4 text-zinc-400">
+            <span className="text-meta whitespace-nowrap flex items-center gap-4 text-brand-muted">
               <Globe className="w-5 h-5 text-brand-text" /> Global Infrastructure: 12.8k Nodes
             </span>
-            <span className="text-meta whitespace-nowrap flex items-center gap-4 text-zinc-400">
+            <span className="text-meta whitespace-nowrap flex items-center gap-4 text-brand-muted">
               <Zap className="w-5 h-5 text-brand-text" /> Average Classification Latency: 140ms
             </span>
-            <span className="text-meta whitespace-nowrap flex items-center gap-4 text-zinc-400">
+            <span className="text-meta whitespace-nowrap flex items-center gap-4 text-brand-muted">
               <Shield className="w-5 h-5 text-brand-text" /> IP Protection Protocol Active
             </span>
           </div>
@@ -196,7 +200,7 @@ export default function Home() {
           {/* Main Growth Metric */}
           <div className="bento-item col-span-12 md:col-span-8 row-span-1 bg-brand-surface p-12 lg:p-16 flex flex-col justify-between group cursor-default">
             <div className="flex justify-between items-start">
-              <div className="p-4 rounded-xl bg-zinc-50 border border-zinc-100 group-hover:border-zinc-200 transition-colors">
+              <div className="p-4 rounded-xl bg-brand-bg border border-brand-border group-hover:border-brand-muted transition-colors">
                 <Shield className="w-10 h-10 text-brand-text transition-transform group-hover:scale-110" />
               </div>
               <div className="text-right">
@@ -210,21 +214,21 @@ export default function Home() {
               </p>
               <div className="flex items-center gap-4">
                 <p className="text-xl font-display font-bold uppercase tracking-tight text-brand-muted">Fingerprinted Assets Secured</p>
-                <div className="h-px flex-1 bg-zinc-100" />
+                <div className="h-px flex-1 bg-brand-border" />
               </div>
             </div>
           </div>
 
           {/* Violations Monitoring */}
-          <div className="bento-item col-span-12 md:col-span-4 row-span-1 bg-zinc-50 p-12 lg:p-16 flex flex-col justify-between group">
-            <AlertCircle className="w-12 h-12 text-zinc-300 group-hover:text-brand-accent transition-colors" />
+          <div className="bento-item col-span-12 md:col-span-4 row-span-1 bg-brand-surface/40 p-12 lg:p-16 flex flex-col justify-between group">
+            <AlertCircle className="w-12 h-12 text-brand-muted/30 group-hover:text-brand-accent transition-colors" />
             <div className="space-y-6">
               <div className="space-y-1">
                 <h4 className="text-meta">Active Violations</h4>
                 <p className="text-8xl font-display font-black stat-violations text-brand-accent">0</p>
               </div>
               <div className="space-y-2">
-                <div className="h-2 w-full bg-zinc-200 rounded-full overflow-hidden">
+                <div className="h-2 w-full bg-brand-bg rounded-full overflow-hidden">
                   <div className="h-full w-[42%] bg-brand-accent" />
                 </div>
                 <p className="text-[10px] font-bold text-brand-muted uppercase tracking-widest text-right">42% Critical Severity</p>
@@ -235,26 +239,26 @@ export default function Home() {
           {/* Global Nodes */}
           <div className="bento-item col-span-12 md:col-span-4 row-span-1 bg-brand-surface p-12 lg:p-16 group">
             <div className="flex flex-col h-full justify-between">
-              <Globe className="w-8 h-8 text-zinc-300 group-hover:text-blue-500 transition-colors" />
+              <Globe className="w-8 h-8 text-brand-muted/30 group-hover:text-brand-blue-text transition-colors" />
               <div className="space-y-6">
                 <div className="space-y-1">
                   <p className="text-5xl font-display font-black stat-nodes">0</p>
-                  <p className="text-meta">Tracking Nodes</p>
+                  <p className="text-meta text-brand-muted">Tracking Nodes</p>
                 </div>
-                <p className="text-xl font-display font-semibold uppercase tracking-tight leading-tight">Global coverage spanning 148 CDN nodes for zero-day protection.</p>
+                <p className="text-xl font-display font-semibold uppercase tracking-tight leading-tight text-brand-text">Global coverage spanning 148 CDN nodes for zero-day protection.</p>
               </div>
             </div>
           </div>
 
           {/* Savings / Efficiency */}
-          <div className="bento-item col-span-12 md:col-span-8 row-span-1 bg-brand-surface p-12 lg:p-16 flex items-center gap-12 group hover:bg-zinc-50 transition-colors cursor-pointer border-l-0">
+          <div className="bento-item col-span-12 md:col-span-8 row-span-1 bg-brand-surface p-12 lg:p-16 flex items-center gap-12 group hover:bg-brand-surface/40 transition-colors cursor-pointer border-l-0">
             <div className="relative">
-              <BarChart3 className="w-20 h-20 text-zinc-100 group-hover:text-zinc-200 transition-colors" />
+              <BarChart3 className="w-20 h-20 text-brand-muted/10 group-hover:text-brand-muted/20 transition-colors" />
               <Zap className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 text-brand-text opacity-0 group-hover:opacity-100 transition-all group-hover:scale-125" />
             </div>
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <p className="text-4xl font-display font-black uppercase">Savings Index</p>
+                <p className="text-4xl font-display font-black uppercase text-brand-text">Savings Index</p>
                 <Badge variant="success">91.2% Efficient</Badge>
               </div>
               <p className="text-brand-muted text-xl font-sans max-w-[50ch] font-medium leading-[1.4]">
@@ -266,7 +270,7 @@ export default function Home() {
       </section>
 
       {/* Flagship Footer */}
-      <footer className="py-32 px-6 md:px-12 bg-white border-t border-brand-border">
+      <footer className="py-32 px-6 md:px-12 bg-brand-bg border-t border-brand-border">
         <div className="max-w-[1500px] mx-auto flex flex-col md:flex-row justify-between items-start gap-20">
           <div className="space-y-8">
             <h3 className="text-6xl md:text-8xl font-display font-black uppercase tracking-tighter">DeepTrace</h3>
@@ -299,9 +303,9 @@ export default function Home() {
             </div>
           </div>
         </div>
-        <div className="max-w-[1500px] mx-auto mt-32 pt-12 border-t border-zinc-100 flex flex-col md:flex-row justify-between gap-6">
-          <p className="text-meta text-zinc-300">© 2026 DeepTrace Systems. All rights reserved.</p>
-          <p className="text-meta text-zinc-300">Sovereignty through Transparency.</p>
+        <div className="max-w-[1500px] mx-auto mt-32 pt-12 border-t border-brand-border flex flex-col md:flex-row justify-between gap-6">
+          <p className="text-meta text-brand-muted/40">© 2026 DeepTrace Systems. All rights reserved.</p>
+          <p className="text-meta text-brand-muted/40">Sovereignty through Transparency.</p>
         </div>
       </footer>
     </main>
