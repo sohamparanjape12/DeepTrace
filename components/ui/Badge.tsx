@@ -15,11 +15,11 @@ export function Badge({
   ...props
 }: BadgeProps) {
   const variants = {
-    default: 'bg-zinc-100 text-zinc-900 border-zinc-200',
-    error: 'bg-brand-red-muted text-brand-red-text border-brand-red-muted/50',
-    success: 'bg-brand-green-muted text-brand-green-text border-brand-green-muted/50',
-    info: 'bg-brand-blue-muted text-brand-blue-text border-brand-blue-muted/50',
-    warning: 'bg-yellow-100 text-yellow-900 border-yellow-200',
+    default: 'bg-brand-bg text-brand-text border-brand-border',
+    error: 'bg-brand-red-muted text-brand-red-text border-brand-red-text/20',
+    success: 'bg-brand-green-muted text-brand-green-text border-brand-green-text/20',
+    info: 'bg-brand-blue-muted text-brand-blue-text border-brand-blue-text/20',
+    warning: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
   };
 
   return (

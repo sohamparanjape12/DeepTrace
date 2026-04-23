@@ -60,7 +60,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
         const vQuery = query(
           collection(db, 'violations'),
           where('asset_id', '==', id),
-          where('owner_id', '==', user.uid)
+          where('owner_id', '==', user?.uid)
         );
         const vSnap = await getDocs(vQuery);
         setViolations(vSnap.docs.map(d => d.data() as Violation));
@@ -90,8 +90,8 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
 
   if (isUnauthorized) return (
     <div className="flex flex-col items-center justify-center py-32 text-center gap-6">
-      <Shield className="w-16 h-16 text-red-500 opacity-20" />
-      <h2 className="text-3xl font-display font-black uppercase tracking-tighter italic">Access Denied</h2>
+      <Shield className="w-16 h-16 text-brand-red-text opacity-50" />
+      <h2 className="text-3xl font-display font-black uppercase tracking-tighter italic text-brand-text">Access Denied</h2>
       <p className="text-brand-muted max-w-md">You do not have permission to view this asset. Isolation protocols are active.</p>
       <Link href="/assets">
         <Button>Return to Library</Button>
@@ -112,12 +112,12 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
     <div className="space-y-12">
       {/* Back + Title */}
       <div className="flex items-start gap-6">
-        <Link href="/assets" className="mt-2 shrink-0">
-          <Button variant="secondary" size="sm" className="flex items-center gap-2">
+        <Link href="/assets" className="mt-4 shrink-0">
+          <Button variant="ghost" size="sm" className="flex items-center gap-2">
             <ArrowLeft className="w-3.5 h-3.5" /> Assets
           </Button>
         </Link>
-        <PageHeader title={asset.name} className="mb-0 flex-1" />
+        <PageHeader title={asset.name} variant="secondary" className="mb-0 flex-1" />
       </div>
 
       {/* Asset Hero */}
@@ -187,7 +187,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
                     <p className="text-meta mb-2">Tags</p>
                     <div className="flex flex-wrap gap-2">
                       {asset.tags.map(t => (
-                        <span key={t} className="px-2.5 py-1 rounded-full bg-zinc-100 text-[10px] font-black uppercase tracking-widest text-brand-muted">
+                        <span key={t} className="px-2.5 py-1 rounded-full bg-brand-bg border border-brand-border text-[10px] font-black uppercase tracking-widest text-brand-muted">
                           {t}
                         </span>
                       ))}
@@ -208,13 +208,13 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
                 <p className="text-meta mt-1">Open</p>
               </div>
               <div className="text-center">
-                <p className="text-3xl font-display font-black">
+                <p className="text-3xl font-display font-black text-brand-text">
                   {violations.filter(v => v.severity === 'CRITICAL' && v.status === 'open').length}
                 </p>
                 <p className="text-meta mt-1">Critical</p>
               </div>
               <div className="text-center">
-                <p className="text-3xl font-display font-black text-green-600">
+                <p className="text-3xl font-display font-black text-brand-green-text">
                   {violations.filter(v => v.status === 'resolved').length}
                 </p>
                 <p className="text-meta mt-1">Resolved</p>
@@ -228,12 +228,12 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
         {/* Violations for this asset */}
         <div className="lg:col-span-2 space-y-6">
-          <h2 className="font-display font-black uppercase text-xl text-white">
+          <h2 className="font-display font-black uppercase text-xl text-brand-text">
             Violations <span className="opacity-40">({violations.length})</span>
           </h2>
           {violations.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 text-center border border-dashed border-brand-border rounded-2xl gap-4">
-              <p className="font-display font-black text-3xl text-zinc-200 uppercase">Clean</p>
+              <p className="font-display font-black text-3xl text-brand-muted/30 uppercase">Clean</p>
               <p className="text-brand-muted text-sm">No violations detected for this asset.</p>
             </div>
           ) : (
@@ -249,15 +249,15 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
 
         {/* Scan Timeline */}
         <div className="space-y-6">
-          <h2 className="font-display font-black uppercase text-xl text-white">Scan History</h2>
+          <h2 className="font-display font-black uppercase text-xl text-brand-text">Scan History</h2>
           <div className="bento-card overflow-hidden divide-y divide-brand-border">
             {scans.length === 0 ? (
               <div className="p-8 text-center text-meta uppercase tracking-widest">No scans recorded</div>
             ) : (
               scans.map((scan) => (
-                <div key={scan.id} className="p-4 flex gap-4 hover:bg-zinc-50 transition-colors group">
+                <div key={scan.id} className="p-4 flex gap-4 hover:bg-brand-surface transition-colors group">
                   <div className="mt-1 flex flex-col items-center">
-                    <div className={`w-2 h-2 rounded-full ${scan.status === 'clean' ? 'bg-green-500' : 'bg-brand-accent'}`} />
+                    <div className={`w-2 h-2 rounded-full ${scan.status === 'clean' ? 'bg-brand-green-text' : 'bg-brand-accent'}`} />
                     <div className="w-px flex-1 bg-brand-border my-1" />
                   </div>
                   <div className="space-y-1 flex-1">
@@ -274,7 +274,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
                 </div>
               ))
             )}
-            <div className="p-4 bg-zinc-50 border-t border-brand-border">
+            <div className="p-4 bg-brand-surface border-t border-brand-border">
               <p className="text-[10px] font-bold text-brand-muted uppercase tracking-widest text-center">Scan Frequency: Every 24 Hours</p>
             </div>
           </div>

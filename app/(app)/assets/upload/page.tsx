@@ -102,7 +102,7 @@ export default function UploadPage() {
         if (data.status === 'open' && data.gemini_class === 'NEEDS_REVIEW' && !data.reasoning_steps) {
           pendingCount++;
         }
-        
+
         results.push({
           matchLink: data.match_url,
           matchThumbnail: data.assetThumbnailUrl || '',
@@ -120,7 +120,7 @@ export default function UploadPage() {
       });
 
       setAnalysisResults(results);
-      
+
       // If we have results and none are pending, analysis is done
       if (results.length > 0 && pendingCount === 0) {
         setIsAnalyzing(false);
@@ -342,24 +342,20 @@ export default function UploadPage() {
           return (
             <div key={step.num} className="flex items-center flex-1">
               <div className="flex flex-col items-center flex-1">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
-                  isComplete ? 'bg-brand-text text-white' :
-                  isActive ? 'bg-brand-text text-white ring-4 ring-brand-text/20' :
-                  'bg-zinc-100 text-zinc-400'
-                }`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${isComplete ? 'bg-brand-text text-white' :
+                    isActive ? 'bg-brand-text text-white ring-4 ring-brand-text/20' :
+                      'bg-zinc-100 text-zinc-400'
+                  }`}>
                   {isComplete ? <CheckCircle className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
                 </div>
-                <p className={`mt-2 text-[10px] font-black uppercase tracking-widest transition-colors ${
-                  isActive || isComplete ? 'text-brand-text' : 'text-zinc-300'
-                }`}>{step.label}</p>
-                <p className={`text-[10px] text-center transition-colors mt-0.5 ${
-                  isActive ? 'text-brand-muted' : 'text-zinc-300'
-                }`}>{step.description}</p>
+                <p className={`mt-2 text-[10px] font-black uppercase tracking-widest transition-colors ${isActive || isComplete ? 'text-brand-text' : 'text-zinc-300'
+                  }`}>{step.label}</p>
+                <p className={`text-[10px] text-center transition-colors mt-0.5 ${isActive ? 'text-brand-muted' : 'text-zinc-300'
+                  }`}>{step.description}</p>
               </div>
               {i < STEPS.length - 1 && (
-                <div className={`h-px flex-1 mx-2 -mt-6 transition-colors ${
-                  currentStep > step.num ? 'bg-brand-text' : 'bg-zinc-200'
-                }`} />
+                <div className={`h-px flex-1 mx-2 -mt-6 transition-colors ${currentStep > step.num ? 'bg-brand-text' : 'bg-zinc-200'
+                  }`} />
               )}
             </div>
           );
@@ -377,7 +373,7 @@ export default function UploadPage() {
               <div>
                 <h3 className="font-display font-black uppercase text-sm tracking-wide text-brand-text">Upload Your Original Asset</h3>
                 <p className="text-sm text-brand-muted mt-1 leading-relaxed max-w-2xl">
-                  Upload the image you own. Your asset will be securely stored in our database (Cloudinary + Firestore). 
+                  Upload the image you own. Your asset will be securely stored in our database (Cloudinary + Firestore).
                   DeepTrace will then search the web for visually similar copies using SerpAPI's reverse image search.
                 </p>
               </div>
@@ -424,7 +420,7 @@ export default function UploadPage() {
               <div>
                 <h3 className="font-display font-black uppercase text-sm tracking-wide text-brand-text">Web Scan Results</h3>
                 <p className="text-sm text-brand-muted mt-1 leading-relaxed max-w-2xl">
-                  These are images found across the web that visually match your asset. <strong>SerpAPI's reverse image search</strong> powers this scan. 
+                  These are images found across the web that visually match your asset. <strong>SerpAPI's reverse image search</strong> powers this scan.
                   Select the matches you want DeepTrace to analyze with Gemini's Forensic Content Auditor.
                 </p>
               </div>
@@ -496,11 +492,10 @@ export default function UploadPage() {
                   <button
                     key={i}
                     onClick={() => toggleMatch(i)}
-                    className={`group text-left rounded-xl border-2 overflow-hidden transition-all duration-200 ${
-                      selectedMatches.has(i)
+                    className={`group text-left rounded-xl border-2 overflow-hidden transition-all duration-200 ${selectedMatches.has(i)
                         ? 'border-brand-text ring-2 ring-brand-text/20 shadow-soft-lg'
                         : 'border-brand-border hover:border-zinc-400'
-                    }`}
+                      }`}
                   >
                     <div className="aspect-video bg-zinc-100 relative overflow-hidden">
                       {(result.thumbnail || result.original) ? (
@@ -558,8 +553,8 @@ export default function UploadPage() {
               <div>
                 <h3 className="font-display font-black uppercase text-sm tracking-wide text-brand-text">Provide Asset Context</h3>
                 <p className="text-sm text-brand-muted mt-1 leading-relaxed max-w-2xl">
-                  Describe your asset so Gemini can evaluate <strong>contextual similarity</strong>. This information is weighted at 
-                  <strong> 20%</strong> in the forensic formula (visual analysis is 80%). The more context you provide, the more accurate 
+                  Describe your asset so Gemini can evaluate <strong>contextual similarity</strong>. This information is weighted at
+                  <strong> 20%</strong> in the forensic formula (visual analysis is 80%). The more context you provide, the more accurate
                   the classification will be.
                 </p>
               </div>
@@ -682,8 +677,8 @@ export default function UploadPage() {
               <div>
                 <h3 className="font-display font-black uppercase text-sm tracking-wide text-brand-text">Forensic Analysis Results</h3>
                 <p className="text-sm text-brand-muted mt-1 leading-relaxed max-w-2xl">
-                  Gemini's <strong>Forensic Content Auditor</strong> compares your original asset against each selected match using the 
-                  weighted formula: <strong>80% visual similarity + 20% contextual analysis</strong>. Results include classification, 
+                  Gemini's <strong>Forensic Content Auditor</strong> compares your original asset against each selected match using the
+                  weighted formula: <strong>80% visual similarity + 20% contextual analysis</strong>. Results include classification,
                   confidence scores, and detailed reasoning steps.
                 </p>
               </div>

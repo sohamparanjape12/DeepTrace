@@ -75,12 +75,12 @@ export default function ViolationsPage() {
       {isLoading ? (
         <div className="space-y-5">
           {[1, 2, 3].map(i => (
-            <div key={i} className="h-40 bg-zinc-100 rounded-2xl animate-pulse" />
+            <div key={i} className="h-40 bg-brand-bg rounded-2xl animate-pulse" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-32 text-center border border-dashed border-brand-border rounded-2xl gap-4">
-          <p className="font-display font-black text-3xl text-zinc-200 uppercase">No Violations</p>
+          <p className="font-display font-black text-3xl text-brand-muted/30 uppercase">No Violations Found</p>
           <p className="text-brand-muted text-sm">No violations match this filter.</p>
         </div>
       ) : (

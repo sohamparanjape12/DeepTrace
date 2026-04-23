@@ -11,7 +11,7 @@ export interface RegionData {
 
 export function MarketLeakage({ regions }: { regions?: RegionData[] }) {
   const displayRegions = regions && regions.length > 0 ? regions : [
-    { name: 'Western Europe', leakage: 0, risk: 'Low', color: 'bg-zinc-400' },
+    { name: 'Western Europe', leakage: 0, risk: 'Low', color: 'bg-brand-muted' },
   ];
 
   const highestRiskRegion = displayRegions.reduce((prev, current) => 
@@ -38,7 +38,7 @@ export function MarketLeakage({ regions }: { regions?: RegionData[] }) {
                 <span className="text-xs font-black text-brand-text">{region.leakage}%</span>
               </div>
             </div>
-            <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-brand-border rounded-full overflow-hidden">
               <div 
                 className={`h-full ${region.color} rounded-full transition-all duration-1000`} 
                 style={{ width: `${region.leakage}%` }} 

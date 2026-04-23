@@ -44,7 +44,7 @@ export function TrendAnalysis({ data }: { data?: TrendData[] }) {
                 <stop offset="95%" stopColor="#E11D48" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F4F4F5" />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--brand-border)" />
             <XAxis
               dataKey="day"
               axisLine={false}
@@ -58,12 +58,15 @@ export function TrendAnalysis({ data }: { data?: TrendData[] }) {
             <Tooltip
               contentStyle={{
                 borderRadius: '12px',
-                border: '1px solid #E4E4E7',
+                backgroundColor: 'var(--brand-surface)',
+                border: '1px solid var(--brand-border)',
                 boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
                 textTransform: 'uppercase',
                 fontSize: '10px',
-                fontWeight: '900'
+                fontWeight: '900',
+                color: 'var(--brand-text)'
               }}
+              itemStyle={{ color: 'var(--brand-text)' }}
             />
             <Area
               type="monotone"
@@ -76,7 +79,7 @@ export function TrendAnalysis({ data }: { data?: TrendData[] }) {
             <Area
               type="monotone"
               dataKey="resolutions"
-              stroke="#D4D4D8"
+              stroke="var(--brand-muted)"
               strokeWidth={2}
               fillOpacity={0}
             />

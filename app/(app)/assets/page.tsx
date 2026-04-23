@@ -36,11 +36,11 @@ export default function AssetsPage() {
   }, [user]);
 
   const TABS = [
-    { key: 'all',              label: 'All',       count: assets.length },
+    { key: 'all', label: 'All', count: assets.length },
     { key: 'violations_found', label: 'Violations', count: assets.filter(a => a.scan_status === 'violations_found').length },
-    { key: 'scanning',         label: 'Scanning',  count: assets.filter(a => a.scan_status === 'scanning').length },
-    { key: 'clean',            label: 'Clean',     count: assets.filter(a => a.scan_status === 'clean').length },
-    { key: 'pending',          label: 'Pending',   count: assets.filter(a => a.scan_status === 'pending').length },
+    { key: 'scanning', label: 'Scanning', count: assets.filter(a => a.scan_status === 'scanning').length },
+    { key: 'clean', label: 'Clean', count: assets.filter(a => a.scan_status === 'clean').length },
+    { key: 'pending', label: 'Pending', count: assets.filter(a => a.scan_status === 'pending').length },
   ];
 
   const filtered = activeTab === 'all'
@@ -96,16 +96,13 @@ export default function AssetsPage() {
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {[1, 2, 3].map(i => (
-            <div key={i} className="h-[280px] bg-zinc-100 rounded-2xl animate-pulse" />
+            <div key={i} className="h-[280px] bg-brand-bg rounded-2xl animate-pulse" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-32 gap-6 text-center border border-dashed border-brand-border rounded-2xl">
-          <p className="font-display font-black text-3xl text-zinc-200 uppercase">No Assets Found</p>
-          <p className="text-brand-muted text-sm max-w-md">
-            Register your first media asset to begin. The wizard will guide you through uploading, 
-            scanning the web with SerpAPI, providing context, and running Gemini's forensic analysis.
-          </p>
+        <div className="flex flex-col items-center justify-center py-32 text-center border border-dashed border-brand-border rounded-2xl gap-4">
+          <p className="font-display font-black text-3xl text-brand-muted/30 uppercase">No Assets Found</p>
+          <p className="text-brand-muted text-sm">Register your first media asset to start scanning.</p>
           <Link href="/assets/upload">
             <Button className="flex items-center gap-2">
               <Plus className="w-4 h-4" /> Register Your First Asset
