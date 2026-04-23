@@ -36,7 +36,7 @@ export function TrendAnalysis({ data }: { data?: TrendData[] }) {
       </div>
 
       <div className="flex-1 min-h-0">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
           <AreaChart data={chartData}>
             <defs>
               <linearGradient id="colorDet" x1="0" y1="0" x2="0" y2="1">
@@ -49,7 +49,7 @@ export function TrendAnalysis({ data }: { data?: TrendData[] }) {
               dataKey="day"
               axisLine={false}
               tickLine={false}
-              tick={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase', fill: '#787774' }}
+              tick={{ fontSize: 10, fontWeight: 900, fill: '#787774' }}
               dy={10}
             />
             <YAxis
