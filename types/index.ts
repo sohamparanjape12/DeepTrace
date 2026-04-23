@@ -3,7 +3,7 @@
 export type ScanStatus = 'pending' | 'scanning' | 'clean' | 'violations_found';
 export type RightsTier = 'editorial' | 'commercial' | 'all_rights' | 'no_reuse';
 export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
-export type GeminiClass = 'AUTHORIZED' | 'UNAUTHORIZED' | 'EDITORIAL_FAIR_USE' | 'NEEDS_REVIEW';
+export type GeminiClass = 'AUTHORIZED' | 'UNAUTHORIZED' | 'EDITORIAL_FAIR_USE' | 'NEEDS_REVIEW' | 'INSUFFICIENT_EVIDENCE';
 export type ViolationStatus = 'open' | 'resolved' | 'disputed' | 'false_positive';
 export type MatchType = 'full_match' | 'partial_match' | 'visually_similar';
 
@@ -55,6 +55,44 @@ export interface Violation {
   brand_sensitivity?: 'high' | 'medium' | 'low';
   revenue_risk?: number;
   region?: string;
+
+  // Reliability Scoring Engine (RSE) Fields
+  reliability_score?: number;           // 0–100
+  reliability_tier?: 'HIGH' | 'MEDIUM' | 'LOW';
+  relevancy?: number;                   // 0.0–1.0
+  recommended_action?: 'escalate' | 'human_review' | 'monitor' | 'no_action';
+  
+  // v2 Metadata
+  classification_schema_version?: number;
+  domain_class?: string;
+  contradiction_flag?: boolean;
+  explainability_bullets?: string[];
+  abstained?: boolean;
+  
+  // Nested Data Maps
+  scores?: Record<string, number>;
+  signals?: Record<string, boolean | string>;
+  evidence_quality?: {
+    original_image_loaded: boolean;
+    suspect_image_loaded: boolean;
+    both_images_available: boolean;
+    match_type_strength: number;
+  };
+  applied_weights?: Record<string, number>;
+
+  // legacy / v1 fields
+  visual_evidence_score?: number;       // 0.0–1.0
+  transformation_integrity_score?: number;
+  context_authenticity_score?: number;
+  source_credibility_score?: number;
+  behavioral_consistency_score?: number;
+  attribution_licensing_score?: number;
+  context_type?: string;
+  transformation_type?: string;
+  watermark_intact?: boolean;
+  credit_present?: boolean;
+  contradictions?: string[];
+  abstained_v1?: boolean;
 }
 
 export interface AuditEntry {

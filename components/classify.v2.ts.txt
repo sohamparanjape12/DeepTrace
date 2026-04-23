@@ -1,0 +1,874 @@
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import {
+  buildMasterPrompt,
+  DOMAIN_CLASS_PRIORS,
+  MasterPromptParams,
+  DomainClass,
+} from "./prompts.v2";
+
+/* ------------------------------------------------------------------ */
+/*  Types                                                             */
+/* ------------------------------------------------------------------ */
+
+export interface ClassifyParams {
+  // Context about the protected asset
+  rightsTier: string;
+  ownerOrg: string;
+  tags: string[];
+  assetDescription?: string;
+  assetCaptureDate?: string;
+  assetFirstPublishUrl?: string;
+
+  // Context about the suspected match
+  matchUrl: string;
+  pageTitle?: string;
+  pageDescription?: string;
+  pagePublishedAt?: string;
+  matchType: 'full_match' | 'partial_match' | 'visually_similar';
+
+  // Images
+  originalAssetUrl?: string;
+  violationImageUrl?: string;
+
+  // Optional pre-computed priors (if caller already classified the domain)
+  domainClass?: DomainClass;
+  domainReputationHint?: string;
+}
+
+export type Classification =
+  | 'AUTHORIZED'
+  | 'EDITORIAL_FAIR_USE'
+  | 'UNAUTHORIZED'
+  | 'NEEDS_REVIEW'
+  | 'INSUFFICIENT_EVIDENCE';
+
+export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
+
+export interface ClassificationResult {
+  classification: Classification;
+  severity: Severity;
+  /** 0-1 unified confidence the classification is correct */
+  confidence: number;
+  /** 0-1 relevancy score: how likely Image B is actually a copy of Image A */
+  relevancy: number;
+  /** 0-100 human-facing reliability score (derived from confidence + evidence quality + contradiction penalty) */
+  reliability_score: number;
+  /** Three-tier label for the reliability_score */
+  reliability_tier: 'HIGH' | 'MEDIUM' | 'LOW';
+  /** System abstained (insufficient evidence or irreconcilable contradiction) */
+  abstain: boolean;
+  /** Signals materially disagree and the verdict should be treated with caution */
+  contradiction_flag: boolean;
+  /** Human-readable one-line bullets for the violation detail UI */
+  explainability_bullets: string[];
+  /** Same value exposed under the old name for backwards compat */
+  visual_match_score: number;
+  contextual_match_score: number;
+
+  // Raw sub-scores (all 0-1)
+  scores: {
+    pixel_similarity: number;
+    semantic_similarity: number;
+    context_alignment: number;
+    rights_conflict: number;
+    commercial_exploitation: number;
+    attribution_quality: number;
+  };
+
+  // Boolean signals
+  signals: {
+    watermark_present_in_original: boolean;
+    watermark_present_in_suspect: boolean;
+    watermark_likely_removed: boolean;
+    is_derivative_work: boolean;
+    is_transformative_work: boolean;
+    crop_or_reframe_detected: boolean;
+    color_grade_change_detected: boolean;
+    overlay_or_composite_detected: boolean;
+    temporal_impossibility: boolean;
+    commercial_intent_detected: boolean;
+  };
+
+  evidence_quality: {
+    original_image: 'good' | 'degraded' | 'missing';
+    suspect_image: 'good' | 'degraded' | 'missing';
+    page_metadata: 'rich' | 'thin' | 'missing';
+  };
+
+  reasoning: string;
+  reasoning_steps: string[];
+  recommended_action:
+    | 'monitor'
+    | 'request_attribution'
+    | 'send_takedown'
+    | 'escalate_legal'
+    | 'dismiss';
+
+  // Legacy aliases for existing UI
+  commercial_signal: boolean;
+  watermark_likely_removed: boolean;
+  is_derivative_work: boolean;
+
+  // For debugging / audit
+  domain_class: DomainClass;
+  applied_weights: Record<string, number>;
+  model_self_confidence: number;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Domain classifier — lightweight, replace with Firestore lookup    */
+/*  or a Gemini call if you want richer classification.               */
+/* ------------------------------------------------------------------ */
+
+const DOMAIN_RULES: Array<{ pattern: RegExp; cls: DomainClass }> = [
+  // Licensed partners / wire services
+  { pattern: /(reuters|apnews|associatedpress|afp\.com|gettyimages|imago-images|sipa|panoramic|iconsportswire|action-images|presse-sports|alamy)\./i, cls: 'wire_service' },
+  // Major news outlets (extend per your market)
+  { pattern: /(bbc|nytimes|espn|theguardian|bloomberg|cnn|skysports|cbssports|foxsports|hindustantimes|timesofindia|indianexpress|ndtv|news18)\./i, cls: 'major_news' },
+  // Social networks
+  { pattern: /(twitter|x\.com|facebook|instagram|threads|tiktok|reddit|weibo|mastodon)\./i, cls: 'social_network' },
+  // Video platforms
+  { pattern: /(youtube|youtu\.be|vimeo|dailymotion|twitch|rumble)\./i, cls: 'video_platform' },
+  // Forums & UGC
+  { pattern: /(quora|medium|blogspot|tumblr|wordpress|substack|forum)/i, cls: 'forum_or_ugc' },
+  // Memes / aggregators
+  { pattern: /(9gag|knowyourmeme|imgur|memedroid|boredpanda)/i, cls: 'meme_site' },
+  // Ecommerce / merch
+  { pattern: /(amazon|ebay|etsy|aliexpress|shopify|teespring|redbubble|printful|flipkart|meesho)/i, cls: 'ecommerce' },
+  // Betting / gambling
+  { pattern: /(bet365|1xbet|draftkings|fanduel|betway|parimatch|stake\.com|dafabet|bovada)/i, cls: 'betting_or_gambling' },
+  // Piracy / torrents / sports-stream
+  { pattern: /(torrent|pirate|1337x|rarbg|crackstream|sportsurge|vipbox|buffstream|rojadirecta)/i, cls: 'piracy_or_torrent' },
+  // Sports blogs (catch-all after bigger matches)
+  { pattern: /(sportskeeda|goal\.com|fourfourtwo|espncricinfo|cricbuzz|motogp\.com|formula1\.com|premierleague|uefa|fifa|olympics)/i, cls: 'sports_blog' },
+];
+
+export function classifyDomain(
+  url: string,
+  ownerOrg?: string,
+  licensedDomains: string[] = [],
+): DomainClass {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+
+    // Owner's own domain
+    if (ownerOrg) {
+      const orgSlug = ownerOrg.toLowerCase().replace(/\s+/g, '');
+      if (host.includes(orgSlug)) return 'licensed_partner';
+    }
+
+    // Per-tenant licensed partner list (from Firestore in real impl)
+    if (licensedDomains.some(d => host === d || host.endsWith(`.${d}`))) {
+      return 'licensed_partner';
+    }
+
+    for (const rule of DOMAIN_RULES) {
+      if (rule.pattern.test(host)) return rule.cls;
+    }
+    return 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Adaptive weight selection                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * We do NOT hardcode an 80/20 split. The mixture of visual and contextual
+ * weight depends on evidence quality, match_type, and domain class.
+ *
+ * Intuition:
+ *  - If both images are good, visual evidence should dominate (up to 0.75).
+ *  - If the suspect image is missing/degraded, lean on context & domain.
+ *  - If match_type is "visually_similar" (weakest signal), bump context weight.
+ *  - If domain is piracy/betting, even partial visual evidence is enough.
+ */
+function selectWeights(
+  evidence: { original: string; suspect: string; page: string },
+  matchType: ClassifyParams['matchType'],
+  domainClass: DomainClass,
+): { w_visual: number; w_context: number; w_domain: number } {
+  let w_visual = 0.60;
+  let w_context = 0.20;
+  let w_domain = 0.20;
+
+  if (evidence.original === 'missing' || evidence.suspect === 'missing') {
+    w_visual = 0.10;
+    w_context = 0.45;
+    w_domain = 0.45;
+  } else if (evidence.original === 'degraded' || evidence.suspect === 'degraded') {
+    w_visual = 0.45;
+    w_context = 0.30;
+    w_domain = 0.25;
+  }
+
+  // Match-type priors
+  if (matchType === 'full_match') {
+    w_visual += 0.10;
+    w_context -= 0.05;
+    w_domain -= 0.05;
+  } else if (matchType === 'visually_similar') {
+    w_visual -= 0.10;
+    w_context += 0.05;
+    w_domain += 0.05;
+  }
+
+  // High-risk domains: boost domain weight so a partial visual match still
+  // produces a HIGH severity flag if the venue is obviously commercial.
+  if (
+    domainClass === 'piracy_or_torrent' ||
+    domainClass === 'betting_or_gambling' ||
+    domainClass === 'ecommerce'
+  ) {
+    w_domain += 0.10;
+    w_visual -= 0.05;
+    w_context -= 0.05;
+  }
+
+  // Normalise
+  const sum = w_visual + w_context + w_domain;
+  return {
+    w_visual: w_visual / sum,
+    w_context: w_context / sum,
+    w_domain: w_domain / sum,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Fetch image → Gemini inlineData                                    */
+/* ------------------------------------------------------------------ */
+
+async function fetchToGenerativePart(url: string) {
+  try {
+    const resp = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const buffer = await resp.arrayBuffer();
+    return {
+      ok: true as const,
+      part: {
+        inlineData: {
+          data: Buffer.from(buffer).toString('base64'),
+          mimeType: resp.headers.get('content-type') || 'image/jpeg',
+        },
+      },
+      bytes: buffer.byteLength,
+    };
+  } catch (err) {
+    return { ok: false as const, error: String(err) };
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Main entry                                                         */
+/* ------------------------------------------------------------------ */
+
+export async function classifyViolation(
+  params: ClassifyParams,
+): Promise<ClassificationResult> {
+  const apiKey =
+    process.env.GEMINI_API_KEY ||
+    process.env.NEXT_PUBLIC_GEMINI_API_KEY ||
+    '';
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const modelName = (process.env.GEMINI_MODEL || 'gemini-1.5-flash').trim();
+  const model = genAI.getGenerativeModel({
+    model: modelName,
+    generationConfig: {
+      temperature: 0.1,             // deterministic-ish forensic pass
+      responseMimeType: 'application/json',
+    },
+  });
+
+  // ── Pre-classify the domain so the prompt can reason with it ──
+  const domainClass =
+    params.domainClass || classifyDomain(params.matchUrl, params.ownerOrg);
+  const domainPrior = DOMAIN_CLASS_PRIORS[domainClass];
+
+  // ── Fetch both images in parallel ──
+  const [imgA, imgB] = await Promise.all([
+    params.originalAssetUrl
+      ? fetchToGenerativePart(params.originalAssetUrl)
+      : Promise.resolve({ ok: false as const, error: 'not_provided' }),
+    params.violationImageUrl
+      ? fetchToGenerativePart(params.violationImageUrl)
+      : Promise.resolve({ ok: false as const, error: 'not_provided' }),
+  ]);
+
+  const imagesAvailable = {
+    original: imgA.ok,
+    suspect: imgB.ok,
+  };
+
+  // ── Build the prompt ──
+  const promptParams: MasterPromptParams = {
+    owner_org: params.ownerOrg,
+    rights_tier: params.rightsTier as MasterPromptParams['rights_tier'],
+    tags: params.tags,
+    asset_description: params.assetDescription,
+    asset_capture_date: params.assetCaptureDate,
+    asset_first_publish_url: params.assetFirstPublishUrl,
+    match_url: params.matchUrl,
+    page_title: params.pageTitle,
+    page_description: params.pageDescription,
+    page_published_at: params.pagePublishedAt,
+    match_type: params.matchType,
+    domain_class: domainClass,
+    domain_reputation_hint: params.domainReputationHint,
+    images_available: imagesAvailable,
+  };
+
+  const textPrompt = buildMasterPrompt(promptParams);
+  const parts: any[] = [{ text: textPrompt }];
+  if (imgA.ok) {
+    parts.push({ text: '\n--- IMAGE_A: ORIGINAL ASSET ---' });
+    parts.push(imgA.part);
+  }
+  if (imgB.ok) {
+    parts.push({ text: '\n--- IMAGE_B: SUSPECTED COPY ---' });
+    parts.push(imgB.part);
+  }
+
+  // ── Call Gemini with one retry on parse failure ──
+  let parsed: any = null;
+  let modelError: string | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const result = await model.generateContent(parts);
+      const text = result.response.text();
+      const clean = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+      parsed = JSON.parse(clean);
+      break;
+    } catch (err) {
+      modelError = String(err);
+      if (attempt === 1) break;
+    }
+  }
+
+  // ── Safe fallback if both attempts failed ──
+  if (!parsed) {
+    return buildFailSafeResult(params, domainClass, modelError || 'unknown');
+  }
+
+  // ── Normalise all expected fields ──
+  const scores = {
+    pixel_similarity: clamp01(parsed?.scores?.pixel_similarity),
+    semantic_similarity: clamp01(parsed?.scores?.semantic_similarity),
+    context_alignment: clamp01(parsed?.scores?.context_alignment),
+    rights_conflict: clamp01(parsed?.scores?.rights_conflict),
+    commercial_exploitation: clamp01(parsed?.scores?.commercial_exploitation),
+    attribution_quality: clamp01(parsed?.scores?.attribution_quality),
+  };
+
+  const signals = {
+    watermark_present_in_original: !!parsed?.signals?.watermark_present_in_original,
+    watermark_present_in_suspect: !!parsed?.signals?.watermark_present_in_suspect,
+    watermark_likely_removed: !!parsed?.signals?.watermark_likely_removed,
+    is_derivative_work: !!parsed?.signals?.is_derivative_work,
+    is_transformative_work: !!parsed?.signals?.is_transformative_work,
+    crop_or_reframe_detected: !!parsed?.signals?.crop_or_reframe_detected,
+    color_grade_change_detected: !!parsed?.signals?.color_grade_change_detected,
+    overlay_or_composite_detected: !!parsed?.signals?.overlay_or_composite_detected,
+    temporal_impossibility: !!parsed?.signals?.temporal_impossibility,
+    commercial_intent_detected: !!parsed?.signals?.commercial_intent_detected,
+  };
+
+  const evidence_quality = {
+    original_image: coerceEvidence(parsed?.evidence_quality?.original_image, imgA.ok ? 'good' : 'missing'),
+    suspect_image:  coerceEvidence(parsed?.evidence_quality?.suspect_image,  imgB.ok ? 'good' : 'missing'),
+    page_metadata:  coerceEvidence(parsed?.evidence_quality?.page_metadata,  params.pageTitle ? 'rich' : 'thin'),
+  };
+
+  const classification = normaliseClassification(parsed?.classification);
+  const modelSelf = clamp01(parsed?.confidence_self_report ?? 0.5);
+  const reasoning_steps: string[] = Array.isArray(parsed?.reasoning_steps)
+    ? parsed.reasoning_steps.map((s: any) => String(s))
+    : [];
+  const modelContradictionFlag: boolean = !!parsed?.contradiction_flag;
+  const modelAbstain: boolean = !!parsed?.abstain;
+  const modelBullets: string[] = Array.isArray(parsed?.explainability_bullets)
+    ? parsed.explainability_bullets.map((s: any) => String(s)).slice(0, 8)
+    : [];
+
+  /* -------------------------------------------------------------- */
+  /*  RELEVANCY = "is this truly my image?"                         */
+  /* -------------------------------------------------------------- */
+  // Relevancy is a pure similarity construct, independent of rights.
+  // It should answer: "How sure are we that IMAGE_B is a copy/derivative of IMAGE_A?"
+  const relevancy = combineRelevancy({
+    pixel: scores.pixel_similarity,
+    semantic: scores.semantic_similarity,
+    context: scores.context_alignment,
+    matchType: params.matchType,
+    evidence: evidence_quality,
+    temporalImpossibility: signals.temporal_impossibility,
+  });
+
+  /* -------------------------------------------------------------- */
+  /*  CONFIDENCE = "is the classification correct?"                 */
+  /* -------------------------------------------------------------- */
+  const weights = selectWeights(
+    { original: evidence_quality.original_image, suspect: evidence_quality.suspect_image, page: evidence_quality.page_metadata },
+    params.matchType,
+    domainClass,
+  );
+
+  // Visual component: mixture of pixel + semantic (pixel dominates for full-match).
+  const visualComponent =
+    params.matchType === 'full_match'
+      ? 0.75 * scores.pixel_similarity + 0.25 * scores.semantic_similarity
+      : 0.55 * scores.pixel_similarity + 0.45 * scores.semantic_similarity;
+
+  // Context component
+  const contextComponent = 0.6 * scores.context_alignment + 0.4 * (1 - scores.attribution_quality * 0.5);
+
+  // Domain component: rights_conflict + commercial_exploitation tempered by prior
+  const domainComponent =
+    0.5 * scores.rights_conflict +
+    0.3 * scores.commercial_exploitation +
+    0.2 * domainPrior.rights_risk;
+
+  const aggregate =
+    weights.w_visual * visualComponent +
+    weights.w_context * contextComponent +
+    weights.w_domain * domainComponent;
+
+  // Confidence blends the model's self-report with our deterministic aggregate.
+  // We down-weight the model's self-report when evidence is weak.
+  const evidenceWeight =
+    (evidence_quality.original_image === 'good' ? 1 : 0.5) *
+    (evidence_quality.suspect_image === 'good' ? 1 : 0.5);
+  const confidence = clamp01(0.65 * aggregate + 0.35 * modelSelf * evidenceWeight);
+
+  /* -------------------------------------------------------------- */
+  /*  Override rules (hard guarantees)                              */
+  /* -------------------------------------------------------------- */
+  let finalClassification = classification;
+  if (!imgA.ok || !imgB.ok) finalClassification = 'INSUFFICIENT_EVIDENCE';
+  if (signals.temporal_impossibility) finalClassification = 'AUTHORIZED'; // suspect predates asset → cannot be a copy
+
+  // If relevancy is very low, it cannot be a violation regardless of class
+  if (relevancy < 0.35 && finalClassification === 'UNAUTHORIZED') {
+    finalClassification = 'NEEDS_REVIEW';
+  }
+
+  // Rights-tier hard rule: no_reuse + high relevancy + not owner domain → UNAUTHORIZED
+  if (
+    params.rightsTier === 'no_reuse' &&
+    relevancy >= 0.7 &&
+    domainClass !== 'licensed_partner'
+  ) {
+    finalClassification = 'UNAUTHORIZED';
+  }
+
+  /* -------------------------------------------------------------- */
+  /*  Contradiction detection (code-side, independent of the model)  */
+  /* -------------------------------------------------------------- */
+  const codeContradictions = detectContradictions({
+    scores,
+    signals,
+    domainClass,
+    relevancy,
+    matchType: params.matchType,
+  });
+  const contradiction_flag = modelContradictionFlag || codeContradictions.length > 0;
+
+  /* -------------------------------------------------------------- */
+  /*  Abstention: "I don't know" is a first-class output             */
+  /* -------------------------------------------------------------- */
+  const shouldAbstain =
+    modelAbstain ||
+    !imgA.ok ||
+    !imgB.ok ||
+    (contradiction_flag && modelSelf < 0.7 && confidence < 0.7) ||
+    (evidence_quality.page_metadata === 'missing' &&
+      scores.pixel_similarity < 0.6 &&
+      scores.semantic_similarity < 0.6);
+
+  // Abstention demotes the verdict to NEEDS_REVIEW / INSUFFICIENT_EVIDENCE
+  if (shouldAbstain) {
+    if (!imgA.ok || !imgB.ok) {
+      finalClassification = 'INSUFFICIENT_EVIDENCE';
+    } else if (finalClassification === 'UNAUTHORIZED' || finalClassification === 'AUTHORIZED') {
+      finalClassification = 'NEEDS_REVIEW';
+    }
+  }
+
+  // A contradiction without abstention still softens a hard verdict
+  if (contradiction_flag && !shouldAbstain) {
+    if (finalClassification === 'UNAUTHORIZED' && confidence < 0.85) {
+      finalClassification = 'NEEDS_REVIEW';
+    }
+  }
+
+  /* -------------------------------------------------------------- */
+  /*  Severity                                                       */
+  /* -------------------------------------------------------------- */
+  const severity = deriveSeverity({
+    classification: finalClassification,
+    confidence,
+    relevancy,
+    domainClass,
+    signals,
+    scores,
+  });
+
+  /* -------------------------------------------------------------- */
+  /*  Recommended action                                             */
+  /* -------------------------------------------------------------- */
+  const recommended_action = deriveAction(parsed?.recommended_action, {
+    classification: finalClassification,
+    severity,
+    signals,
+    domainClass,
+  });
+
+  const reasoning = reasoning_steps.join(' ');
+
+  /* -------------------------------------------------------------- */
+  /*  Reliability score (0-100) for the dashboard + explainability  */
+  /*  reliability != verdict. It measures "how much should a human   */
+  /*  trust this automated report".                                  */
+  /* -------------------------------------------------------------- */
+  const { reliability_score, reliability_tier } = computeReliability({
+    confidence,
+    evidence_quality,
+    contradiction_flag,
+    abstain: shouldAbstain,
+    modelSelf,
+  });
+
+  /* -------------------------------------------------------------- */
+  /*  Explainability bullets (merge model output with code signals) */
+  /* -------------------------------------------------------------- */
+  const explainability_bullets = buildExplainabilityBullets({
+    modelBullets,
+    scores,
+    signals,
+    domainClass,
+    contradictionReasons: codeContradictions,
+    abstain: shouldAbstain,
+    classification: finalClassification,
+    relevancy,
+  });
+
+  return {
+    classification: finalClassification,
+    severity,
+    confidence,
+    relevancy,
+    reliability_score,
+    reliability_tier,
+    abstain: shouldAbstain,
+    contradiction_flag,
+    explainability_bullets,
+    visual_match_score: visualComponent,
+    contextual_match_score: contextComponent,
+    scores,
+    signals,
+    evidence_quality,
+    reasoning,
+    reasoning_steps,
+    recommended_action,
+    // legacy aliases
+    commercial_signal: signals.commercial_intent_detected,
+    watermark_likely_removed: signals.watermark_likely_removed,
+    is_derivative_work: signals.is_derivative_work,
+    domain_class: domainClass,
+    applied_weights: weights,
+    model_self_confidence: modelSelf,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Contradiction detector                                            */
+/*  Runs alongside the LLM self-report — code catches what the        */
+/*  model misses and vice-versa.                                       */
+/* ------------------------------------------------------------------ */
+function detectContradictions(p: {
+  scores: ClassificationResult['scores'];
+  signals: ClassificationResult['signals'];
+  domainClass: DomainClass;
+  relevancy: number;
+  matchType: ClassifyParams['matchType'];
+}): string[] {
+  const reasons: string[] = [];
+  const { scores, signals, domainClass, relevancy } = p;
+
+  // 1. Visual says "this is a copy" but attribution is strong and domain is editorial
+  if (
+    relevancy >= 0.75 &&
+    scores.attribution_quality >= 0.7 &&
+    (domainClass === 'major_news' || domainClass === 'wire_service' || domainClass === 'licensed_partner')
+  ) {
+    reasons.push('High visual match with proper attribution on an editorial/licensed domain');
+  }
+
+  // 2. Pixel-identical but semantically different (suggests a look-alike, not a true copy)
+  if (scores.pixel_similarity >= 0.8 && scores.semantic_similarity <= 0.3) {
+    reasons.push('Pixel similarity high but semantic similarity low — likely different captures');
+  }
+
+  // 3. Commercial exploitation flagged on a clearly non-commercial forum
+  if (
+    scores.commercial_exploitation >= 0.7 &&
+    (domainClass === 'forum_or_ugc' || domainClass === 'social_network')
+  ) {
+    reasons.push('Commercial exploitation flagged on a non-commercial venue');
+  }
+
+  // 4. Temporal impossibility (page predates the asset)
+  if (signals.temporal_impossibility) {
+    reasons.push('Page timestamp predates asset capture date');
+  }
+
+  // 5. Watermark "removed" but model also says watermark was never present in the original
+  if (signals.watermark_likely_removed && !signals.watermark_present_in_original) {
+    reasons.push('Watermark flagged as removed but original had no watermark');
+  }
+
+  return reasons;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Reliability score (0-100)                                         */
+/*  Starts from confidence, penalises contradictions and weak         */
+/*  evidence. This is the number the judges/UI should see.            */
+/* ------------------------------------------------------------------ */
+function computeReliability(p: {
+  confidence: number;
+  evidence_quality: ClassificationResult['evidence_quality'];
+  contradiction_flag: boolean;
+  abstain: boolean;
+  modelSelf: number;
+}): { reliability_score: number; reliability_tier: 'HIGH' | 'MEDIUM' | 'LOW' } {
+  const evQuality =
+    (p.evidence_quality.original_image === 'good' ? 1 : p.evidence_quality.original_image === 'degraded' ? 0.6 : 0.2) *
+    (p.evidence_quality.suspect_image  === 'good' ? 1 : p.evidence_quality.suspect_image  === 'degraded' ? 0.6 : 0.2) *
+    (p.evidence_quality.page_metadata  === 'rich' ? 1 : p.evidence_quality.page_metadata  === 'thin'     ? 0.8 : 0.6);
+
+  const base = 0.7 * p.confidence + 0.3 * p.modelSelf;
+  let score = 100 * base * evQuality;
+
+  if (p.contradiction_flag) score *= 0.75;  // 25% penalty on contradictions
+  if (p.abstain) score = Math.min(score, 49); // abstention caps reliability in the LOW band
+
+  const reliability_score = Math.round(Math.max(0, Math.min(100, score)));
+
+  const reliability_tier: 'HIGH' | 'MEDIUM' | 'LOW' =
+    reliability_score >= 80 ? 'HIGH' :
+    reliability_score >= 50 ? 'MEDIUM' :
+    'LOW';
+
+  return { reliability_score, reliability_tier };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Explainability bullets                                            */
+/*  Merge what the LLM produced with signals code discovered, de-dup  */
+/*  prefix with ✔ / ⚠ / ✖ so the UI can render with colour.          */
+/* ------------------------------------------------------------------ */
+function buildExplainabilityBullets(p: {
+  modelBullets: string[];
+  scores: ClassificationResult['scores'];
+  signals: ClassificationResult['signals'];
+  domainClass: DomainClass;
+  contradictionReasons: string[];
+  abstain: boolean;
+  classification: Classification;
+  relevancy: number;
+}): string[] {
+  const out: string[] = [];
+
+  // 1. Abstention gets the top slot if present
+  if (p.abstain) {
+    out.push('⚠ System abstained — evidence or signals are insufficient for an automated verdict');
+  }
+
+  // 2. Add each code-detected contradiction as a warning
+  p.contradictionReasons.forEach(r => out.push(`⚠ ${r}`));
+
+  // 3. Objective numeric facts (always useful for court)
+  const pct = (n: number) => `${Math.round(n * 100)}%`;
+  if (p.scores.pixel_similarity >= 0.7) {
+    out.push(`✔ ${pct(p.scores.pixel_similarity)} pixel-level similarity to the registered asset`);
+  } else if (p.scores.pixel_similarity <= 0.3) {
+    out.push(`✖ Only ${pct(p.scores.pixel_similarity)} pixel-level similarity — unlikely to be the same image`);
+  }
+  if (p.scores.attribution_quality >= 0.7) {
+    out.push(`✔ Proper attribution detected (${pct(p.scores.attribution_quality)})`);
+  } else if (p.scores.attribution_quality <= 0.2) {
+    out.push('✖ No attribution string detected on the page');
+  }
+
+  // 4. Disqualifying signals for quick visual scanning
+  if (p.signals.watermark_likely_removed) out.push('✖ Watermark appears to have been digitally removed');
+  if (p.signals.commercial_intent_detected) out.push('✖ Commercial / monetised context detected');
+  if (p.signals.temporal_impossibility) out.push('✔ Page predates the asset — cannot be a copy');
+
+  // 5. Domain venue (always surface)
+  out.push(`ℹ Domain classified as ${p.domainClass}`);
+
+  // 6. Classification summary bullet
+  out.push(`→ Verdict: ${p.classification}  ·  relevancy ${pct(p.relevancy)}`);
+
+  // 7. Append any of the model's bullets that aren't already represented
+  const lower = new Set(out.map(s => s.toLowerCase()));
+  p.modelBullets.forEach(b => {
+    if (!lower.has(b.toLowerCase())) out.push(b);
+  });
+
+  return out.slice(0, 10);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Pure helpers                                                       */
+/* ------------------------------------------------------------------ */
+
+function clamp01(n: any): number {
+  const x = Number(n);
+  if (!Number.isFinite(x)) return 0;
+  return Math.max(0, Math.min(1, x));
+}
+
+function normaliseClassification(c: any): Classification {
+  const valid: Classification[] = [
+    'AUTHORIZED', 'EDITORIAL_FAIR_USE', 'UNAUTHORIZED',
+    'NEEDS_REVIEW', 'INSUFFICIENT_EVIDENCE',
+  ];
+  const s = String(c || '').toUpperCase();
+  return (valid as string[]).includes(s) ? (s as Classification) : 'NEEDS_REVIEW';
+}
+
+function coerceEvidence<T extends string>(v: any, fallback: T): T {
+  return (typeof v === 'string' ? v : fallback) as T;
+}
+
+function combineRelevancy(p: {
+  pixel: number;
+  semantic: number;
+  context: number;
+  matchType: ClassifyParams['matchType'];
+  evidence: { original_image: string; suspect_image: string };
+  temporalImpossibility: boolean;
+}): number {
+  if (p.temporalImpossibility) return 0;
+  if (p.evidence.original_image === 'missing' || p.evidence.suspect_image === 'missing') {
+    // Cannot assert relevancy without visuals; lean on match_type prior
+    const mtPrior = p.matchType === 'full_match' ? 0.7 : p.matchType === 'partial_match' ? 0.5 : 0.3;
+    return clamp01(0.5 * mtPrior + 0.5 * p.context);
+  }
+  // Pixel-identical full match dominates; otherwise semantic carries more weight
+  const base = p.matchType === 'full_match'
+    ? 0.8 * p.pixel + 0.15 * p.semantic + 0.05 * p.context
+    : p.matchType === 'partial_match'
+    ? 0.55 * p.pixel + 0.35 * p.semantic + 0.10 * p.context
+    : 0.35 * p.pixel + 0.50 * p.semantic + 0.15 * p.context;
+  return clamp01(base);
+}
+
+function deriveSeverity(p: {
+  classification: Classification;
+  confidence: number;
+  relevancy: number;
+  domainClass: DomainClass;
+  signals: ClassificationResult['signals'];
+  scores: ClassificationResult['scores'];
+}): Severity {
+  const { classification: c, confidence, relevancy, domainClass, signals, scores } = p;
+
+  if (c === 'INSUFFICIENT_EVIDENCE') return 'INFO';
+  if (c === 'AUTHORIZED') return 'INFO';
+  if (c === 'EDITORIAL_FAIR_USE') {
+    return signals.commercial_intent_detected ? 'MEDIUM' : 'LOW';
+  }
+
+  if (c === 'UNAUTHORIZED') {
+    // Hard amplifiers → CRITICAL regardless of raw confidence
+    if (
+      domainClass === 'piracy_or_torrent' ||
+      domainClass === 'betting_or_gambling' ||
+      (scores.commercial_exploitation >= 0.7 && signals.watermark_likely_removed)
+    ) {
+      return 'CRITICAL';
+    }
+    if (confidence >= 0.85 && relevancy >= 0.7) return 'CRITICAL';
+    if (confidence >= 0.70) return 'HIGH';
+    if (confidence >= 0.50) return 'MEDIUM';
+    return 'LOW';
+  }
+
+  // NEEDS_REVIEW
+  if (relevancy >= 0.8 && scores.commercial_exploitation >= 0.6) return 'HIGH';
+  if (relevancy >= 0.6) return 'MEDIUM';
+  return 'LOW';
+}
+
+function deriveAction(
+  modelSuggestion: any,
+  ctx: {
+    classification: Classification;
+    severity: Severity;
+    signals: ClassificationResult['signals'];
+    domainClass: DomainClass;
+  },
+): ClassificationResult['recommended_action'] {
+  const valid = ['monitor', 'request_attribution', 'send_takedown', 'escalate_legal', 'dismiss'] as const;
+  if (valid.includes(modelSuggestion)) return modelSuggestion;
+
+  if (ctx.classification === 'AUTHORIZED' || ctx.classification === 'INSUFFICIENT_EVIDENCE') return 'dismiss';
+  if (ctx.classification === 'EDITORIAL_FAIR_USE') return 'request_attribution';
+  if (ctx.classification === 'NEEDS_REVIEW') return 'monitor';
+  if (ctx.severity === 'CRITICAL') return 'escalate_legal';
+  if (ctx.severity === 'HIGH') return 'send_takedown';
+  return 'request_attribution';
+}
+
+function buildFailSafeResult(
+  params: ClassifyParams,
+  domainClass: DomainClass,
+  error: string,
+): ClassificationResult {
+  return {
+    classification: 'INSUFFICIENT_EVIDENCE',
+    severity: 'INFO',
+    confidence: 0,
+    relevancy: 0,
+    reliability_score: 0,
+    reliability_tier: 'LOW',
+    abstain: true,
+    contradiction_flag: false,
+    explainability_bullets: [
+      `⚠ System abstained — classifier failed: ${error}`,
+      `ℹ Domain classified as ${domainClass}`,
+    ],
+    visual_match_score: 0,
+    contextual_match_score: 0,
+    scores: {
+      pixel_similarity: 0, semantic_similarity: 0, context_alignment: 0,
+      rights_conflict: 0, commercial_exploitation: 0, attribution_quality: 0,
+    },
+    signals: {
+      watermark_present_in_original: false, watermark_present_in_suspect: false,
+      watermark_likely_removed: false, is_derivative_work: false,
+      is_transformative_work: false, crop_or_reframe_detected: false,
+      color_grade_change_detected: false, overlay_or_composite_detected: false,
+      temporal_impossibility: false, commercial_intent_detected: false,
+    },
+    evidence_quality: {
+      original_image: params.originalAssetUrl ? 'degraded' : 'missing',
+      suspect_image:  params.violationImageUrl ? 'degraded' : 'missing',
+      page_metadata:  params.pageTitle ? 'thin' : 'missing',
+    },
+    reasoning: `Classifier failed: ${error}`,
+    reasoning_steps: [`Classifier error: ${error}`],
+    recommended_action: 'monitor',
+    commercial_signal: false,
+    watermark_likely_removed: false,
+    is_derivative_work: false,
+    domain_class: domainClass,
+    applied_weights: { w_visual: 0, w_context: 0, w_domain: 0 },
+    model_self_confidence: 0,
+  };
+}

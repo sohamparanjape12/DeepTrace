@@ -17,10 +17,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'SerpAPI key not configured' }, { status: 500 });
     }
 
-    // Call SerpAPI Google Reverse Image Search
+    // Call SerpAPI Google Lens (much more accurate for exact visual matches than older reverse_image)
     const searchParams = new URLSearchParams({
-      engine: 'google_reverse_image',
-      image_url: imageUrl,
+      engine: 'google_lens',
+      url: imageUrl,
       api_key: serpApiKey,
     });
 
@@ -34,21 +34,9 @@ export async function POST(req: NextRequest) {
 
     const data = await serpResponse.json();
 
-    // Extract the image results — these are visually similar images
-    const imageResults = (data.image_results || []).map((result: any) => ({
+    // Extract the visual matches from Google Lens
+    const imageResults = (data.visual_matches || []).map((result: any) => ({
       title: result.title || '',
-      link: result.link || '',
-      source: result.source || '',
-      thumbnail: result.thumbnail || '',
-      original: result.original || result.thumbnail || '',
-      size: result.original_width && result.original_height 
-        ? `${result.original_width}×${result.original_height}` 
-        : undefined,
-    }));
-
-    // Also extract inline images if available
-    const inlineImages = (data.inline_images || []).map((result: any) => ({
-      title: result.title || result.source || '',
       link: result.link || '',
       source: result.source || '',
       thumbnail: result.thumbnail || '',
@@ -56,9 +44,8 @@ export async function POST(req: NextRequest) {
     }));
 
     // Combine and deduplicate by link
-    const allResults = [...imageResults, ...inlineImages];
     const seen = new Set<string>();
-    const uniqueResults = allResults.filter(r => {
+    const uniqueResults = imageResults.filter((r: any) => {
       if (!r.link || seen.has(r.link)) return false;
       seen.add(r.link);
       return true;
@@ -69,7 +56,7 @@ export async function POST(req: NextRequest) {
       results: uniqueResults.slice(0, 20), // Cap at 20 results
       total: uniqueResults.length,
       searchMetadata: {
-        searchUrl: data.search_metadata?.google_url,
+        searchUrl: data.search_metadata?.google_lens_url || data.search_metadata?.google_url,
         totalTimeTaken: data.search_metadata?.total_time_taken,
       },
     });

@@ -1,75 +1,102 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
-import { classifyViolation } from '@/lib/classify';
+import { classifyViolation } from '@/lib/classify.v2';
 
 /**
- * Perform AI classification of a suspected violation using the Forensic Content Auditor.
- * Updates the violation document with analysis, severity, and forensic scores.
+ * Perform AI classification of a suspected violation using the v2 Forensic Pipeline.
+ * Updates the violation document with adaptive multi-factor analysis and three-axis scoring.
  */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { violationId, matchUrl, pageTitle, pageDescription, assetRightsTier, ownerOrg, matchType, tags, originalAssetUrl, violationImageUrl, assetDescription } = body;
+    const {
+      violationId,
+      matchUrl,
+      pageTitle,
+      pageDescription,
+      pagePublishedAt,
+      assetRightsTier,
+      ownerOrg,
+      matchType,
+      tags,
+      originalAssetUrl,
+      violationImageUrl,
+      assetDescription,
+      assetCaptureDate,
+      assetFirstPublishUrl,
+    } = body;
 
     if (!violationId) {
       return NextResponse.json({ error: 'Missing violationId' }, { status: 400 });
     }
 
-    const classifyParams = {
+    const result = await classifyViolation({
+      violationId,
       matchUrl,
       pageTitle: pageTitle || '',
       pageDescription: pageDescription || '',
+      pagePublishedAt,
       matchType,
       rightsTier: assetRightsTier,
-      ownerOrg: ownerOrg,
+      ownerOrg,
       tags: tags || [],
-      originalAssetUrl: originalAssetUrl || undefined,
-      violationImageUrl: violationImageUrl || undefined,
-      assetDescription: assetDescription || undefined,
-    };
-
-    const result = await classifyViolation(classifyParams);
-
-    // Update Violation in Firestore with forensic results
-    const violationRef = db.collection('violations').doc(violationId);
-
-    await violationRef.update({
-      gemini_class: result.classification,
-      gemini_reasoning: result.reasoning,
-      severity: result.severity,
-      confidence: result.confidence,
-      commercial_signal: result.commercial_signal,
-      watermark_likely_removed: result.watermark_likely_removed,
-      visual_match_score: result.visual_match_score ?? null,
-      contextual_match_score: result.contextual_match_score ?? null,
-      reasoning_steps: result.reasoning_steps || [],
-      is_derivative_work: result.is_derivative_work || false,
+      originalAssetUrl,
+      violationImageUrl,
+      assetDescription,
+      assetCaptureDate,
+      assetFirstPublishUrl,
     });
 
-    // Write audit log entry for classification event
+    // Update Violation in Firestore — write BOTH legacy and v2 fields
+    await db.collection('violations').doc(violationId).update({
+      // v2 Fields
+      classification_schema_version: 2,
+      classification:         result.classification,
+      severity:               result.severity,
+      confidence:             result.confidence,
+      relevancy:              result.relevancy,
+      reliability_score:      result.reliability_score,
+      reliability_tier:       result.reliability_tier,
+      abstain:                result.abstained,
+      contradiction_flag:     result.contradiction_flag,
+      explainability_bullets: result.explainability_bullets,
+      scores:                 result.scores,
+      signals:                result.signals,
+      evidence_quality:       result.evidence_quality,
+      reasoning_steps:        result.reasoning_steps,
+      recommended_action:     result.recommended_action,
+      domain_class:           result.domain_class,
+      applied_weights:        result.applied_weights,
+
+      // legacy aliases (keep for existing UI/scripts)
+      gemini_class:            result.classification,
+      gemini_reasoning:        result.reasoning,
+      visual_match_score:      result.visual_match_score,
+      contextual_match_score:  result.contextual_match_score,
+      commercial_signal:       result.commercial_signal,
+      watermark_likely_removed: result.watermark_likely_removed,
+      is_derivative_work:      result.is_derivative_work,
+      
+      updated_at: FieldValue.serverTimestamp(),
+    });
+
+    // Write audit log entry for v2 classification event
     await db.collection('audit_log').add({
       timestamp: FieldValue.serverTimestamp(),
-      action_type: 'classification',
+      action_type: 'classification_v2',
       actor: 'system',
       violation_id: violationId,
       next_state: result.classification,
+      reliability_score: result.reliability_score,
+      abstain: result.abstained,
+      contradiction_flag: result.contradiction_flag,
     });
 
-    return NextResponse.json({
-      success: true,
-      classification: result.classification,
-      severity: result.severity,
-      confidence: result.confidence,
-      visual_match_score: result.visual_match_score,
-      contextual_match_score: result.contextual_match_score,
-      reasoning_steps: result.reasoning_steps,
-      reasoning: result.reasoning,
-      is_derivative_work: result.is_derivative_work,
-      commercial_signal: result.commercial_signal,
-    });
+    return NextResponse.json({ success: true, result });
+
   } catch (error: any) {
-    console.error('Classification error:', error);
+    console.error('Classification v2 error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
