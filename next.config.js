@@ -11,6 +11,7 @@ const nextConfig = {
   experimental: {
     after: true,
   },
+  serverExternalPackages: ['imghash', 'sharp'],
 };
 
 module.exports = nextConfig;
