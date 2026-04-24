@@ -22,7 +22,7 @@ Holds organization details, subscription levels, and alert configurations for no
 }
 ```
 
-## `/assets/{asset_id}`
+## `/assets/{asset_id}` (Legacy)
 Represents official media assets uploaded by organizations for monitoring.
 - **Fields:**
   - `owner_org`: string (Matches `org_id`)
@@ -34,6 +34,21 @@ Represents official media assets uploaded by organizations for monitoring.
   - `storage_url`: string
   - `scan_status`: string
   - `last_scanned_at`: timestamp
+
+## `/assets_v2/{asset_id}` (Current)
+Core entity for ingestion and processing pipeline.
+- **Fields:**
+  - `id`: string
+  - `url`: string
+  - `source`: string
+  - `rightsTier`: string ('no_reuse' | 'editorial' | 'general')
+  - `hash`: string (SHA256)
+  - `clusterId`: string (optional)
+  - `status`: string ('pending' | 'processed' | 'failed')
+  - `geminiResult`: object (optional)
+  - `archivedUrl`: string (optional)
+  - `createdAt`: timestamp
+  - `updatedAt`: timestamp
 
 **Example Document:**
 ```json
