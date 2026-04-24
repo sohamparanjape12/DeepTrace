@@ -1,4 +1,4 @@
-"use client "
+'use client';
 
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
@@ -11,6 +11,9 @@ import { useAuth } from '@/lib/auth-context';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { TriageActions } from './TriageActions';
+import { ReliabilityRing } from '@/components/shared/ReliabilityRing';
+import { ExplainabilityList } from '@/components/shared/ExplainabilityList';
+import { ContradictionBanner } from '@/components/shared/ContradictionBanner';
 
 const classConfig: Record<string, { label: string; classes: string }> = {
   UNAUTHORIZED: { label: 'Unauthorized', classes: 'text-red-700 bg-red-50 border-red-200' },
@@ -160,100 +163,175 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
         </div>
       )}
 
-      {/* Gemini AI Reasoning & Scores */}
+      {/* ── Reliability Score Hero ── */}
       <div className="bento-card p-8 space-y-6">
         <div className="flex items-center justify-between border-b border-brand-border pb-4">
-          <h3 className="font-display font-black uppercase text-sm tracking-tight text-brand-text">Forensic Audit Results</h3>
-          <div className={clsx('text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border', cls.classes)}>
-            {cls.label}
+          <h3 className="font-display font-black uppercase text-sm tracking-tight text-brand-text">Reliability Scoring Engine</h3>
+          <div className="flex items-center gap-2">
+            <div className={clsx('text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border', cls.classes)}>
+              {cls.label}
+            </div>
+            {violation.recommended_action && (
+              <span className={clsx(
+                'text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border',
+                violation.recommended_action === 'escalate' ? 'text-red-700 bg-red-50 border-red-200' :
+                violation.recommended_action === 'human_review' ? 'text-amber-700 bg-amber-50 border-amber-200' :
+                'text-green-700 bg-green-50 border-green-200'
+              )}>
+                {violation.recommended_action === 'escalate' ? '⚡ ESCALATE' :
+                 violation.recommended_action === 'human_review' ? '👁 Human Review' : '✓ Monitor'}
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Scores Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-zinc-50 p-4 border border-brand-border rounded-xl flex flex-col items-center justify-center">
-            <p className="text-[10px] text-brand-muted uppercase tracking-widest font-black mb-1">Visual Match</p>
-            <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-display font-black text-indigo-600">{((violation.visual_match_score ?? 0) * 100).toFixed(0)}</span>
-              <span className="text-brand-muted font-bold text-sm">%</span>
+        <ContradictionBanner show={violation.contradiction_flag || violation.abstain} />
+
+        {/* Reliability Score + Confidence */}
+        <div className="flex items-center gap-12">
+          <ReliabilityRing score={violation.reliability_score ?? 0} tier={violation.reliability_tier ?? 'LOW'} />
+          
+          <div className="space-y-3 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-brand-muted">Domain Class:</span>
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-zinc-100 text-brand-text border border-zinc-200">
+                {violation.domain_class || 'unknown'}
+              </span>
             </div>
-          </div>
-          <div className="bg-zinc-50 p-4 border border-brand-border rounded-xl flex flex-col items-center justify-center">
-            <p className="text-[10px] text-brand-muted uppercase tracking-widest font-black mb-1">Contextual Match</p>
-            <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-display font-black text-teal-600">{((violation.contextual_match_score ?? 0) * 100).toFixed(0)}</span>
-              <span className="text-brand-muted font-bold text-sm">%</span>
-            </div>
-          </div>
-          <div className="bg-zinc-50 p-4 border border-brand-border rounded-xl flex flex-col items-center justify-center">
-            <p className="text-[10px] text-brand-muted uppercase tracking-widest font-black mb-1">Weighted Confidence</p>
-            <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-display font-black text-blue-600">{(violation.confidence ? violation.confidence * 100 : 0).toFixed(0)}</span>
-              <span className="text-brand-muted font-bold text-sm">%</span>
-            </div>
+            <p className="text-xs text-brand-muted leading-relaxed max-w-xl">
+              This reliability score represents the system's confidence in the evidence gathered. 
+              The verdict is determined by an adaptive weighted analysis of visual similarity, 
+              page context, and source credibility.
+            </p>
           </div>
         </div>
 
-        {/* Forensic Reasoning Steps */}
-        <div className="bg-blue-50/50 border border-blue-100 p-5 rounded-xl space-y-3">
-          <h4 className="text-xs font-black uppercase tracking-widest text-blue-900 border-b border-blue-200/50 pb-2">Forensic Analyst Reasoning</h4>
-          {violation.reasoning_steps && violation.reasoning_steps.length > 0 ? (
-            <ol className="list-decimal list-outside ml-4 space-y-1.5">
-              {violation.reasoning_steps.map((step, i) => (
-                <li key={i} className="text-blue-900 text-sm leading-relaxed pl-1">{step}</li>
-              ))}
-            </ol>
-          ) : (
-            <p className="text-sm font-medium text-blue-900 leading-relaxed font-sans">{violation.gemini_reasoning}</p>
-          )}
+        {/* Three-Axis Forensic Breakdown */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 pt-4">
+          <div className="space-y-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-brand-muted">Scoring Axes</p>
+            {[
+              { label: 'Relevancy', score: violation.relevancy ?? 0, desc: 'Is this actually your image?', color: '#6366F1' },
+              { label: 'Confidence', score: violation.confidence ?? 0, desc: 'How sure is the system?', color: '#8B5CF6' },
+            ].map(({ label, score, desc, color }) => (
+              <div key={label} className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-brand-text">{label}</span>
+                  <span className="text-[10px] font-black text-brand-text">{(score * 100).toFixed(0)}%</span>
+                </div>
+                <div className="h-2 bg-zinc-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-1000 ease-out"
+                    style={{ width: `${score * 100}%`, backgroundColor: color }}
+                  />
+                </div>
+                <p className="text-[10px] text-brand-muted italic">{desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-brand-muted">Evidence Signals</p>
+            {[
+              { label: 'Visual Match', score: violation.visual_match_score ?? 0, color: '#0EA5E9' },
+              { label: 'Context Match', score: violation.contextual_match_score ?? 0, color: '#F59E0B' },
+            ].map(({ label, score, color }) => (
+              <div key={label} className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-brand-text">{label}</span>
+                  <span className="text-[10px] font-black text-brand-text">{(score * 100).toFixed(0)}%</span>
+                </div>
+                <div className="h-2 bg-zinc-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-1000 ease-out"
+                    style={{ width: `${score * 100}%`, backgroundColor: color }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Forensic Audit Trail ── */}
+      <div className="bento-card p-8 space-y-6">
+        <h3 className="font-display font-black uppercase text-sm tracking-tight border-b border-brand-border pb-4">Forensic Audit Trail</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+          <div className="space-y-4">
+            <ExplainabilityList bullets={violation.explainability_bullets || []} />
+          </div>
+          
+          <div className="space-y-4">
+            <div className="p-4 bg-zinc-50 rounded-xl border border-zinc-100 space-y-3">
+              <p className="text-[10px] font-black uppercase tracking-widest text-brand-muted">Adaptive Weights Applied</p>
+              <div className="space-y-2">
+                {Object.entries(violation.applied_weights || {}).map(([factor, weight]) => (
+                  <div key={factor} className="flex justify-between text-[10px] font-bold">
+                    <span className="capitalize text-brand-muted">{factor}</span>
+                    <span className="text-brand-text">{(weight * 100).toFixed(0)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Evidence Reasoning ── */}
+      <div className="bento-card p-8 space-y-6">
+        <h3 className="font-display font-black uppercase text-sm tracking-tight border-b border-brand-border pb-4">Analyst Reasoning</h3>
+        <div className="bg-blue-50/50 border border-blue-100 p-6 rounded-xl">
+          <p className="text-sm font-medium text-blue-900 leading-relaxed font-sans">{violation.gemini_reasoning}</p>
         </div>
 
         <div className="flex items-center gap-3 pt-2">
           <div className="w-2 h-2 rounded-full bg-blue-500" />
-          <p className="text-[10px] font-black text-brand-muted uppercase tracking-widest">Powered by Gemini 3.1 Flash-Lite</p>
+          <p className="text-[10px] font-black text-brand-muted uppercase tracking-widest">Powered by Gemini Forensic Content Auditor</p>
         </div>
       </div>
 
-      {/* Extracted Signals */}
+      {/* ── Extracted Signals ── */}
       <div className="bento-card p-8 space-y-6">
         <h3 className="font-display font-black uppercase text-sm tracking-tight border-b border-brand-border pb-4">Extracted Signals</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className={clsx(
-            'p-4 rounded-xl border flex flex-col justify-between gap-3',
-            violation.commercial_signal ? 'bg-indigo-50 border-indigo-200' : 'bg-zinc-50 border-zinc-100'
-          )}>
-            <span className="text-xs font-bold text-brand-text">Commercial Intent</span>
-            <span className={clsx(
-              'px-2 py-1 rounded font-black text-[9px] uppercase tracking-widest w-fit',
-              violation.commercial_signal ? 'bg-indigo-600 text-white' : 'bg-zinc-200 text-zinc-500'
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {[
+            { label: 'Commercial Intent', active: violation.commercial_signal, activeColor: 'bg-indigo-600', activeBg: 'bg-indigo-50 border-indigo-200' },
+            { label: 'Derivative Work', active: violation.is_derivative_work, activeColor: 'bg-amber-500', activeBg: 'bg-amber-50 border-amber-200' },
+            { label: 'Watermark Removed', active: violation.watermark_likely_removed, activeColor: 'bg-rose-600', activeBg: 'bg-rose-50 border-rose-200' },
+            { label: 'Watermark Intact', active: violation.watermark_intact, activeColor: 'bg-green-600', activeBg: 'bg-green-50 border-green-200' },
+            { label: 'Credit Present', active: violation.credit_present, activeColor: 'bg-green-600', activeBg: 'bg-green-50 border-green-200' },
+          ].map(({ label, active, activeColor, activeBg }) => (
+            <div key={label} className={clsx(
+              'p-4 rounded-xl border flex flex-col justify-between gap-3',
+              active ? activeBg : 'bg-zinc-50 border-zinc-100'
             )}>
-              {violation.commercial_signal ? 'DETECTED' : 'NONE'}
-            </span>
-          </div>
-          <div className={clsx(
-            'p-4 rounded-xl border flex flex-col justify-between gap-3',
-            violation.is_derivative_work ? 'bg-amber-50 border-amber-200' : 'bg-zinc-50 border-zinc-100'
-          )}>
-            <span className="text-xs font-bold text-brand-text">Derivative Work</span>
-            <span className={clsx(
-              'px-2 py-1 rounded font-black text-[9px] uppercase tracking-widest w-fit',
-              violation.is_derivative_work ? 'bg-amber-500 text-white' : 'bg-zinc-200 text-zinc-500'
-            )}>
-              {violation.is_derivative_work ? 'YES' : 'NO'}
-            </span>
-          </div>
-          <div className={clsx(
-            'p-4 rounded-xl border flex flex-col justify-between gap-3',
-            violation.watermark_likely_removed ? 'bg-rose-50 border-rose-200' : 'bg-zinc-50 border-zinc-100'
-          )}>
-            <span className="text-xs font-bold text-brand-text">Watermark Removal</span>
-            <span className={clsx(
-              'px-2 py-1 rounded font-black text-[9px] uppercase tracking-widest w-fit',
-              violation.watermark_likely_removed ? 'bg-rose-600 text-white' : 'bg-zinc-200 text-zinc-500'
-            )}>
-              {violation.watermark_likely_removed ? 'LIKELY' : 'NO'}
-            </span>
-          </div>
+              <span className="text-xs font-bold text-brand-text">{label}</span>
+              <span className={clsx(
+                'px-2 py-1 rounded font-black text-[9px] uppercase tracking-widest w-fit',
+                active ? `${activeColor} text-white` : 'bg-zinc-200 text-zinc-500'
+              )}>
+                {active ? 'DETECTED' : 'NONE'}
+              </span>
+            </div>
+          ))}
+          {/* Context Type & Transformation Type */}
+          {violation.context_type && (
+            <div className="p-4 rounded-xl border bg-zinc-50 border-zinc-100 flex flex-col justify-between gap-3">
+              <span className="text-xs font-bold text-brand-text">Context Type</span>
+              <span className="px-2 py-1 rounded font-black text-[9px] uppercase tracking-widest w-fit bg-zinc-700 text-white">
+                {violation.context_type}
+              </span>
+            </div>
+          )}
+          {violation.transformation_type && (
+            <div className="p-4 rounded-xl border bg-zinc-50 border-zinc-100 flex flex-col justify-between gap-3">
+              <span className="text-xs font-bold text-brand-text">Transformation</span>
+              <span className="px-2 py-1 rounded font-black text-[9px] uppercase tracking-widest w-fit bg-zinc-700 text-white">
+                {violation.transformation_type}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
