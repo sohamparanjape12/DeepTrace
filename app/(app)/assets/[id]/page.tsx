@@ -3,7 +3,8 @@ import React from 'react';
 
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Shield, Calendar, Tag, Scan, ExternalLink } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, Shield, Calendar, Tag, Scan, ExternalLink, Trash2, Loader2 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ViolationCard } from '@/components/shared/ViolationCard';
 import { Badge } from '@/components/ui/Badge';
@@ -35,6 +36,9 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
   const [scans, setScans] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUnauthorized, setIsUnauthorized] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     if (!user || !id) return;
@@ -106,6 +110,25 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
     </div>
   );
 
+  const handleDelete = async () => {
+    if (!user || !id) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/assets/${id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.uid }),
+      });
+      if (!res.ok) throw new Error('Failed to delete asset');
+      router.push('/assets');
+    } catch (e) {
+      console.error(e);
+      setIsDeleting(false);
+      setShowConfirmDelete(false);
+      alert('Failed to delete asset');
+    }
+  };
+
   const statusCfg = scanStatusConfig[asset.scan_status];
 
   return (
@@ -117,7 +140,26 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
             <ArrowLeft className="w-3.5 h-3.5" /> Assets
           </Button>
         </Link>
-        <PageHeader title={asset.name} variant="secondary" className="mb-0 flex-1" />
+        <PageHeader 
+          title={asset.name} 
+          variant="secondary" 
+          className="mb-0 flex-1" 
+          actions={
+            showConfirmDelete ? (
+              <div className="flex items-center gap-2 animate-in slide-in-from-right-2">
+                <span className="text-xs font-bold text-red-500 mr-2">Are you sure?</span>
+                <Button variant="outline" size="sm" onClick={() => setShowConfirmDelete(false)} disabled={isDeleting}>Cancel</Button>
+                <Button variant="outline" size="sm" onClick={handleDelete} disabled={isDeleting} className="bg-red-50 text-red-600 border-red-200 hover:bg-red-100 hover:text-red-700">
+                  {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm Delete'}
+                </Button>
+              </div>
+            ) : (
+              <Button variant="ghost" size="sm" onClick={() => setShowConfirmDelete(true)} className="text-brand-muted hover:text-red-500 hover:bg-red-50">
+                <Trash2 className="w-4 h-4 mr-2" /> Delete Asset
+              </Button>
+            )
+          }
+        />
       </div>
 
       {/* Asset Hero */}
