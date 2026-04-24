@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: 'class',
   content: [
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -9,18 +10,18 @@ const config: Config = {
     extend: {
       colors: {
         brand: {
-          bg: "#FAFAFA",         // Warm Bone White
-          surface: "#FFFFFF",    // Pure White
-          border: "#EAEAEA",     // Light Zinc
-          text: "#1A1A1A",       // Charcoal
-          muted: "#787774",      // Taupe/Gray
-          accent: "#E11D48",     // Rose (Semantic only)
-          "red-muted": "#FDEBEC",
-          "red-text": "#9F2F2D",
-          "blue-muted": "#E1F3FE",
-          "blue-text": "#1F6C9F",
-          "green-muted": "#EDF3EC",
-          "green-text": "#346538",
+          bg: "var(--brand-bg)",
+          surface: "var(--brand-surface)",
+          border: "var(--brand-border)",
+          text: "var(--brand-text)",
+          muted: "var(--brand-muted)",
+          accent: "#E11D48",
+          "red-muted": "var(--brand-red-muted)",
+          "red-text": "var(--brand-red-text)",
+          "blue-muted": "var(--brand-blue-muted)",
+          "blue-text": "var(--brand-blue-text)",
+          "green-muted": "var(--brand-green-muted)",
+          "green-text": "var(--brand-green-text)",
         },
       },
       fontFamily: {

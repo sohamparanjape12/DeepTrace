@@ -8,10 +8,10 @@ interface SeverityChipProps {
 }
 
 const config: Record<Severity, { label: string; classes: string }> = {
-  CRITICAL: { label: 'Critical', classes: 'bg-red-50 text-red-700 border-red-200 ring-red-500/20' },
-  HIGH:     { label: 'High',     classes: 'bg-orange-50 text-orange-700 border-orange-200 ring-orange-500/20' },
-  MEDIUM:   { label: 'Medium',   classes: 'bg-amber-50 text-amber-700 border-amber-200 ring-amber-500/20' },
-  LOW:      { label: 'Low',      classes: 'bg-zinc-50 text-zinc-500 border-zinc-200 ring-zinc-500/10' },
+  CRITICAL: { label: 'Critical', classes: 'bg-brand-red-muted text-brand-red-text border-brand-red-text/20 ring-brand-red-text/10' },
+  HIGH:     { label: 'High',     classes: 'bg-orange-500/10 text-orange-500 border-orange-500/20 ring-orange-500/10' },
+  MEDIUM:   { label: 'Medium',   classes: 'bg-amber-500/10 text-amber-500 border-amber-500/20 ring-amber-500/10' },
+  LOW:      { label: 'Low',      classes: 'bg-brand-bg text-brand-muted border-brand-border ring-brand-text/5' },
 };
 
 export function SeverityChip({ severity, className }: SeverityChipProps) {

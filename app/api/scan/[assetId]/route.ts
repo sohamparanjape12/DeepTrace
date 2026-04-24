@@ -13,9 +13,9 @@ const visionClient = new ImageAnnotatorClient();
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: { assetId: string } }
+  { params }: { params: Promise<{ assetId: string }> }
 ) {
-  const { assetId } = params;
+  const { assetId } = await params;
 
   const authHeader = req.headers.get('authorization');
   if (authHeader !== `Bearer ${process.env.INTERNAL_CRON_KEY}`) {
@@ -39,7 +39,6 @@ export async function POST(
     }
 
     // 2. Call Google Cloud Vision API Web Detection
-    // Note: visionClient handles authentication via GOOGLE_APPLICATION_CREDENTIALS
     const [result] = await visionClient.webDetection(asset.storageUrl);
     const webDetection = result.webDetection;
 
@@ -51,20 +50,20 @@ export async function POST(
     // 3. Process matches
     const violationsFound: Violation[] = [];
     
-    // Helper to process match groups
     const processMatchGroup = (urls: any[] | null | undefined, type: MatchType) => {
       if (!urls) return;
       urls.forEach((urlObj) => {
         if (!urlObj.url) return;
         violationsFound.push({
           violation_id: uuidv4(),
+          owner_id: asset.owner_id, 
           asset_id: assetId,
           detected_at: new Date().toISOString(),
           match_url: urlObj.url,
           match_type: type,
           status: 'open',
-          severity: 'LOW', // Initial severity, updated by classify
-          gemini_class: 'NEEDS_REVIEW' // Default placeholder
+          severity: 'LOW', 
+          gemini_class: 'NEEDS_REVIEW'
         });
       });
     };
@@ -72,17 +71,17 @@ export async function POST(
     processMatchGroup(webDetection.fullMatchingImages, 'full_match');
     processMatchGroup(webDetection.partialMatchingImages, 'partial_match');
 
-    // pagesWithMatchingImages often includes the same matches but with page context
     const pageMatches = webDetection.pagesWithMatchingImages || [];
 
     // 4. Save violations to Firestore & Trigger Classification
     const batch = db.batch();
-    const classificationPromisos: Promise<any>[] = [];
+    const classificationPromises: Promise<any>[] = [];
 
     violationsFound.forEach((violation) => {
-      // Find page context if available
-      const page = pageMatches.find(p => p.fullMatchingImages?.some(img => img.url === violation.match_url) || 
-                                         p.partialMatchingImages?.some(img => img.url === violation.match_url));
+      const page = pageMatches.find(p => 
+        p.fullMatchingImages?.some(img => img.url === violation.match_url) || 
+        p.partialMatchingImages?.some(img => img.url === violation.match_url)
+      );
       
       if (page && page.pageTitle) {
         violation.page_context = page.pageTitle;
@@ -91,10 +90,8 @@ export async function POST(
       const violationRef = db.collection('violations').doc(violation.violation_id);
       batch.set(violationRef, violation);
 
-      // Trigger classification (fire-and-forget or tracked)
-      // For MVP, we call internal API. In production, use Cloud Tasks or Pub/Sub.
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-      classificationPromisos.push(
+      classificationPromises.push(
         fetch(`${appUrl}/api/classify`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -102,9 +99,16 @@ export async function POST(
             violationId: violation.violation_id,
             matchUrl: violation.match_url,
             pageTitle: violation.page_context,
+            pageDescription: page?.pageTitle ?? '', // Use title as description if not available
             assetRightsTier: asset.rights_tier,
             ownerOrg: asset.owner_org,
-            matchType: violation.match_type
+            matchType: violation.match_type,
+            tags: asset.tags || [],
+            originalAssetUrl: asset.storageUrl,
+            violationImageUrl: violation.match_url, // Use match URL for visual check
+            assetDescription: (asset as any).asset_description,
+            assetCaptureDate: (asset as any).captured_at || (asset as any).uploaded_at,
+            assetFirstPublishUrl: (asset as any).first_publish_url,
           }),
         }).catch(err => console.error(`Classification trigger failed for ${violation.violation_id}`, err))
       );
@@ -114,9 +118,6 @@ export async function POST(
     await assetRef.update({ 
       scan_status: violationsFound.length > 0 ? 'violations_found' : 'clean' 
     });
-
-    // We don't necessarily await classification here if we want to return fast
-    // but for the sake of the demo, we log or track it.
     
     return NextResponse.json({
       matchesFound: violationsFound.length,

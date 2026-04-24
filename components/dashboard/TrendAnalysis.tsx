@@ -1,0 +1,91 @@
+'use client';
+
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+
+interface TrendData {
+  day: string;
+  detections: number;
+  resolutions: number;
+}
+
+export function TrendAnalysis({ data }: { data?: TrendData[] }) {
+  const chartData = data && data.length > 0 ? data : [
+    { day: 'Mon', detections: 0, resolutions: 0 },
+    { day: 'Tue', detections: 0, resolutions: 0 },
+    { day: 'Wed', detections: 0, resolutions: 0 },
+    { day: 'Thu', detections: 0, resolutions: 0 },
+    { day: 'Fri', detections: 0, resolutions: 0 },
+    { day: 'Sat', detections: 0, resolutions: 0 },
+    { day: 'Sun', detections: 0, resolutions: 0 },
+  ];
+
+  return (
+    <div className="bento-card p-8 min-h-[350px] h-full flex flex-col gap-6">
+      <div className="flex items-center justify-between">
+        <h3 className="font-display font-black uppercase text-sm tracking-tight text-brand-text">Enforcement Pipeline</h3>
+        <div className="flex gap-4">
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-brand-accent" />
+            <span className="text-[10px] font-black uppercase text-brand-muted">Detections</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-zinc-200" />
+            <span className="text-[10px] font-black uppercase text-brand-muted">Resolved</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 min-h-0">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+          <AreaChart data={chartData}>
+            <defs>
+              <linearGradient id="colorDet" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#E11D48" stopOpacity={0.1} />
+                <stop offset="95%" stopColor="#E11D48" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--brand-border)" />
+            <XAxis
+              dataKey="day"
+              axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 10, fontWeight: 900, fill: '#787774' }}
+              dy={10}
+            />
+            <YAxis
+              hide={true}
+            />
+            <Tooltip
+              contentStyle={{
+                borderRadius: '12px',
+                backgroundColor: 'var(--brand-surface)',
+                border: '1px solid var(--brand-border)',
+                boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                textTransform: 'uppercase',
+                fontSize: '10px',
+                fontWeight: '900',
+                color: 'var(--brand-text)'
+              }}
+              itemStyle={{ color: 'var(--brand-text)' }}
+            />
+            <Area
+              type="monotone"
+              dataKey="detections"
+              stroke="#E11D48"
+              strokeWidth={3}
+              fillOpacity={1}
+              fill="url(#colorDet)"
+            />
+            <Area
+              type="monotone"
+              dataKey="resolutions"
+              stroke="var(--brand-muted)"
+              strokeWidth={2}
+              fillOpacity={0}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}

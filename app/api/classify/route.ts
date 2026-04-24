@@ -1,112 +1,102 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { db } from '@/lib/firebase-admin';
-import { ClassifyParams, GeminiClass, Severity } from '@/types';
-
-// Initialize Gemini API
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+import { FieldValue } from 'firebase-admin/firestore';
+import { classifyViolation } from '@/lib/classify.v2';
 
 /**
- * Perform AI classification of a suspected violation using Gemini 1.5 Flash.
- * Updates the violation document with analysis and severity.
+ * Perform AI classification of a suspected violation using the v2 Forensic Pipeline.
+ * Updates the violation document with adaptive multi-factor analysis and three-axis scoring.
  */
 export async function POST(req: NextRequest) {
   try {
-    const body: ClassifyParams = await req.json();
-    const { violationId, matchUrl, pageTitle, assetRightsTier, ownerOrg, matchType } = body;
+    const body = await req.json();
+    const {
+      violationId,
+      matchUrl,
+      pageTitle,
+      pageDescription,
+      pagePublishedAt,
+      assetRightsTier,
+      ownerOrg,
+      matchType,
+      tags,
+      originalAssetUrl,
+      violationImageUrl,
+      assetDescription,
+      assetCaptureDate,
+      assetFirstPublishUrl,
+    } = body;
 
     if (!violationId) {
       return NextResponse.json({ error: 'Missing violationId' }, { status: 400 });
     }
 
-    // 1. Prepare classification prompt
-    const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-1.5-flash' });
-
-    const prompt = `
-      SYSTEM:
-      You are a digital rights analyst for a sports media organization called DeepTrace.
-      You classify whether a found image usage constitutes an IP violation.
-      Always respond with valid JSON only. No markdown, no preamble.
-
-      USER:
-      Original asset context:
-      - Rights tier: ${assetRightsTier}
-      - Owner organization: ${ownerOrg}
-
-      Matched page context:
-      - URL: ${matchUrl}
-      - Page title: ${pageTitle || 'Unknown'}
-      - Match type: ${matchType} (full_match | partial_match | visually_similar)
-
-      Classify the usage as one of:
-      - AUTHORIZED        (confirmed licensed or official use)
-      - UNAUTHORIZED      (clear commercial or redistributive use without license)
-      - EDITORIAL_FAIR_USE (news/commentary use, likely covered by fair use)
-      - NEEDS_REVIEW      (ambiguous, human review required)
-
-      Respond with JSON:
-      {
-        "classification": "AUTHORIZED | UNAUTHORIZED | EDITORIAL_FAIR_USE | NEEDS_REVIEW",
-        "confidence": 0.0-1.0,
-        "reasoning": "1-2 sentence explanation",
-        "commercial_signal": true|false,
-        "watermark_likely_removed": true|false
-      }
-    `;
-
-    // 2. Call Gemini API
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-
-    // 3. Parse and validate JSON
-    let analysis;
-    try {
-      // Clean possible markdown code blocks if the model ignores the preamble
-      const cleanJson = text.replace(/```json|```/g, '').trim();
-      analysis = JSON.parse(cleanJson);
-    } catch (parseError) {
-      console.error('Gemini JSON parse error:', text);
-      throw new Error('Failed to parse AI classification result');
-    }
-
-    // 4. Determine Severity
-    // CRITICAL: UNAUTHORIZED and confidence >= 0.85
-    // HIGH: UNAUTHORIZED and confidence 0.7-0.84, or NEEDS_REVIEW and confidence >= 0.85
-    // MEDIUM: NEEDS_REVIEW, or EDITORIAL_FAIR_USE with commercial_signal = true
-    // LOW: EDITORIAL_FAIR_USE or AUTHORIZED
-    
-    let severity: Severity = 'LOW';
-    const conf = analysis.confidence || 0;
-    const cls = analysis.classification as GeminiClass;
-
-    if (cls === 'UNAUTHORIZED') {
-      severity = conf >= 0.85 ? 'CRITICAL' : 'HIGH';
-    } else if (cls === 'NEEDS_REVIEW') {
-      severity = conf >= 0.85 ? 'HIGH' : 'MEDIUM';
-    } else if (cls === 'EDITORIAL_FAIR_USE' && analysis.commercial_signal) {
-      severity = 'MEDIUM';
-    }
-
-    // 5. Update Violation in Firestore
-    const violationRef = db.collection('violations').doc(violationId);
-    await violationRef.update({
-      geminiClass: cls,
-      geminiReasoning: analysis.reasoning,
-      severity: severity,
-      confidence: conf,
-      confidenceScore: conf, // Storing for analytics
-    });
-
-    return NextResponse.json({
+    const result = await classifyViolation({
       violationId,
-      classification: cls,
-      severity,
-      analysis
+      matchUrl,
+      pageTitle: pageTitle || '',
+      pageDescription: pageDescription || '',
+      pagePublishedAt,
+      matchType,
+      rightsTier: assetRightsTier,
+      ownerOrg,
+      tags: tags || [],
+      originalAssetUrl,
+      violationImageUrl,
+      assetDescription,
+      assetCaptureDate,
+      assetFirstPublishUrl,
     });
+
+    // Update Violation in Firestore — write BOTH legacy and v2 fields
+    await db.collection('violations').doc(violationId).update({
+      // v2 Fields
+      classification_schema_version: 2,
+      classification:         result.classification,
+      severity:               result.severity,
+      confidence:             result.confidence,
+      relevancy:              result.relevancy,
+      reliability_score:      result.reliability_score,
+      reliability_tier:       result.reliability_tier,
+      abstain:                result.abstained,
+      contradiction_flag:     result.contradiction_flag,
+      explainability_bullets: result.explainability_bullets,
+      scores:                 result.scores,
+      signals:                result.signals,
+      evidence_quality:       result.evidence_quality,
+      reasoning_steps:        result.reasoning_steps,
+      recommended_action:     result.recommended_action,
+      domain_class:           result.domain_class,
+      applied_weights:        result.applied_weights,
+
+      // legacy aliases (keep for existing UI/scripts)
+      gemini_class:            result.classification,
+      gemini_reasoning:        result.reasoning,
+      visual_match_score:      result.visual_match_score,
+      contextual_match_score:  result.contextual_match_score,
+      commercial_signal:       result.commercial_signal,
+      watermark_likely_removed: result.watermark_likely_removed,
+      is_derivative_work:      result.is_derivative_work,
+      
+      updated_at: FieldValue.serverTimestamp(),
+    });
+
+    // Write audit log entry for v2 classification event
+    await db.collection('audit_log').add({
+      timestamp: FieldValue.serverTimestamp(),
+      action_type: 'classification_v2',
+      actor: 'system',
+      violation_id: violationId,
+      next_state: result.classification,
+      reliability_score: result.reliability_score,
+      abstain: result.abstained,
+      contradiction_flag: result.contradiction_flag,
+    });
+
+    return NextResponse.json({ success: true, result });
 
   } catch (error: any) {
-    console.error('Classification error:', error);
+    console.error('Classification v2 error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
