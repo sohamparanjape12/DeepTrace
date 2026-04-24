@@ -36,7 +36,7 @@ AI Violation Classification → Real-Time Alert → Dashboard Review
 | Styling | Tailwind CSS + shadcn/ui | Rapid, professional UI |
 | Auth | Firebase Auth | Google-native, fast setup |
 | Database | Firebase Firestore | Real-time sync, no schema friction |
-| File Storage | Firebase Storage | Direct asset upload |
+| File Storage | Cloudinary | 25GB free tier, transformation API, easy global delivery |
 | Internet Scan | Google Cloud Vision API (Web Detection) | 1,000 free units/month — more than enough for a hackathon |
 | AI Embedding | Gemini Embedding API (`text-embedding-004`) | Free tier via Google AI Studio, replaces Vertex AI Embeddings |
 | Vector Search | FAISS (in-memory, Node.js via `faiss-node`) | Free, no infra, runs inside Cloud Run — drop Vertex AI Vector Search |
@@ -66,12 +66,13 @@ AI Violation Classification → Real-Time Alert → Dashboard Review
   - pHash + dHash fingerprint (stored in Firestore)
   - Vertex AI multimodal embedding (stored in Vector Search index)
   - Metadata: owner, timestamp, tags, rights tier (editorial / commercial / all-rights)
-- Asset stored in Firebase Storage with access control
+- Asset stored in Firebase Storage with scoped path: `assets/{userId}/{assetId}/{fileName}`
 - Upload confirmation + unique Asset ID returned
 
 **Fields per asset:**
 ```
 asset_id        string   auto-generated UUID
+owner_id        string   user ID for isolation
 owner_org       string   organization name
 uploaded_at     timestamp
 rights_tier     enum     [editorial, commercial, all_rights, no_reuse]
@@ -116,6 +117,7 @@ Step 5 — Fire alert if severity >= HIGH
 
 ```
 violation_id      string
+owner_id          string   user ID for isolation
 asset_id          string   (ref)
 detected_at       timestamp
 match_url         string   URL where image was found
@@ -170,6 +172,12 @@ Every scan, classification decision, and status change is written to an immutabl
 
 This is the "transparency and disputes" requirement from the problem statement.
 
+### 5.7 Data Isolation & Multi-Tenancy
+- All data (assets, violations, audit logs) is strictly scoped to the `owner_id` (the authenticated user's UID).
+- Users can only access documents where `owner_id == request.auth.uid`.
+- This is enforced at both the application level (filtered queries) and the database level (Firestore Security Rules).
+
+
 ---
 
 ## 6. Page Map (Next.js Routes)
@@ -217,7 +225,7 @@ This is the "transparency and disputes" requirement from the problem statement.
 ## 8. 9-Day Build Plan
 
 ### Day 1–2 — Infrastructure + Auth (Soham + Patil)
-- Firebase project setup (Auth, Firestore, Storage, Functions)
+- Firebase project setup (Auth, Firestore, Functions) and Cloudinary
 - Cloud Vision API enabled + service account configured
 - Vertex AI project + multimodal embedding model enabled
 - Next.js project scaffold with Tailwind + shadcn/ui
@@ -225,7 +233,7 @@ This is the "transparency and disputes" requirement from the problem statement.
 - Basic layout shell: sidebar nav, header
 
 ### Day 3–4 — Asset Upload + Scan Pipeline (Soham + Mitansh)
-- Asset upload UI (drag-and-drop → Firebase Storage)
+- Asset upload UI (drag-and-drop → Cloudinary via API route)
 - Fingerprint generation on upload (pHash via Sharp + custom hash)
 - Cloud Vision Web Detection API call on upload
 - Raw results written to Firestore
@@ -311,7 +319,7 @@ Return clean, typed TypeScript. Use async/await throughout. Add JSDoc comments o
 ### Mitansh — Frontend + Dashboard + Data Visualisation
 **Focus:** Asset library UI, upload flow, dashboard analytics charts, real-time violation feed
 
-- Builds asset library grid, upload drag-and-drop (Firebase Storage direct upload)
+- Builds asset library grid, upload drag-and-drop (Cloudinary API route upload)
 - Dashboard charts: violation trend (Recharts LineChart), severity breakdown (PieChart), top infringing domains (BarChart)
 - Real-time violation feed via Firestore `onSnapshot` listener
 - Email alert settings UI in /settings page
@@ -323,7 +331,7 @@ Soham has already set up the project scaffold, Tailwind, shadcn/ui, and Firebase
 
 Your job: build the asset library, upload flow, and dashboard analytics UI.
 
-Tech stack: Next.js latest, TypeScript, Tailwind CSS, shadcn/ui, Firebase client SDK (Firestore + Storage), Recharts.
+Tech stack: Next.js latest, TypeScript, Tailwind CSS, shadcn/ui, Firebase client SDK (Firestore), Cloudinary, Recharts.
 
 Tasks:
 
@@ -336,7 +344,7 @@ Tasks:
 2. /app/assets/upload/page.tsx — Upload Flow
    - Drag-and-drop zone (use react-dropzone)
    - Form fields: tags (multi-select: sport, event, player), rights_tier (select: editorial / commercial / all_rights / no_reuse)
-   - On submit: upload file to Firebase Storage at /assets/{uuid}/{filename}
+   - On submit: upload file to Cloudinary via /api/assets/upload
    - Write asset document to Firestore /assets collection (see PRD schema)
    - After Firestore write, call POST /api/scan/{assetId} to trigger the first scan
    - Show progress states: uploading → registering → scanning → done
@@ -416,7 +424,7 @@ Return TypeScript with full types. No any types.
 ### Patil — Firebase + Cloud Functions + Auth + Alerts
 **Focus:** Firebase project setup, Firestore schema + security rules, Cloud Functions, email alerts, environment config
 
-- Sets up Firebase project (Auth, Firestore, Storage, Functions)
+- Sets up Firebase project (Auth, Firestore, Functions) and Cloudinary
 - Deploys Cloud Functions: alert trigger on new CRITICAL violation, scheduled rescan cron
 - Configures Firebase Auth with Google Sign-In
 - Writes Firestore security rules
@@ -528,21 +536,21 @@ Respond with:
   name, plan, created_at, alert_email, alert_threshold
 
 /assets/{asset_id}
-  owner_org, uploaded_at, rights_tier, tags,
+  owner_id, owner_org, uploaded_at, rights_tier, tags,
   phash, embedding_id, storage_url,
   scan_status, last_scanned_at
 
 /violations/{violation_id}
-  asset_id, detected_at, match_url, match_type,
+  owner_id, asset_id, detected_at, match_url, match_type,
   page_context, gemini_class, gemini_reasoning,
   severity, status, reviewed_by
 
 /audit_log/{log_id}
-  timestamp, action, actor, asset_id,
+  owner_id, timestamp, action, actor, asset_id,
   violation_id, prev_state, new_state
 
 /scans/{scan_id}
-  asset_id, triggered_at, trigger_type,
+  owner_id, asset_id, triggered_at, trigger_type,
   raw_vision_response, matches_count, status
 ```
 
@@ -585,7 +593,7 @@ SMTP_PASS=                  # Gmail App Password (not account password)
 > **Cost note:** All services used are on free tiers for hackathon scale.
 > Cloud Vision Web Detection: 1,000 free units/month.
 > Gemini 1.5 Flash via Google AI Studio: free (15 RPM, 1M TPM).
-> Firebase Spark plan: free (Firestore 1GB, Storage 5GB, Functions 2M invocations).
+> Firebase Spark plan: free (Firestore 1GB, Functions 2M invocations). Cloudinary 25GB free tier.
 > Vercel Hobby: free. Gmail SMTP: free. Total infra cost = $0.
 
 ---

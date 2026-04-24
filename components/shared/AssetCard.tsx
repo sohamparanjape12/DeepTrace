@@ -35,7 +35,7 @@ export function AssetCard({ asset, className, onClick }: AssetCardProps) {
       )}
     >
       {/* Thumbnail */}
-      <div className="relative aspect-video bg-zinc-100 overflow-hidden">
+      <div className="relative aspect-video bg-brand-bg overflow-hidden">
         {asset.thumbnailUrl ? (
           <img
             src={asset.thumbnailUrl}
@@ -44,7 +44,7 @@ export function AssetCard({ asset, className, onClick }: AssetCardProps) {
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <span className="text-zinc-300 font-display font-black text-3xl uppercase tracking-tight">
+            <span className="text-brand-muted font-display font-black text-3xl uppercase tracking-tight opacity-30">
               {asset.name.slice(0, 2)}
             </span>
           </div>
@@ -53,8 +53,8 @@ export function AssetCard({ asset, className, onClick }: AssetCardProps) {
           <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
         </div>
         {asset.scan_status === 'scanning' && (
-          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-100">
-            <div className="h-full bg-blue-500 animate-[scan_2s_ease-in-out_infinite]" style={{ width: '60%' }} />
+          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-border">
+            <div className="h-full bg-brand-accent animate-[scan_2s_ease-in-out_infinite]" style={{ width: '60%' }} />
           </div>
         )}
       </div>

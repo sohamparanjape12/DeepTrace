@@ -1,37 +1,51 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Plus } from 'lucide-react';
+import { Plus, Info, Library, ShieldAlert, Loader2, CheckCircle, Clock } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { AssetCard } from '@/components/shared/AssetCard';
 import { FilterTabs } from '@/components/shared/FilterTabs';
 import { Button } from '@/components/ui/Button';
 import type { Asset } from '@/types';
-
-const MOCK_ASSETS: Asset[] = [
-  { asset_id: 'a1', name: 'Champions League Final — Hero Shot',  owner_org: 'UEFA Media', uploaded_at: '2026-04-15T10:00:00Z', rights_tier: 'commercial',  tags: ['Football', 'UCL', 'Final'],    scan_status: 'violations_found', thumbnailUrl: 'https://picsum.photos/seed/ucl/800/500' },
-  { asset_id: 'a2', name: 'Wimbledon 2026 — Centre Court Serve', owner_org: 'AEW Media',  uploaded_at: '2026-04-14T09:30:00Z', rights_tier: 'editorial',    tags: ['Tennis', 'Wimbledon'],         scan_status: 'clean',            thumbnailUrl: 'https://picsum.photos/seed/tennis/800/500' },
-  { asset_id: 'a3', name: 'IPL 2026 — Match Winner Celebration',  owner_org: 'BCCI',       uploaded_at: '2026-04-13T14:00:00Z', rights_tier: 'all_rights',   tags: ['Cricket', 'IPL', '2026'],      scan_status: 'scanning',         thumbnailUrl: 'https://picsum.photos/seed/cricket/800/500' },
-  { asset_id: 'a4', name: 'NBA Playoffs — Slam Dunk',             owner_org: 'NBA Media',  uploaded_at: '2026-04-12T08:00:00Z', rights_tier: 'commercial',   tags: ['Basketball', 'NBA'],           scan_status: 'clean',            thumbnailUrl: 'https://picsum.photos/seed/nba/800/500' },
-  { asset_id: 'a5', name: 'Formula 1 Monaco — Pit Stop',          owner_org: 'FOM',        uploaded_at: '2026-04-11T17:00:00Z', rights_tier: 'commercial',   tags: ['F1', 'Monaco', 'Pit'],         scan_status: 'violations_found', thumbnailUrl: 'https://picsum.photos/seed/f1/800/500' },
-  { asset_id: 'a6', name: 'Cycling Tour — Mountain Stage',        owner_org: 'ASO',        uploaded_at: '2026-04-10T11:00:00Z', rights_tier: 'no_reuse',     tags: ['Cycling', 'TdF'],              scan_status: 'pending',          thumbnailUrl: 'https://picsum.photos/seed/cycling/800/500' },
-];
-
-const TABS = [
-  { key: 'all',              label: 'All',       count: MOCK_ASSETS.length },
-  { key: 'violations_found', label: 'Violations', count: MOCK_ASSETS.filter(a => a.scan_status === 'violations_found').length },
-  { key: 'scanning',         label: 'Scanning',  count: MOCK_ASSETS.filter(a => a.scan_status === 'scanning').length },
-  { key: 'clean',            label: 'Clean',     count: MOCK_ASSETS.filter(a => a.scan_status === 'clean').length },
-  { key: 'pending',          label: 'Pending',   count: MOCK_ASSETS.filter(a => a.scan_status === 'pending').length },
-];
+import { db } from '@/lib/firebase';
+import { useAuth } from '@/lib/auth-context';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 
 export default function AssetsPage() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('all');
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchAssets() {
+      if (!user) return;
+      try {
+        const q = query(collection(db, 'assets'), where('owner_id', '==', user.uid));
+        const snapshot = await getDocs(q);
+        const assetsData = snapshot.docs.map(doc => doc.data() as Asset);
+        setAssets(assetsData);
+      } catch (err) {
+        console.error('Failed to fetch assets:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchAssets();
+  }, [user]);
+
+  const TABS = [
+    { key: 'all', label: 'All', count: assets.length },
+    { key: 'violations_found', label: 'Violations', count: assets.filter(a => a.scan_status === 'violations_found').length },
+    { key: 'scanning', label: 'Scanning', count: assets.filter(a => a.scan_status === 'scanning').length },
+    { key: 'clean', label: 'Clean', count: assets.filter(a => a.scan_status === 'clean').length },
+    { key: 'pending', label: 'Pending', count: assets.filter(a => a.scan_status === 'pending').length },
+  ];
 
   const filtered = activeTab === 'all'
-    ? MOCK_ASSETS
-    : MOCK_ASSETS.filter(a => a.scan_status === activeTab);
+    ? assets
+    : assets.filter(a => a.scan_status === activeTab);
 
   return (
     <div className="space-y-12">
@@ -47,14 +61,52 @@ export default function AssetsPage() {
         }
       />
 
+      {/* ─── Dry-Run Explainer Panel ─── */}
+      <div className="bento-card p-6 space-y-4 border-l-4 border-l-blue-400">
+        <div className="flex items-start gap-3">
+          <div className="p-1.5 rounded-lg bg-blue-50 shrink-0">
+            <Info className="w-4 h-4 text-blue-600" />
+          </div>
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold text-brand-text">How This Page Works</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-brand-muted leading-relaxed">
+              <div className="flex items-start gap-2">
+                <Plus className="w-3.5 h-3.5 text-brand-text mt-0.5 shrink-0" />
+                <p><strong className="text-brand-text">Register New Asset</strong> — Opens the 4-step wizard: upload your image → SerpAPI scans the web for copies → you provide context → Gemini AI runs forensic analysis.</p>
+              </div>
+              <div className="flex items-start gap-2">
+                <Library className="w-3.5 h-3.5 text-brand-text mt-0.5 shrink-0" />
+                <p><strong className="text-brand-text">Asset Cards</strong> — Each card shows an uploaded asset with its name, organization, rights tier, and current scan status. Click to view details and violations.</p>
+              </div>
+              <div className="flex items-start gap-2">
+                <ShieldAlert className="w-3.5 h-3.5 text-red-500 mt-0.5 shrink-0" />
+                <p><strong className="text-brand-text">Filter Tabs</strong> — Filter by scan status: <em>Violations</em> = copies found, <em>Scanning</em> = in progress, <em>Clean</em> = no matches, <em>Pending</em> = awaiting scan.</p>
+              </div>
+              <div className="flex items-start gap-2">
+                <CheckCircle className="w-3.5 h-3.5 text-green-600 mt-0.5 shrink-0" />
+                <p><strong className="text-brand-text">Status Badges</strong> — Each asset card shows a colored badge indicating the scan result. Red = violations found, Green = clean, Blue = scanning, Gray = pending.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <FilterTabs tabs={TABS} active={activeTab} onChange={setActiveTab} />
 
-      {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-32 gap-6 text-center border border-dashed border-brand-border rounded-2xl">
-          <p className="font-display font-black text-3xl text-zinc-200 uppercase">No Assets Found</p>
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-[280px] bg-brand-bg rounded-2xl animate-pulse" />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-32 text-center border border-dashed border-brand-border rounded-2xl gap-4">
+          <p className="font-display font-black text-3xl text-brand-muted/30 uppercase">No Assets Found</p>
           <p className="text-brand-muted text-sm">Register your first media asset to start scanning.</p>
           <Link href="/assets/upload">
-            <Button>Register Asset</Button>
+            <Button className="flex items-center gap-2">
+              <Plus className="w-4 h-4" /> Register Your First Asset
+            </Button>
           </Link>
         </div>
       ) : (
@@ -69,3 +121,4 @@ export default function AssetsPage() {
     </div>
   );
 }
+

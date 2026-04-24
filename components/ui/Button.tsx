@@ -21,9 +21,9 @@ export function Button({
   ...props 
 }: ButtonProps) {
   const variants = {
-    primary: 'bg-brand-text text-white border-transparent hover:bg-zinc-800',
-    secondary: 'bg-transparent text-brand-text border-brand-border hover:bg-zinc-50',
-    ghost: 'bg-transparent text-brand-text border-transparent hover:bg-zinc-50',
+    primary: 'bg-brand-text text-brand-bg border-transparent hover:opacity-90',
+    secondary: 'bg-transparent text-brand-text border-brand-border hover:bg-brand-surface',
+    ghost: 'bg-transparent text-brand-text border-transparent hover:bg-brand-surface',
   };
 
   const sizes = {
