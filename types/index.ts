@@ -7,17 +7,33 @@ export type GeminiClass = 'AUTHORIZED' | 'UNAUTHORIZED' | 'EDITORIAL_FAIR_USE' |
 export type ViolationStatus = 'open' | 'resolved' | 'disputed' | 'false_positive';
 export type MatchType = 'full_match' | 'partial_match' | 'visually_similar';
 
+export type AssetStatus = 'pending' | 'processed' | 'failed';
+export type PipelineRightsTier = 'no_reuse' | 'editorial' | 'general';
+
 export interface Asset {
-  asset_id: string;
-  name: string;
-  owner_org: string;
-  uploaded_at: string;        // ISO string
-  rights_tier: RightsTier;
-  tags: string[];
+  id: string;                  // New ID field (matches Phase 0)
+  asset_id?: string;           // Legacy ID field
+  url: string;                 // Source URL (matches Phase 0)
+  source: string;              // Source platform/site (matches Phase 0)
+  rightsTier: PipelineRightsTier; // New RightsTier (matches Phase 0)
+  rights_tier?: RightsTier;    // Legacy RightsTier
+  hash: string;                // Content/URL hash (matches Phase 0)
+  clusterId?: string;          // For grouping similar assets
+  status: AssetStatus;         // Pipeline status
+  scan_status?: ScanStatus;    // Legacy scan status
+  geminiResult?: any;          // AI processing results
+  archivedUrl?: string;        // Permanent archive link
+  
+  // Existing/Legacy fields preserved for UI compatibility
+  name?: string;
+  owner_org?: string;
+  uploaded_at?: string;
+  tags?: string[];
   phash?: string;
-  scan_status: ScanStatus;
   thumbnailUrl?: string;
   storageUrl?: string;
+  createdAt?: any;             // Firestore Timestamp or Date
+  updatedAt?: any;             // Firestore Timestamp or Date
 }
 
 export interface Violation {
