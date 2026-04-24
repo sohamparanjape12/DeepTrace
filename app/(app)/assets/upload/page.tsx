@@ -12,6 +12,9 @@ import { doc, setDoc, collection, query, where, onSnapshot } from 'firebase/fire
 import { db } from '@/lib/firebase';
 import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from '@/lib/auth-context';
+import { ReliabilityRing } from '@/components/shared/ReliabilityRing';
+import { ExplainabilityList } from '@/components/shared/ExplainabilityList';
+import { ContradictionBanner } from '@/components/shared/ContradictionBanner';
 
 const RIGHTS_TIERS = [
   { value: 'editorial', label: 'Editorial — News reporting use only' },
@@ -52,6 +55,15 @@ interface AnalysisResult {
   is_derivative_work: boolean;
   commercial_signal: boolean;
   reasoning: string;
+  // RSE v2 fields
+  relevancy: number;
+  reliability_score: number;
+  reliability_tier: 'HIGH' | 'MEDIUM' | 'LOW';
+  abstain: boolean;
+  contradiction_flag: boolean;
+  explainability_bullets: string[];
+  domain_class: string;
+  recommended_action: string;
 }
 
 export default function UploadPage() {
@@ -116,6 +128,14 @@ export default function UploadPage() {
           is_derivative_work: data.is_derivative_work || false,
           commercial_signal: data.commercial_signal || false,
           reasoning: data.gemini_reasoning || '',
+          reliability_score: data.reliability_score || 0,
+          reliability_tier: data.reliability_tier || 'LOW',
+          recommended_action: data.recommended_action || 'monitor',
+          relevancy: data.relevancy || 0,
+          abstain: data.abstain || false,
+          contradiction_flag: data.contradiction_flag || false,
+          explainability_bullets: data.explainability_bullets || [],
+          domain_class: data.domain_class || 'unknown',
         });
       });
 
@@ -742,41 +762,75 @@ export default function UploadPage() {
                   </div>
                 </div>
 
-                {/* Scores */}
-                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    {scoreBar(result.visual_match_score, 'Visual Match (80% weight)')}
-                    {scoreBar(result.contextual_match_score, 'Contextual Match (20% weight)')}
-                    <div className="h-px bg-brand-border" />
-                    {scoreBar(result.confidence, 'Overall Confidence')}
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-4">
+                {/* RSE v2 Forensic Dashboard */}
+                <div className="p-6 space-y-6">
+                  {/* Top Bar: Action + Reliability */}
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1 space-y-2">
                       <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${result.is_derivative_work ? 'bg-red-500' : 'bg-green-500'}`} />
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                          result.recommended_action === 'escalate' ? 'text-red-700 bg-red-50 border-red-200' :
+                          result.recommended_action === 'human_review' ? 'text-amber-700 bg-amber-50 border-amber-200' :
+                          'text-green-700 bg-green-50 border-green-200'
+                        }`}>
+                          {result.recommended_action === 'escalate' ? '⚡ ESCALATE' :
+                           result.recommended_action === 'human_review' ? '👁 REVIEW' : '✓ MONITOR'}
+                        </span>
                         <span className="text-[10px] font-black uppercase tracking-widest text-brand-muted">
-                          {result.is_derivative_work ? 'Derivative Work' : 'Not Derivative'}
+                          Domain: <span className="text-brand-text">{result.domain_class}</span>
                         </span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${result.commercial_signal ? 'bg-red-500' : 'bg-green-500'}`} />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-brand-muted">
-                          {result.commercial_signal ? 'Commercial Intent' : 'Non-Commercial'}
-                        </span>
-                      </div>
+                      <ContradictionBanner show={result.contradiction_flag || result.abstain} />
                     </div>
-                    {result.reasoning_steps.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-brand-muted">Reasoning Steps</p>
-                        <div className="space-y-1.5">
-                          {result.reasoning_steps.map((step, si) => (
-                            <p key={si} className="text-xs text-brand-muted leading-relaxed pl-3 border-l-2 border-zinc-200">
-                              {step}
-                            </p>
-                          ))}
+                    <ReliabilityRing score={result.reliability_score} tier={result.reliability_tier} />
+                  </div>
+
+                  {/* Three-Axis Bars */}
+                  <div className="grid grid-cols-2 gap-x-8 gap-y-3 pt-2">
+                    {[
+                      { label: 'Relevancy', score: result.relevancy, color: '#6366F1' },
+                      { label: 'Confidence', score: result.confidence, color: '#8B5CF6' },
+                      { label: 'Visual Match', score: result.visual_match_score, color: '#0EA5E9' },
+                      { label: 'Context Match', score: result.contextual_match_score, color: '#F59E0B' },
+                    ].map(({ label, score, color }) => (
+                      <div key={label} className="space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-brand-muted">{label}</span>
+                          <span className="text-[9px] font-black text-brand-text">{(score * 100).toFixed(0)}%</span>
+                        </div>
+                        <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${score * 100}%`, backgroundColor: color }} />
                         </div>
                       </div>
-                    )}
+                    ))}
+                  </div>
+
+                  {/* Audit / Explainability */}
+                  <div className="space-y-3 pt-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-brand-muted">Forensic Audit Trail</p>
+                    <ExplainabilityList bullets={result.explainability_bullets} />
+                  </div>
+
+                  {/* Signals Summary */}
+                  <div className="flex items-center gap-4 flex-wrap pt-2 border-t border-brand-border">
+                    <div className="flex items-center gap-1.5">
+                      <div className={`w-2 h-2 rounded-full ${result.is_derivative_work ? 'bg-amber-500' : 'bg-green-500'}`} />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-brand-muted">
+                        {result.is_derivative_work ? 'Derivative' : 'Original'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className={`w-2 h-2 rounded-full ${result.commercial_signal ? 'bg-red-500' : 'bg-green-500'}`} />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-brand-muted">
+                        {result.commercial_signal ? 'Commercial' : 'Non-Commercial'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className={`w-2 h-2 rounded-full ${result.abstain ? 'bg-zinc-400' : 'bg-blue-500'}`} />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-brand-muted">
+                        {result.abstain ? 'Abstained' : 'Forensic Ready'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
