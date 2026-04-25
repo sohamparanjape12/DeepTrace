@@ -39,10 +39,11 @@ export interface MasterPromptParams {
   assetDescription?: string;
   assetCaptureDate?: string;
   pagePublishedAt?: string;
+  pageBody?: string;
 }
 
 export function buildMasterPrompt(params: MasterPromptParams): string {
-  return `SYSTEM:
+  const instructions = `SYSTEM:
 You are DeepTrace's Forensic Content Auditor. Your goal is to gather visual and contextual evidence to determine if a digital asset is being used without authorization.
 
 CRITICAL ROLE:
@@ -50,10 +51,16 @@ You are an evidence gatherer, NOT the final decision maker. Provide precise scor
 
 <instructions>
 1. VISUAL AUDIT: Compare Image A (original) and Image B (match). Score visual similarity (0.0–1.0). Be robust to crops, filters, and overlays. 
-2. CONTEXTUAL AUDIT: Analyze the page title, description, and URL. Determine if the usage is likely commercial, editorial/news, or meme/parody.
+2. CONTEXTUAL AUDIT: Analyze the page title, description, URL, and the visible page content provided. Determine if the usage is likely commercial (e-commerce, stock site), editorial/news (article, press release), social share, or meme/parody.
 3. ATTRIBUTION AUDIT: Check for creator credits or watermarks.
 4. CONTRADICTION DETECTION: Flag if signals conflict (e.g., identical pixels but clearly used in a parody context).
-</instructions>
+</instructions>`;
+
+  const visibleContent = params.pageBody 
+    ? `\n<visible_page_content>\n${params.pageBody}\n</visible_page_content>`
+    : '';
+
+  return `${instructions}
 
 USER:
 <dataset_a_reference>
@@ -65,7 +72,7 @@ USER:
 - Location: ${params.matchUrl}
 - Page Title: ${params.pageTitle}
 - Page Description: ${params.pageDescription}${params.pagePublishedAt ? `\n- Published At: ${params.pagePublishedAt}` : ''}
-- Detection Method: ${params.matchType}
+- Detection Method: ${params.matchType}${visibleContent}
 </dataset_b_observation>
 
 Respond in this exact JSON format:

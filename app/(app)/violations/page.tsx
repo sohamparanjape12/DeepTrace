@@ -15,16 +15,19 @@ export default function ViolationsPage() {
   const [activeTab, setActiveTab] = useState('all');
   const [violations, setViolations] = useState<Violation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
   useEffect(() => {
     if (!user) return;
     const q = query(
       collection(db, 'violations'), 
       where('owner_id', '==', user.uid),
-      orderBy('detected_at', 'desc')
+      orderBy('detected_at', sortOrder)
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const vData = snapshot.docs.map(doc => doc.data() as Violation);
+      const vData = snapshot.docs
+        .map(doc => doc.data() as Violation)
+        .filter(v => v.stage !== 'ignored');
       setViolations(vData);
       setIsLoading(false);
     }, (error) => {
@@ -33,7 +36,7 @@ export default function ViolationsPage() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [user, sortOrder]);
 
   const ALL_TABS = [
     { key: 'all',      label: 'All',      count: violations.length },
@@ -67,10 +70,24 @@ export default function ViolationsPage() {
     <div className="space-y-12">
       <PageHeader
         title="Violations"
+        size="xl"
         subtitle="All detected unauthorized uses of your registered assets."
       />
 
-      <FilterTabs tabs={ALL_TABS} active={activeTab} onChange={setActiveTab} />
+      <div className="flex items-center justify-between">
+        <FilterTabs tabs={ALL_TABS} active={activeTab} onChange={setActiveTab} />
+        <div className="flex items-center gap-2 bg-brand-surface border border-brand-border px-3 py-1.5 rounded-lg">
+          <span className="text-[10px] font-black uppercase tracking-widest text-brand-muted">Sort</span>
+          <select 
+            className="bg-transparent text-xs font-bold focus:outline-none"
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value as 'desc' | 'asc')}
+          >
+            <option value="desc">Newest First</option>
+            <option value="asc">Oldest First</option>
+          </select>
+        </div>
+      </div>
 
       {isLoading ? (
         <div className="space-y-5">

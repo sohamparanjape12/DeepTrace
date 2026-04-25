@@ -8,6 +8,7 @@ async function runTests() {
     {
       name: "1. Unauthorized commercial reuse (Piracy)",
       params: {
+        violationId: "test-1",
         matchUrl: "https://sketchy-merch-store.com/buy/team-photo",
         pageTitle: "Buy official team photo prints",
         pageDescription: "Get the best unauthorized prints of the final game. 50% off!",
@@ -20,6 +21,7 @@ async function runTests() {
     {
       name: "2. Editorial news usage",
       params: {
+        violationId: "test-2",
         matchUrl: "https://global-sports-news.com/article/championship-recap",
         pageTitle: "FC Sports Wins Championship in Thrilling Final",
         pageDescription: "A recap of the historic final match and player performances.",
@@ -32,6 +34,7 @@ async function runTests() {
     {
       name: "3. Official team repost",
       params: {
+        violationId: "test-3",
         matchUrl: "https://twitter.com/FCSportsOfficial/status/123456",
         pageTitle: "FC Sports on Twitter",
         pageDescription: "We did it! Watch the highlights here.",
@@ -44,6 +47,7 @@ async function runTests() {
     {
       name: "4. Meme / Transformed image",
       params: {
+        violationId: "test-4",
         matchUrl: "https://reddit.com/r/soccer/comments/meme",
         pageTitle: "When you miss the open goal",
         pageDescription: "Funny meme editing the player's face onto a potato.",
@@ -56,6 +60,7 @@ async function runTests() {
     {
       name: "5. Ambiguous blog",
       params: {
+        violationId: "test-5",
         matchUrl: "https://random-fan-blog.net/post-10",
         pageTitle: "My thoughts on the game",
         pageDescription: "Here is a picture of the game.",

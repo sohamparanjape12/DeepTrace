@@ -18,25 +18,22 @@ service cloud.firestore {
 
     // Rules for /assets
     match /assets/{assetId} {
-      // Only authenticated users can read/modify their own org's assets
-      // For read/update/delete, we check the existing resource
-      allow read, update, delete: if request.auth != null && resource.data.owner_org == request.auth.token.org;
-      // For create, we check the incoming data payload
-      allow create: if request.auth != null && request.resource.data.owner_org == request.auth.token.org;
+      allow read: if request.auth != null && resource.data.owner_id == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.owner_id == request.auth.uid;
+      // Lock down pipeline fields for updates
+      allow update: if request.auth != null && resource.data.owner_id == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['stage', 'stage_updated_at', 'totals', 'idempotency']);
+      allow delete: if request.auth != null && resource.data.owner_id == request.auth.uid;
     }
 
     // Rules for /violations 
     match /violations/{violationId} {
-      // Typically need to ensure the parent asset owner_org matches the token.
-      // But if violation documents don't store owner_org directly and only asset_id, 
-      // we might need to use get() to read the asset. 
-      // Let's assume the PRD meant violations also carry org data, or we just restrict by asset.
-      // Since PRD didn't explicitly mention owner_org on violations, I will get() the parent asset.
-      allow read, update, delete: if request.auth != null && 
-        get(/databases/$(database)/documents/assets/$(resource.data.asset_id)).data.owner_org == request.auth.token.org;
-        
-      allow create: if request.auth != null && 
-        get(/databases/$(database)/documents/assets/$(request.resource.data.asset_id)).data.owner_org == request.auth.token.org;
+      allow read: if request.auth != null && resource.data.owner_id == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.owner_id == request.auth.uid;
+      // Only allow updating status or specific UI fields
+      allow update: if request.auth != null && resource.data.owner_id == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['stage', 'stage_updated_at', 'idempotency_key', 'attempts']);
+      allow delete: if request.auth != null && resource.data.owner_id == request.auth.uid;
     }
 
     // Rules for /audit_log

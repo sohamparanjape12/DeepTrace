@@ -7,6 +7,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    console.log('[Asset DELETE] Request for id:', id);
     
     // In a real app we'd verify the token via headers.
     // For this prototype, we'll accept userId in the body.

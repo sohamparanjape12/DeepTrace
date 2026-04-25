@@ -9,7 +9,7 @@ export const geminiRateLimit = new Ratelimit({
   redis: (isDev && !process.env.UPSTASH_REDIS_REST_URL)
     ? new Redis({ url: 'https://dummy.upstash.io', token: 'dummy' })
     : Redis.fromEnv(),
-  limiter: Ratelimit.tokenBucket(10, "1 s"),
+  limiter: Ratelimit.tokenBucket(10, "1 s", 10),
   analytics: true,
 });
 

@@ -37,8 +37,8 @@ export async function POST(req: NextRequest) {
           match_url: match.link,
           match_type: 'visually_similar',
           status: 'open',
-          severity: 'LOW',
-          gemini_class: 'NEEDS_REVIEW',
+          severity: 'PENDING',
+          gemini_class: 'ANALYZING',
           page_context: match.title || '',
           assetThumbnailUrl: match.original || match.thumbnail || '',
         });

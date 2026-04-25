@@ -8,6 +8,7 @@
   --brand-border: #EAEAEA;
   --brand-text: #1A1A1A;
   --brand-muted: #787774;
+  --brand-accent: #000000;
   --brand-red-muted: #FDEBEC;
   --brand-red-text: #9F2F2D;
   --brand-blue-muted: #E1F3FE;
@@ -18,10 +19,11 @@
 
 .dark {
   --brand-bg: #09090B;
-  --brand-surface: #09090B;
+  --brand-surface: #121214;
   --brand-border: #1E1E21;
   --brand-text: #FAFAFA;
   --brand-muted: #A1A1AA;
+  --brand-accent: #FAFAFA;
   --brand-red-muted: #2D1616;
   --brand-red-text: #F87171;
   --brand-blue-muted: #111B27;
@@ -29,11 +31,21 @@
   --brand-green-muted: #131E17;
   --brand-green-text: #4ADE80;
 }
+  
+/* Fix browser autofill colors with theme awareness */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--brand-text) !important;
+  transition: background-color 5000s ease-in-out 0s;
+  box-shadow: 0 0 0 1000px var(--brand-surface) inset !important;
+}
 
 body {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-jakarta), sans-serif;
+  background-color: var(--brand-bg);
+  color: var(--brand-text);
+  font-family: var(--font-inter), sans-serif;
   letter-spacing: -0.015em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -57,11 +69,11 @@ body {
   }
 
   .bento-card:hover {
-    @apply border-zinc-300 shadow-soft-lg;
+    @apply border-zinc-300 dark:border-zinc-700 shadow-soft-lg;
   }
 
   .glass-pill {
-    @apply bg-white/80 backdrop-blur-xl border border-white/30 rounded-full shadow-soft;
+    @apply bg-white/80 dark:bg-black/80 backdrop-blur-xl border border-white/30 dark:border-white/10 rounded-full shadow-soft;
   }
 
   .macro-spacing {
@@ -81,4 +93,31 @@ body {
 * {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+@keyframes scan {
+  0%, 100% { transform: translateY(-100%); }
+  50% { transform: translateY(100%); }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes spin-slow-reverse {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
+.animate-scan {
+  animation: scan 3s linear infinite;
+}
+
+.animate-spin-slow {
+  animation: spin-slow 8s linear infinite;
+}
+
+.animate-spin-slow-reverse {
+  animation: spin-slow-reverse 6s linear infinite;
 }
