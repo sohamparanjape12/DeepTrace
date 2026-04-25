@@ -82,7 +82,7 @@ export interface Violation {
   domain_class?: string;
   contradiction_flag?: boolean;
   explainability_bullets?: string[];
-  abstained?: boolean;
+  abstain?: boolean;
   
   // Nested Data Maps
   scores?: Record<string, number>;

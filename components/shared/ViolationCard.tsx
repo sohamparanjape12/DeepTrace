@@ -1,6 +1,7 @@
 import { clsx } from 'clsx';
 import { ExternalLink, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { SeverityChip } from './SeverityChip';
+import { ReliabilityRing } from './ReliabilityRing';
 import type { Violation } from '@/types';
 
 interface ViolationCardProps {
@@ -30,7 +31,7 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
       className,
     )}>
       {/* Thumbnail */}
-      <div className="w-full md:w-40 md:shrink-0 aspect-video md:aspect-auto bg-brand-bg relative overflow-hidden">
+      <div className="w-full md:w-48 md:shrink-0 aspect-video md:aspect-auto bg-brand-bg relative overflow-hidden">
         {violation.assetThumbnailUrl ? (
           <img
             src={violation.assetThumbnailUrl}
@@ -43,89 +44,130 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-r from-transparent to-brand-border/10" />
+        
+        {/* Reliability Overlay for Thumbnail */}
+        {violation.reliability_score !== undefined && (
+          <div className="absolute bottom-2 left-2 scale-50 origin-bottom-left">
+            <ReliabilityRing score={violation.reliability_score} tier={violation.reliability_tier || 'LOW'} />
+          </div>
+        )}
       </div>
 
       {/* Content */}
       <div className="flex-1 p-6 flex flex-col justify-between gap-4">
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-3">
             <SeverityChip severity={violation.severity} />
-            <span className={clsx('text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border', cls.classes)}>
+            <span className={clsx('text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border', cls.classes)}>
               {cls.label}
             </span>
             {violation.asset_name && (
-              <span className="text-[10px] font-black uppercase tracking-widest text-brand-muted border border-brand-border px-2 py-0.5 rounded ml-1">
+              <span className="text-[9px] font-black uppercase tracking-widest text-brand-muted border border-brand-border px-2 py-0.5 rounded ml-1">
                 {violation.asset_name}
               </span>
             )}
-            {violation.sentiment && (
-              <span className={clsx(
-                'text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border',
-                violation.sentiment === 'positive' ? 'text-green-700 bg-green-50 border-green-200' :
-                violation.sentiment === 'negative' ? 'text-red-700 bg-red-50 border-red-200' :
-                'text-zinc-500 bg-zinc-50 border-zinc-200'
-              )}>
-                {violation.sentiment}
+            
+            <div className="ml-auto flex items-center gap-3">
+              {violation.sentiment && (
+                <span className={clsx(
+                  'text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border',
+                  violation.sentiment === 'positive' ? 'text-green-700 bg-green-50 border-green-200' :
+                  violation.sentiment === 'negative' ? 'text-red-700 bg-red-50 border-red-200' :
+                  'text-zinc-500 bg-zinc-50 border-zinc-200'
+                )}>
+                  {violation.sentiment}
+                </span>
+              )}
+              <span className="text-[10px] text-brand-muted font-bold">
+                {new Date(violation.detected_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               </span>
-            )}
-            {violation.brand_safety_risk && violation.brand_safety_risk !== 'safe' && (
-              <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border text-red-700 bg-red-50 border-red-200 animate-pulse">
-                ⚠ Risk: {violation.brand_safety_risk}
-              </span>
-            )}
-            <span className="text-[11px] text-brand-muted ml-auto">
-              {new Date(violation.detected_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-            </span>
+            </div>
           </div>
-          <div
-            onClick={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              window.open(violation.match_url, '_blank', 'noopener,noreferrer');
-            }}
-            className="flex items-center gap-2 group/link hover:text-brand-accent transition-colors cursor-pointer w-fit"
-          >
-            <p className="text-sm font-bold text-brand-text group-hover/link:text-brand-accent transition-colors truncate max-w-md">
-              {domain}
-            </p>
-            <ExternalLink className="w-3.5 h-3.5 text-brand-muted group-hover/link:text-brand-accent transition-colors shrink-0" />
+
+          <div className="space-y-1">
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                window.open(violation.match_url, '_blank', 'noopener,noreferrer');
+              }}
+              className="flex items-center gap-2 group/link hover:text-brand-accent transition-colors cursor-pointer w-fit"
+            >
+              <p className="text-sm font-bold text-brand-text group-hover/link:text-brand-accent transition-colors truncate max-w-md">
+                {domain}
+              </p>
+              <ExternalLink className="w-3.5 h-3.5 text-brand-muted group-hover/link:text-brand-accent transition-colors shrink-0" />
+            </div>
+            
+            {violation.gemini_reasoning && (
+              <p className="text-xs text-brand-muted leading-relaxed line-clamp-2 font-medium">
+                {violation.gemini_reasoning}
+              </p>
+            )}
           </div>
-          {violation.gemini_reasoning && (
-            <p className="text-xs text-brand-muted leading-relaxed line-clamp-2 font-medium">
-              {violation.gemini_reasoning}
-            </p>
+
+          {/* Miniature v2 Forensic Bars */}
+          {violation.visual_match_score !== undefined && (
+            <div className="flex items-center gap-4 pt-1">
+              <div className="flex-1 space-y-1">
+                <div className="flex justify-between items-center">
+                  <span className="text-[8px] font-black uppercase tracking-tighter text-brand-muted">Visual Match</span>
+                  <span className="text-[8px] font-black text-brand-text">{Math.round(violation.visual_match_score * 100)}%</span>
+                </div>
+                <div className="h-1 bg-zinc-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-500 rounded-full" style={{ width: `${violation.visual_match_score * 100}%` }} />
+                </div>
+              </div>
+              <div className="flex-1 space-y-1">
+                <div className="flex justify-between items-center">
+                  <span className="text-[8px] font-black uppercase tracking-tighter text-brand-muted">Context Match</span>
+                  <span className="text-[8px] font-black text-brand-text">{Math.round((violation.contextual_match_score || 0) * 100)}%</span>
+                </div>
+                <div className="h-1 bg-zinc-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-amber-500 rounded-full" style={{ width: `${(violation.contextual_match_score || 0) * 100}%` }} />
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
         {/* Actions */}
         {violation.status === 'open' && (
-          <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
+          <div className="flex items-center gap-4 pt-3 border-t border-brand-border">
             <button
               onClick={(e) => { e.stopPropagation(); e.preventDefault(); onResolve?.(violation.violation_id); }}
-              className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:opacity-80 transition-opacity"
+              className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-emerald-600 hover:opacity-80 transition-opacity"
             >
               <CheckCircle className="w-3.5 h-3.5" /> Resolve
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); e.preventDefault(); onDispute?.(violation.violation_id); }}
-              className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-amber-700 hover:text-amber-800 transition-colors"
+              className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-amber-700 hover:text-amber-800 transition-colors"
             >
               <AlertTriangle className="w-3.5 h-3.5" /> Dispute
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); e.preventDefault(); onFalsePositive?.(violation.violation_id); }}
-              className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-text transition-colors"
+              className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-text transition-colors"
             >
               <XCircle className="w-3.5 h-3.5" /> False Positive
             </button>
           </div>
         )}
         {violation.status !== 'open' && (
-          <p className="text-[10px] font-black uppercase tracking-widest text-brand-muted capitalize pt-2 border-t border-brand-border">
-            Status: {violation.status}
-          </p>
+          <div className="flex items-center justify-between pt-3 border-t border-brand-border">
+            <p className="text-[9px] font-black uppercase tracking-widest text-brand-muted">
+              Status: <span className="text-brand-text capitalize">{violation.status}</span>
+            </p>
+            {violation.reviewed_by && (
+              <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">
+                Reviewer: {violation.reviewed_by}
+              </p>
+            )}
+          </div>
         )}
       </div>
     </div>
   );
 }
+

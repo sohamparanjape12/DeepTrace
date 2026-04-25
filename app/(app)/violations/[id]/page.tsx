@@ -185,7 +185,7 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
           </div>
         </div>
 
-        <ContradictionBanner show={!!(violation.contradiction_flag || violation.abstained)} />
+        <ContradictionBanner show={!!(violation.contradiction_flag || violation.abstain)} />
 
         {/* Reliability Score + Confidence */}
         <div className="flex items-center gap-12">

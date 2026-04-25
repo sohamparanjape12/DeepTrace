@@ -73,48 +73,54 @@ export async function POST(
 
     const pageMatches = webDetection.pagesWithMatchingImages || [];
 
-    // 4. Save violations to Firestore & Trigger Classification
+    // 4. Save violations to Firestore (Commit placeholders first)
     const batch = db.batch();
-    const classificationPromises: Promise<any>[] = [];
-
     violationsFound.forEach((violation) => {
       const page = pageMatches.find(p => 
         p.fullMatchingImages?.some(img => img.url === violation.match_url) || 
         p.partialMatchingImages?.some(img => img.url === violation.match_url)
       );
-      
       if (page && page.pageTitle) {
         violation.page_context = page.pageTitle;
       }
-
       const violationRef = db.collection('violations').doc(violation.violation_id);
       batch.set(violationRef, violation);
-
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-      classificationPromises.push(
-        fetch(`${appUrl}/api/classify`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            violationId: violation.violation_id,
-            matchUrl: violation.match_url,
-            pageTitle: violation.page_context,
-            pageDescription: page?.pageTitle ?? '', // Use title as description if not available
-            assetRightsTier: asset.rights_tier,
-            ownerOrg: asset.owner_org,
-            matchType: violation.match_type,
-            tags: asset.tags || [],
-            originalAssetUrl: asset.storageUrl,
-            violationImageUrl: violation.match_url, // Use match URL for visual check
-            assetDescription: (asset as any).asset_description,
-            assetCaptureDate: (asset as any).captured_at || (asset as any).uploaded_at,
-            assetFirstPublishUrl: (asset as any).first_publish_url,
-          }),
-        }).catch(err => console.error(`Classification trigger failed for ${violation.violation_id}`, err))
-      );
     });
 
     await batch.commit();
+
+    // 5. Trigger v2 Classification
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const classificationPromises = violationsFound.map((violation) => {
+      const page = pageMatches.find(p => 
+        p.fullMatchingImages?.some(img => img.url === violation.match_url) || 
+        p.partialMatchingImages?.some(img => img.url === violation.match_url)
+      );
+      
+      return fetch(`${appUrl}/api/classify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          violationId: violation.violation_id,
+          matchUrl: violation.match_url,
+          pageTitle: violation.page_context,
+          pageDescription: page?.pageTitle ?? '',
+          assetRightsTier: asset.rights_tier,
+          ownerOrg: asset.owner_org,
+          matchType: violation.match_type,
+          tags: asset.tags || [],
+          originalAssetUrl: asset.storageUrl,
+          violationImageUrl: violation.match_url,
+          assetDescription: (asset as any).asset_description,
+          assetCaptureDate: (asset as any).captured_at || (asset as any).uploaded_at,
+          assetFirstPublishUrl: (asset as any).first_publish_url,
+        }),
+      }).catch(err => console.error(`Classification trigger failed for ${violation.violation_id}`, err));
+    });
+
+    // Wait for all classification triggers to be dispatched
+    await Promise.all(classificationPromises);
+
     await assetRef.update({ 
       scan_status: violationsFound.length > 0 ? 'violations_found' : 'clean' 
     });
