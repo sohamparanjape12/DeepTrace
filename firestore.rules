@@ -50,7 +50,7 @@ service cloud.firestore {
     match /scans/{scanId} {
       allow write: if false; // Only cloud scheduler / server updates scans
       allow read: if request.auth != null && 
-        get(/databases/$(database)/documents/assets/$(resource.data.asset_id)).data.owner_org == request.auth.token.org;
+        get(/databases/$(database)/documents/assets/$(resource.data.asset_id)).data.owner_id == request.auth.uid;
     }
   }
 }

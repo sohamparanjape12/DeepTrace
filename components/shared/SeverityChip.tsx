@@ -13,6 +13,7 @@ const config: Record<Severity, { label: string; classes: string }> = {
   MEDIUM:   { label: 'Medium',   classes: 'bg-amber-500/10 text-amber-500 border-amber-500/20 ring-amber-500/10' },
   LOW:      { label: 'Low',      classes: 'bg-brand-bg text-brand-muted border-brand-border ring-brand-text/5' },
   PENDING:  { label: 'Pending',  classes: 'bg-zinc-100 text-zinc-500 border-zinc-200 ring-zinc-500/5 animate-pulse' },
+
 };
 
 export function SeverityChip({ severity, className }: SeverityChipProps) {

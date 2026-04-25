@@ -35,6 +35,7 @@ export function Sidebar() {
           </div>
           <span className="font-display font-black text-lg uppercase tracking-tight text-brand-text">DeepTrace</span>
         </Link>
+        <ThemeToggle />
       </div>
 
       {/* Nav */}

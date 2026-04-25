@@ -28,7 +28,7 @@ async function runTests() {
       gateTier: 'NEAR_IDENTICAL',
     });
 
-    if (r1.applied_weights.gate_similarity_used !== true) {
+    if ((r1.applied_weights as any).gate_similarity_used !== true) {
       throw new Error('gate_similarity_used must be true when gateSimilarity is provided');
     }
     if (!r1.explainability_bullets.some(b => b.includes('Pre-filter similarity 85%'))) {
@@ -37,8 +37,6 @@ async function runTests() {
     console.log('✅ Test 1 passed');
 
     // 2. Mismatch guardrail: high Gemini visual, low gate similarity → relevancy dampened
-    // Since we are calling the real Gemini API in this environment, 
-    // we use a mismatched buffer to trigger the guardrail.
     console.log('Test 2: Hallucination guardrail...');
     const r2 = await classifyViolation({
       violationId: 'test-guardrail',
@@ -62,6 +60,55 @@ async function runTests() {
         console.log('ℹ No hallucination detected or guardrail not triggered (Gemini was honest)');
     }
     console.log('✅ Test 2 complete');
+
+    // 3. Smoke tests from V1
+    console.log('Test 3: Smoke tests for V2 logic...');
+    const cases = [
+      { 
+        name: 'Reuters syndicated photo (Authorized)',
+        params: {
+          violationId: 'test-smoke-1',
+          rightsTier: 'editorial',
+          ownerOrg: 'UEFA Media',
+          tags: ['football', 'champions league'],
+          matchUrl: 'https://www.reuters.com/sports/soccer/2024-final',
+          pageTitle: 'UEFA Champions League final photo gallery',
+          pageDescription: 'Match photos from Wembley stadium.',
+          matchType: 'full_match' as const,
+          originalAssetUrl: 'https://images.uefa.com/original.jpg',
+          violationImageUrl: 'https://www.reuters.com/reuters-same.jpg',
+        }
+      },
+      { 
+        name: 'bet365 match photo (Critical)',
+        params: {
+          violationId: 'test-smoke-2',
+          rightsTier: 'commercial',
+          ownerOrg: 'UEFA Media',
+          tags: ['football'],
+          matchUrl: 'https://www.bet365.com/promo/champions-league',
+          pageTitle: 'Bet on tonight\'s final',
+          pageDescription: 'Live betting odds and match photos.',
+          matchType: 'full_match' as const,
+          originalAssetUrl: 'https://images.uefa.com/original.jpg',
+          violationImageUrl: 'https://www.bet365.com/bet365-crop.jpg',
+        }
+      }
+    ];
+
+    for (const c of cases) {
+      console.log(`CASE: ${c.name}`);
+      const r = await classifyViolation(c.params as any);
+      console.log({
+        classification: r.classification,
+        severity: r.severity,
+        reliability: r.reliability_score,
+        tier: r.reliability_tier,
+        relevancy: r.relevancy,
+        action: r.recommended_action,
+      });
+    }
+    console.log('✅ Test 3 complete');
 
   } catch (error) {
     console.error('❌ Tests failed:', error);
