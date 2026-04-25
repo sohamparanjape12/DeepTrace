@@ -94,21 +94,11 @@ export default function DashboardPage() {
         if (v.status === 'open') {
           activeCount++;
           
-<<<<<<< HEAD
-          if (v.severity === 'CRITICAL') critical++;
-          else if (v.severity === 'HIGH') high++;
-          else if (v.severity === 'MEDIUM') medium++;
-          else if (v.severity === 'LOW') low++;
-
-          if (v.revenue_risk) totalRisk += v.revenue_risk;
-
-=======
           if (v.severity === 'CRITICAL') { critical++; totalRisk += 1250; }
           else if (v.severity === 'HIGH') { high++; totalRisk += 450; }
           else if (v.severity === 'MEDIUM') { medium++; totalRisk += 150; }
           else if (v.severity === 'LOW') { low++; totalRisk += 50; }
           
->>>>>>> 5e40d30a9982afd6cb7c7ed79515b7ca0e29e0e9
           try {
             const url = new URL(v.match_url);
             const domain = url.hostname.replace('www.', '');
@@ -186,10 +176,7 @@ export default function DashboardPage() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <PageHeader
           title="Executive Overview"
-<<<<<<< HEAD
-=======
           size="xl"
->>>>>>> 5e40d30a9982afd6cb7c7ed79515b7ca0e29e0e9
           subtitle="Real-time IP value protection and rights enforcement analytics."
           className="mb-0"
         />
@@ -216,12 +203,8 @@ export default function DashboardPage() {
           value={activeViolations.toLocaleString()}
           icon={<AlertCircle className="w-5 h-5" />}
           trend="Live"
-<<<<<<< HEAD
-          trendUp={false}
-=======
           trendUp={true}
           isNegative={true}
->>>>>>> 5e40d30a9982afd6cb7c7ed79515b7ca0e29e0e9
           className="ring-1 ring-brand-accent/10"
         />
         <StatCard
@@ -229,12 +212,8 @@ export default function DashboardPage() {
           value={`$${totalRevenueRisk.toLocaleString()}`}
           icon={<DollarSign className="w-5 h-5" />}
           trend="Live"
-<<<<<<< HEAD
-          trendUp={false}
-=======
           trendUp={true}
           isNegative={true}
->>>>>>> 5e40d30a9982afd6cb7c7ed79515b7ca0e29e0e9
         />
         <StatCard
           label="Avg. Time to Action"
@@ -263,11 +242,7 @@ export default function DashboardPage() {
                 { name: 'CRITICAL', count: severityCounts.CRITICAL, color: 'bg-red-500' },
                 { name: 'HIGH', count: severityCounts.HIGH, color: 'bg-orange-500' },
                 { name: 'MEDIUM', count: severityCounts.MEDIUM, color: 'bg-amber-500' },
-<<<<<<< HEAD
-                { name: 'LOW', count: severityCounts.LOW, color: 'bg-zinc-500' },
-=======
                 { name: 'LOW', count: severityCounts.LOW, color: 'bg-zinc-400 dark:bg-zinc-600' },
->>>>>>> 5e40d30a9982afd6cb7c7ed79515b7ca0e29e0e9
               ].map(sev => {
                 const total = severityCounts.CRITICAL + severityCounts.HIGH + severityCounts.MEDIUM + severityCounts.LOW;
                 const pct = total === 0 ? 0 : (sev.count / total) * 100;
@@ -297,11 +272,7 @@ export default function DashboardPage() {
         <div className="bento-card p-8 space-y-6">
           <div className="flex items-center justify-between">
             <h3 className="font-display font-black uppercase text-sm tracking-tight text-brand-text">Top Infringing Domains</h3>
-<<<<<<< HEAD
-            <Link href="/violations" className="p-1.5 rounded-lg hover:bg-zinc-100 transition-colors">
-=======
             <Link href="/violations" className="p-1.5 rounded-lg hover:bg-brand-bg transition-colors">
->>>>>>> 5e40d30a9982afd6cb7c7ed79515b7ca0e29e0e9
               <ArrowUpRight className="w-4 h-4 text-brand-muted" />
             </Link>
           </div>
@@ -349,17 +320,11 @@ export default function DashboardPage() {
                 <div className={`w-1.5 h-1.5 rounded-full ${v.severity === 'CRITICAL' ? 'bg-red-500 animate-pulse' : 'bg-orange-500'}`} />
                 <div className="flex-1 min-w-0">
                   <p className="text-[11px] font-black uppercase tracking-widest text-brand-muted mb-0.5">
-<<<<<<< HEAD
-                    {v.asset_name || 'Unknown Asset'} • ${v.revenue_risk || 0} Risk
-                  </p>
-                  <p className="text-xs font-bold text-brand-text truncate">{v.gemini_reasoning || 'No reasoning provided.'}</p>
-=======
                     {v.asset_name || 'Generic Asset'} • ${v.revenue_risk?.toLocaleString() || 0} Risk
                   </p>
                   <p className="text-xs font-bold text-brand-text truncate">
                     {v.gemini_class === 'ANALYZING' ? 'Analysis in progress...' : (v.gemini_reasoning || 'Unauthorized usage detected.')}
                   </p>
->>>>>>> 5e40d30a9982afd6cb7c7ed79515b7ca0e29e0e9
                 </div>
                 <ChevronRight className="w-4 h-4 text-brand-muted shrink-0" />
               </Link>

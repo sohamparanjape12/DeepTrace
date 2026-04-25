@@ -12,14 +12,10 @@ import { Button } from '@/components/ui/Button';
 import type { Asset, Violation } from '@/types';
 import { useAuth } from '@/lib/auth-context';
 import { db } from '@/lib/firebase';
-<<<<<<< HEAD
-import { doc, getDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
-=======
 import { doc, collection, query, where, orderBy, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { PipelineProgress } from '@/components/shared/PipelineProgress';
 import { useRef } from 'react';
 import { isTerminalViolation } from '@/lib/firestore-schema';
->>>>>>> 5e40d30a9982afd6cb7c7ed79515b7ca0e29e0e9
 
 const scanStatusConfig = {
   pending: { label: 'Pending', variant: 'default' as const },
@@ -45,51 +41,6 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
   const [isUnauthorized, setIsUnauthorized] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
-<<<<<<< HEAD
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!user || !id) return;
-
-    async function fetchData() {
-      try {
-        const assetDoc = await getDoc(doc(db, 'assets', id));
-        if (!assetDoc.exists()) {
-          setIsLoading(false);
-          return;
-        }
-
-        const data = assetDoc.data() as Asset;
-        if (!user || data.owner_id !== user.uid) {
-          setIsUnauthorized(true);
-          setIsLoading(false);
-          return;
-        }
-
-        setAsset(data);
-
-        // Fetch violations
-        const vQuery = query(
-          collection(db, 'violations'),
-          where('asset_id', '==', id),
-          where('owner_id', '==', user?.uid)
-        );
-        const vSnap = await getDocs(vQuery);
-        setViolations(vSnap.docs.map(d => d.data() as Violation));
-
-        // Fetch scans (mocking for now as scan schema is complex, but filtered by user)
-        // In real app, we would have a 'scans' collection
-        setScans([]);
-
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    fetchData();
-  }, [id, user]);
-=======
   const [filters, setFilters] = useState({ severity: 'all', status: 'all' });
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const router = useRouter();
@@ -138,7 +89,6 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
       unsubscribeViolations.current?.();
     };
   }, [id, user, sortOrder]);
->>>>>>> 5e40d30a9982afd6cb7c7ed79515b7ca0e29e0e9
 
   if (isLoading) return (
     <div className="p-12 animate-pulse space-y-8">
@@ -170,14 +120,11 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
 
   const handleDelete = async () => {
     if (!user || !id) return;
-<<<<<<< HEAD
-=======
     
     // Kill listeners immediately to prevent permission errors when doc disappears
     unsubscribeAsset.current?.();
     unsubscribeViolations.current?.();
     
->>>>>>> 5e40d30a9982afd6cb7c7ed79515b7ca0e29e0e9
     setIsDeleting(true);
     try {
       const res = await fetch(`/api/assets/${id}`, {
@@ -204,34 +151,6 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
   });
 
   return (
-<<<<<<< HEAD
-    <div className="space-y-12">
-      {/* Back + Title */}
-      <div className="flex items-start gap-6">
-        <Link href="/assets" className="mt-4 shrink-0">
-          <Button variant="ghost" size="sm" className="flex items-center gap-2">
-            <ArrowLeft className="w-3.5 h-3.5" /> Assets
-          </Button>
-        </Link>
-        <PageHeader 
-          title={asset.name} 
-          variant="secondary" 
-          className="mb-0 flex-1" 
-          actions={
-            showConfirmDelete ? (
-              <div className="flex items-center gap-2 animate-in slide-in-from-right-2">
-                <span className="text-xs font-bold text-red-500 mr-2">Are you sure?</span>
-                <Button variant="outline" size="sm" onClick={() => setShowConfirmDelete(false)} disabled={isDeleting}>Cancel</Button>
-                <Button variant="outline" size="sm" onClick={handleDelete} disabled={isDeleting} className="bg-red-50 text-red-600 border-red-200 hover:bg-red-100 hover:text-red-700">
-                  {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm Delete'}
-                </Button>
-              </div>
-            ) : (
-              <Button variant="ghost" size="sm" onClick={() => setShowConfirmDelete(true)} className="text-brand-muted hover:text-red-500 hover:bg-red-50">
-                <Trash2 className="w-4 h-4 mr-2" /> Delete Asset
-              </Button>
-            )
-=======
     <div className="space-y-12 pb-20">
       {/* Back + Header */}
       <div className="space-y-4">
@@ -252,7 +171,6 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
             >
               <Trash2 className="w-4 h-4 mr-2" /> Delete Asset
             </Button>
->>>>>>> 5e40d30a9982afd6cb7c7ed79515b7ca0e29e0e9
           }
         />
       </div>
@@ -321,11 +239,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
       {/* Asset Hero */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
         {/* Thumbnail */}
-<<<<<<< HEAD
-        <div className="lg:col-span-3 aspect-video rounded-xl overflow-hidden bg-zinc-100 border border-brand-border relative group">
-=======
         <div className="lg:col-span-3 aspect-video rounded-xl overflow-hidden bg-brand-bg border border-brand-border relative group">
->>>>>>> 5e40d30a9982afd6cb7c7ed79515b7ca0e29e0e9
           {asset.thumbnailUrl ? (
             <img
               src={asset.thumbnailUrl}
@@ -334,11 +248,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
-<<<<<<< HEAD
-              <span className="text-zinc-300 font-display font-black text-3xl uppercase tracking-tight">
-=======
               <span className="text-brand-muted/30 font-display font-black text-3xl uppercase tracking-tight">
->>>>>>> 5e40d30a9982afd6cb7c7ed79515b7ca0e29e0e9
                 {asset.name.slice(0, 2)}
               </span>
             </div>
@@ -437,55 +347,6 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
           <h2 className="font-display font-black uppercase text-xl text-brand-text">
             Violations <span className="opacity-40">({violations.length})</span>
           </h2>
-<<<<<<< HEAD
-          {violations.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 text-center border border-dashed border-brand-border rounded-2xl gap-4">
-              <p className="font-display font-black text-3xl text-brand-muted/30 uppercase">Clean</p>
-              <p className="text-brand-muted text-sm">No violations detected for this asset.</p>
-            </div>
-          ) : (
-            <div className="space-y-5">
-              {violations.map(v => (
-                <Link key={v.violation_id} href={`/violations/${v.violation_id}`} className="block">
-                  <ViolationCard violation={v} className="hover:shadow-soft-lg transition-shadow" />
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Scan Timeline */}
-        <div className="space-y-6">
-          <h2 className="font-display font-black uppercase text-xl text-brand-text">Scan History</h2>
-          <div className="bento-card overflow-hidden divide-y divide-brand-border">
-            {scans.length === 0 ? (
-              <div className="p-8 text-center text-meta uppercase tracking-widest">No scans recorded</div>
-            ) : (
-              scans.map((scan) => (
-                <div key={scan.id} className="p-4 flex gap-4 hover:bg-brand-surface transition-colors group">
-                  <div className="mt-1 flex flex-col items-center">
-                    <div className={`w-2 h-2 rounded-full ${scan.status === 'clean' ? 'bg-brand-green-text' : 'bg-brand-accent'}`} />
-                    <div className="w-px flex-1 bg-brand-border my-1" />
-                  </div>
-                  <div className="space-y-1 flex-1">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-brand-muted">
-                        {new Date(scan.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                      </p>
-                      <Badge variant={scan.status === 'clean' ? 'success' : 'error'} className="scale-75 origin-right">
-                        {scan.status === 'clean' ? 'Clean' : 'Alert'}
-                      </Badge>
-                    </div>
-                    <p className="text-xs font-bold text-brand-text">{scan.results}</p>
-                  </div>
-                </div>
-              ))
-            )}
-            <div className="p-4 bg-brand-surface border-t border-brand-border">
-              <p className="text-[10px] font-bold text-brand-muted uppercase tracking-widest text-center">Scan Frequency: Every 24 Hours</p>
-            </div>
-          </div>
-=======
 
           {/* ─── Filter Bar ─── */}
           <div className="flex flex-wrap items-center gap-4 bg-brand-surface border border-brand-border p-4 rounded-xl">
@@ -599,7 +460,6 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
               <p className="text-[10px] font-bold text-brand-muted uppercase tracking-widest text-center">Scan Frequency: Every 24 Hours</p>
             </div>
           </div>
->>>>>>> 5e40d30a9982afd6cb7c7ed79515b7ca0e29e0e9
         </div>
       </div>
     </div>
