@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     const result: any = await new Promise((resolve, reject) => {
       cloudinary.uploader.upload_stream(
         { folder: 'deeptrace-assets' },
-        (error, result) => {
+        (error: any, result: any) => {
           if (error) reject(error);
           else resolve(result);
         }

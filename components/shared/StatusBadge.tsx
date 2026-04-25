@@ -6,7 +6,7 @@ interface StatusBadgeProps {
 }
 
 export function StatusBadge({ status }: StatusBadgeProps) {
-  const configs: Record<ScanStatus, { label: string; variant: 'default' | 'accent' | 'muted' | 'outline' }> = {
+  const configs: Record<ScanStatus, { label: string; variant: 'default' | 'accent' | 'muted' | 'outline' | 'info' | 'success' | 'error' }> = {
     pending: { label: 'Pending', variant: 'default' },
     scanning: { label: 'Scanning', variant: 'info' },
     clean: { label: 'Clean', variant: 'success' },

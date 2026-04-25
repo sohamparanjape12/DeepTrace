@@ -16,6 +16,7 @@ const classConfig = {
   EDITORIAL_FAIR_USE: { label: 'Fair Use',           classes: 'text-amber-700 bg-amber-50 border-amber-200' },
   NEEDS_REVIEW:       { label: 'NEEDS REVIEW',       classes: 'text-brand-blue-text bg-brand-blue-muted border-brand-blue-text/20' },
   AUTHORIZED:         { label: 'Authorized',         classes: 'text-brand-green-text bg-brand-green-muted border-brand-green-text/20' },
+  INSUFFICIENT_EVIDENCE: { label: 'Insufficient Evidence', classes: 'text-zinc-500 bg-zinc-50 border-zinc-200' },
 };
 
 export function ViolationCard({ violation, className, onResolve, onDispute, onFalsePositive }: ViolationCardProps) {
@@ -55,6 +56,21 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
             {violation.asset_name && (
               <span className="text-[10px] font-black uppercase tracking-widest text-brand-muted border border-brand-border px-2 py-0.5 rounded ml-1">
                 {violation.asset_name}
+              </span>
+            )}
+            {violation.sentiment && (
+              <span className={clsx(
+                'text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border',
+                violation.sentiment === 'positive' ? 'text-green-700 bg-green-50 border-green-200' :
+                violation.sentiment === 'negative' ? 'text-red-700 bg-red-50 border-red-200' :
+                'text-zinc-500 bg-zinc-50 border-zinc-200'
+              )}>
+                {violation.sentiment}
+              </span>
+            )}
+            {violation.brand_safety_risk && violation.brand_safety_risk !== 'safe' && (
+              <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border text-red-700 bg-red-50 border-red-200 animate-pulse">
+                ⚠ Risk: {violation.brand_safety_risk}
               </span>
             )}
             <span className="text-[11px] text-brand-muted ml-auto">

@@ -106,7 +106,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
     </div>
   );
 
-  const statusCfg = scanStatusConfig[asset.scan_status];
+  const statusCfg = scanStatusConfig[asset.scan_status || 'pending'] || scanStatusConfig.pending;
 
   return (
     <div className="space-y-12">
@@ -117,7 +117,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
             <ArrowLeft className="w-3.5 h-3.5" /> Assets
           </Button>
         </Link>
-        <PageHeader title={asset.name} variant="secondary" className="mb-0 flex-1" />
+        <PageHeader title={asset.name || 'Untitled Asset'} variant="secondary" className="mb-0 flex-1" />
       </div>
 
       {/* Asset Hero */}
@@ -133,7 +133,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <span className="text-zinc-300 font-display font-black text-3xl uppercase tracking-tight">
-                {asset.name.slice(0, 2)}
+                {asset.name?.slice(0, 2) || 'AS'}
               </span>
             </div>
           )}
@@ -160,7 +160,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
                 <div>
                   <p className="text-meta mb-1">Uploaded</p>
                   <p className="text-sm font-bold text-brand-text">
-                    {new Date(asset.uploaded_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    {asset.uploaded_at ? new Date(asset.uploaded_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}
                   </p>
                 </div>
               </div>
@@ -177,16 +177,16 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
                 <Scan className="w-4 h-4 text-brand-muted mt-0.5 shrink-0" />
                 <div>
                   <p className="text-meta mb-1">Rights Tier</p>
-                  <p className="text-sm font-bold text-brand-text">{rightsTierLabels[asset.rights_tier]}</p>
+                  <p className="text-sm font-bold text-brand-text">{rightsTierLabels[asset.rights_tier || 'editorial'] || asset.rights_tier}</p>
                 </div>
               </div>
-              {asset.tags?.length > 0 && (
+              {asset.tags && asset.tags.length > 0 && (
                 <div className="flex items-start gap-3">
                   <Tag className="w-4 h-4 text-brand-muted mt-0.5 shrink-0" />
                   <div>
                     <p className="text-meta mb-2">Tags</p>
                     <div className="flex flex-wrap gap-2">
-                      {asset.tags.map(t => (
+                      {(asset.tags || []).map(t => (
                         <span key={t} className="px-2.5 py-1 rounded-full bg-brand-bg border border-brand-border text-[10px] font-black uppercase tracking-widest text-brand-muted">
                           {t}
                         </span>

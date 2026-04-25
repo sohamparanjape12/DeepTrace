@@ -24,7 +24,7 @@ const rightsTierLabels: Record<string, string> = {
 };
 
 export function AssetCard({ asset, className, onClick }: AssetCardProps) {
-  const statusCfg = scanStatusConfig[asset.scan_status] ?? scanStatusConfig.pending;
+  const statusCfg = scanStatusConfig[asset.scan_status || 'pending'] ?? scanStatusConfig.pending;
 
   return (
     <div
@@ -45,7 +45,7 @@ export function AssetCard({ asset, className, onClick }: AssetCardProps) {
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <span className="text-brand-muted font-display font-black text-3xl uppercase tracking-tight opacity-30">
-              {asset.name.slice(0, 2)}
+              {asset.name?.slice(0, 2) || 'AS'}
             </span>
           </div>
         )}
@@ -66,16 +66,16 @@ export function AssetCard({ asset, className, onClick }: AssetCardProps) {
             {asset.name}
           </p>
           <span className="text-[10px] font-bold text-brand-muted uppercase tracking-widest whitespace-nowrap">
-            {rightsTierLabels[asset.rights_tier] ?? asset.rights_tier}
+            {rightsTierLabels[asset.rights_tier || 'editorial'] ?? asset.rights_tier}
           </span>
         </div>
         <div className="flex items-center justify-between">
           <p className="text-[11px] text-brand-muted font-medium">
-            {new Date(asset.uploaded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            {asset.uploaded_at ? new Date(asset.uploaded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
           </p>
-          {asset.tags?.length > 0 && (
+          {(asset.tags || []).length > 0 && (
             <p className="text-[10px] text-brand-muted font-semibold uppercase tracking-wider truncate max-w-[120px]">
-              {asset.tags.join(' · ')}
+              {asset.tags?.join(' · ')}
             </p>
           )}
         </div>

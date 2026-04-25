@@ -56,6 +56,9 @@ export interface ClassificationResult {
   transformation_type: string;
   reasoning_steps: string[];
   reasoning: string;
+  sentiment: 'positive' | 'neutral' | 'negative';
+  brand_safety_risk: 'safe' | 'low' | 'medium' | 'high' | 'critical';
+  risk_factors: string[];
 
   // Adaptive weights used (for audit trail)
   applied_weights: Record<string, number>;
@@ -107,7 +110,7 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
   const modelName = (process.env.GEMINI_MODEL || "gemini-1.5-flash").trim();
   const model = genAI.getGenerativeModel({ 
     model: modelName,
-    generationConfig: { responseMimeType: "application/json" }
+    generationConfig: { responseMimeType: "application/json" } as any
   });
 
   // 1. Evidence Quality Check
@@ -171,6 +174,9 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
       credit_present: false,
       context_type: 'unknown',
       transformation_type: 'none',
+      sentiment: 'neutral',
+      brand_safety_risk: 'safe',
+      risk_factors: [],
       reasoning_steps: ["System Error: Classification pipeline failed."],
       contradictions: []
     };
@@ -290,6 +296,9 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
     credit_present: jsonResp.credit_present,
     context_type: jsonResp.context_type,
     transformation_type: jsonResp.transformation_type,
+    sentiment: jsonResp.sentiment || 'neutral',
+    brand_safety_risk: jsonResp.brand_safety_risk || 'safe',
+    risk_factors: jsonResp.risk_factors || [],
     reasoning_steps: jsonResp.reasoning_steps || [],
     reasoning: (jsonResp.reasoning_steps || []).join(' '),
     applied_weights,

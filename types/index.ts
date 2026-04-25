@@ -27,6 +27,7 @@ export interface Asset {
   // Existing/Legacy fields preserved for UI compatibility
   name?: string;
   owner_org?: string;
+  owner_id?: string;
   uploaded_at?: string;
   tags?: string[];
   phash?: string;
@@ -107,6 +108,9 @@ export interface Violation {
   credit_present?: boolean;
   contradictions?: string[];
   abstained_v1?: boolean;
+  sentiment?: 'positive' | 'neutral' | 'negative';
+  brand_safety_risk?: 'safe' | 'low' | 'medium' | 'high' | 'critical';
+  risk_factors?: string[];
 }
 
 export interface AuditEntry {
