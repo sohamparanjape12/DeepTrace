@@ -64,7 +64,7 @@ export function UploadZone({ onFileSelect, isUploading, uploadProgress = 0, clas
               </div>
               <div className="px-6 py-4 bg-black/60 backdrop-blur-sm flex items-center justify-between">
                 <p className="text-[10px] font-black uppercase tracking-widest text-white">
-                  Uploading to Cloudinary…
+                  Uploading to DeepTrace...
                 </p>
                 <p className="text-[10px] font-black text-white">{uploadProgress}%</p>
               </div>

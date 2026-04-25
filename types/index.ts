@@ -1,10 +1,11 @@
 // Shared type definitions for DeepTrace
+import { AssetStage, ViolationStage } from '../lib/types/pipeline';
 
 export type ScanStatus = 'pending' | 'scanning' | 'clean' | 'violations_found';
 export type RightsTier = 'editorial' | 'commercial' | 'all_rights' | 'no_reuse';
-export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
-export type GeminiClass = 'AUTHORIZED' | 'UNAUTHORIZED' | 'EDITORIAL_FAIR_USE' | 'NEEDS_REVIEW' | 'INSUFFICIENT_EVIDENCE';
-export type ViolationStatus = 'open' | 'resolved' | 'disputed' | 'false_positive';
+export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'PENDING';
+export type GeminiClass = 'AUTHORIZED' | 'UNAUTHORIZED' | 'EDITORIAL_FAIR_USE' | 'NEEDS_REVIEW' | 'INSUFFICIENT_EVIDENCE' | 'ANALYZING' | 'NOT_A_MATCH';
+export type ViolationStatus = 'open' | 'resolved' | 'disputed' | 'false_positive' | 'dropped';
 export type MatchType = 'full_match' | 'partial_match' | 'visually_similar';
 
 export type AssetStatus = 'pending' | 'processed' | 'failed';
@@ -34,6 +35,25 @@ export interface Asset {
   storageUrl?: string;
   createdAt?: any;             // Firestore Timestamp or Date
   updatedAt?: any;             // Firestore Timestamp or Date
+  
+  // Pipeline v2 Checkpointing
+  stage?: AssetStage;
+  stage_updated_at?: any;      // Timestamp
+  totals?: {
+    reverse_hits: number;
+    gated_pending: number;
+    gate_dropped: number;
+    gate_passed: number;
+    scraped: number;
+    classified: number;
+    failed_retryable: number;
+    failed_permanent: number;
+  };
+  idempotency?: {
+    reverse_search_done: boolean;
+    gate_done: boolean;
+  };
+  last_error?: { stage: AssetStage; message: string; at: any };
 }
 
 export interface Violation {
@@ -107,6 +127,15 @@ export interface Violation {
   credit_present?: boolean;
   contradictions?: string[];
   abstained_v1?: boolean;
+
+  // Pipeline v2 Checkpointing
+  stage?: ViolationStage;
+  stage_updated_at?: any;      // Timestamp
+  attempts?: { gate: number; scrape: number; classify: number };
+  next_retry_at?: any;          // Timestamp for exponential backoff
+  idempotency_key?: string;     // deterministic: hash(assetId + matchUrl)
+  scraped_cache?: { title: string; description: string; bodyText: string; at: any };
+  last_error?: { stage: ViolationStage; message: string; at: any };
 }
 
 export interface AuditEntry {

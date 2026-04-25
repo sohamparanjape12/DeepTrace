@@ -7,10 +7,14 @@ interface StatCardProps {
   icon?: ReactNode;
   trend?: string;
   trendUp?: boolean;
+  isNegative?: boolean; // If true, Up = Red, Down = Green
   className?: string;
 }
 
-export function StatCard({ label, value, icon, trend, trendUp, className }: StatCardProps) {
+export function StatCard({ label, value, icon, trend, trendUp, isNegative, className }: StatCardProps) {
+  const isRed = isNegative ? trendUp : !trendUp;
+  const isUp = trendUp;
+
   return (
     <div className={clsx(
       'bento-card p-8 flex flex-col justify-between gap-8 group',
@@ -25,9 +29,9 @@ export function StatCard({ label, value, icon, trend, trendUp, className }: Stat
         {trend && (
           <span className={clsx(
             'text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full',
-            trendUp ? 'text-brand-green-text bg-brand-green-muted' : 'text-brand-red-text bg-brand-red-muted',
+            isRed ? 'text-brand-red-text bg-brand-red-muted' : 'text-brand-green-text bg-brand-green-muted',
           )}>
-            {trendUp ? '↑' : '↓'} {trend}
+            {isUp ? '↑' : '↓'} {trend}
           </span>
         )}
       </div>

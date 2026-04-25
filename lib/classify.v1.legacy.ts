@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { buildMasterPrompt } from "./prompts";
+import { buildMasterPrompt } from "./prompts.v1.legacy";
 
 // ── Input / Output Interfaces ──
 

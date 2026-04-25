@@ -1,5 +1,5 @@
 import { clsx } from 'clsx';
-import { ExternalLink, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { ExternalLink, CheckCircle, XCircle, AlertTriangle, Scan } from 'lucide-react';
 import { SeverityChip } from './SeverityChip';
 import type { Violation } from '@/types';
 
@@ -12,10 +12,13 @@ interface ViolationCardProps {
 }
 
 const classConfig = {
-  UNAUTHORIZED:       { label: 'Unauthorized',       classes: 'text-brand-red-text bg-brand-red-muted border-brand-red-text/20' },
-  EDITORIAL_FAIR_USE: { label: 'Fair Use',           classes: 'text-amber-700 bg-amber-50 border-amber-200' },
-  NEEDS_REVIEW:       { label: 'NEEDS REVIEW',       classes: 'text-brand-blue-text bg-brand-blue-muted border-brand-blue-text/20' },
-  AUTHORIZED:         { label: 'Authorized',         classes: 'text-brand-green-text bg-brand-green-muted border-brand-green-text/20' },
+  UNAUTHORIZED: { label: 'Unauthorized', classes: 'text-brand-red-text bg-brand-red-muted border-brand-red-text' },
+  EDITORIAL_FAIR_USE: { label: 'Fair Use', classes: 'text-amber-700 bg-amber-50 border-amber-200' },
+  NEEDS_REVIEW: { label: 'NEEDS REVIEW', classes: 'text-brand-blue-text bg-brand-blue-muted border-brand-blue-text' },
+  AUTHORIZED: { label: 'Authorized', classes: 'text-brand-green-text bg-brand-green-muted border-brand-green-text' },
+  INSUFFICIENT_EVIDENCE: { label: 'Insufficient Data', classes: 'text-zinc-500 bg-zinc-100 border-zinc-300' },
+  ANALYZING: { label: 'Analyzing...', classes: 'text-zinc-500 bg-zinc-100 border-zinc-300 animate-pulse' },
+  NOT_A_MATCH: { label: 'No Match', classes: 'text-zinc-400 bg-zinc-50 border-zinc-200 opacity-60' },
 };
 
 export function ViolationCard({ violation, className, onResolve, onDispute, onFalsePositive }: ViolationCardProps) {
@@ -29,16 +32,20 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
       className,
     )}>
       {/* Thumbnail */}
-      <div className="w-full md:w-40 md:shrink-0 aspect-video md:aspect-auto bg-brand-bg relative overflow-hidden">
-        {violation.assetThumbnailUrl ? (
+      <div className="w-full md:w-40 md:shrink-0 aspect-video md:aspect-auto bg-brand-bg relative overflow-hidden flex items-center justify-center border-r border-neutral-200 dark:border-neutral-800">
+        {(violation.match_image_url || (violation as any).assetThumbnailUrl) ? (
           <img
-            src={violation.assetThumbnailUrl}
-            alt="Asset"
+            src={violation.match_image_url || (violation as any).assetThumbnailUrl}
+            alt="Suspect"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+            onError={(e) => {
+              (e.target as any).src = "https://placehold.co/400x300?text=Image+Inaccessible";
+            }}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-brand-bg">
-            <span className="text-2xl font-display font-black text-brand-muted">DT</span>
+          <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-50 text-zinc-300 gap-1">
+            <Scan className="w-5 h-5 opacity-20" />
+            <span className="text-[8px] font-black uppercase tracking-tighter">No Preview</span>
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-r from-transparent to-brand-border/10" />
@@ -83,7 +90,7 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
 
         {/* Actions */}
         {violation.status === 'open' && (
-          <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
+          <div className="flex items-center gap-3 pt-2 border-t border-slate-100 dark:border-neutral-800">
             <button
               onClick={(e) => { e.stopPropagation(); e.preventDefault(); onResolve?.(violation.violation_id); }}
               className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:opacity-80 transition-opacity"
@@ -105,8 +112,11 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
           </div>
         )}
         {violation.status !== 'open' && (
-          <p className="text-[10px] font-black uppercase tracking-widest text-brand-muted capitalize pt-2 border-t border-brand-border">
-            Status: {violation.status}
+          <p className={clsx(
+            "text-[10px] font-black uppercase tracking-widest pt-2 border-t border-brand-border",
+            violation.status === 'dropped' ? 'text-zinc-400' : 'text-brand-text'
+          )}>
+            {violation.status === 'dropped' ? '✓ Filtered Out (Non-Violation)' : `Status: ${violation.status.replace('_', ' ')}`}
           </p>
         )}
       </div>

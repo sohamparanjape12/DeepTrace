@@ -30,7 +30,11 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-12">
+<<<<<<< HEAD
       <PageHeader title="Settings" subtitle="Configure your organization's alert and scan preferences." />
+=======
+      <PageHeader title="Settings" size="xl" subtitle="Configure your organization's alert and scan preferences." />
+>>>>>>> 5e40d30a9982afd6cb7c7ed79515b7ca0e29e0e9
 
       {/* Org Profile */}
       <section className="bento-card p-8 space-y-6">
@@ -140,9 +144,15 @@ export default function SettingsPage() {
         </div>
         <div className="space-y-4">
           {[
+<<<<<<< HEAD
             { label: 'Gemini API Key', value: '●●●●●●●●●●●●' },
             { label: 'Firebase Project ID', value: '●●●●●●●●●●' },
             { label: 'Storage Bucket', value: '●●●●●●●●●●●●●●●●' },
+=======
+            { label: 'DeepTrace API Key', value: '●●●●●●●●●●●●' },
+            { label: 'Cloud Project ID', value: '●●●●●●●●●●' },
+            { label: 'Forensic Storage Bucket', value: '●●●●●●●●●●●●●●●●' },
+>>>>>>> 5e40d30a9982afd6cb7c7ed79515b7ca0e29e0e9
           ].map(({ label, value }) => (
             <div key={label} className="flex items-center justify-between p-4 bg-brand-bg rounded-xl border border-brand-border">
               <p className="text-xs font-bold text-brand-text">{label}</p>

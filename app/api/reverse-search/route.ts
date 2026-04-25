@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/firebase-admin';
+import { violationIdempotencyKey, setAssetStage, setViolationStage } from '@/lib/stage';
+import { FieldValue } from 'firebase-admin/firestore';
 
 /**
  * Reverse image search via SerpAPI.
@@ -6,10 +9,25 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 export async function POST(req: NextRequest) {
   try {
-    const { imageUrl } = await req.json();
+    const { imageUrl, assetId, userId } = await req.json();
 
-    if (!imageUrl) {
-      return NextResponse.json({ error: 'Missing imageUrl' }, { status: 400 });
+    if (!imageUrl || !assetId || !userId) {
+      return NextResponse.json({ error: 'Missing required fields (imageUrl, assetId, userId)' }, { status: 400 });
+    }
+
+    // 1. Check idempotency
+    const assetRef = db.collection('assets').doc(assetId);
+    const assetSnap = await assetRef.get();
+    if (assetSnap.exists) {
+      const assetData = assetSnap.data();
+      if (assetData?.idempotency?.reverse_search_done) {
+        return NextResponse.json({ 
+          success: true, 
+          results: [], 
+          total: assetData.totals?.reverse_hits || 0,
+          message: 'Already searched'
+        });
+      }
     }
 
     const serpApiKey = process.env.SERPAPI_KEY;
@@ -49,11 +67,53 @@ export async function POST(req: NextRequest) {
       if (!r.link || seen.has(r.link)) return false;
       seen.add(r.link);
       return true;
+    }).slice(0, 20); // Cap at 20
+
+    const assetName = assetSnap.data()?.name || 'Unknown Asset';
+
+    // 2. Create violations with deterministic IDs
+    for (const match of uniqueResults) {
+      const vid = violationIdempotencyKey(assetId, match.link);
+      const vRef = db.collection('violations').doc(vid);
+      const vSnap = await vRef.get();
+      
+      const violationData: any = {
+        violation_id: vid,
+        owner_id: userId,
+        asset_id: assetId,
+        asset_name: assetName, // Denormalize for dashboard speed
+        detected_at: new Date().toISOString(),
+        match_url: match.link,
+        match_type: 'visually_similar',
+        status: 'open',
+        severity: 'PENDING',
+        gemini_class: 'ANALYZING',
+        page_context: match.title || '',
+        assetThumbnailUrl: match.original || match.thumbnail || '',
+        match_image_url: match.original || match.thumbnail || '',
+        idempotency_key: vid,
+      };
+
+      // ONLY set stage if it doesn't exist or is missing
+      if (!vSnap.exists || !vSnap.data()?.stage) {
+        violationData.stage = 'gated_pending';
+        violationData.stage_updated_at = FieldValue.serverTimestamp();
+        violationData.attempts = { gate: 0, scrape: 0, classify: 0 };
+      }
+
+      await vRef.set(violationData, { merge: true });
+    }
+
+    // 3. Update asset stage
+    await setAssetStage(assetId, 'reverse_searched', {
+      'idempotency.reverse_search_done': true,
+      'totals.reverse_hits': uniqueResults.length,
+      'totals.gated_pending': uniqueResults.length,
     });
 
     return NextResponse.json({
       success: true,
-      results: uniqueResults.slice(0, 20), // Cap at 20 results
+      results: uniqueResults,
       total: uniqueResults.length,
       searchMetadata: {
         searchUrl: data.search_metadata?.google_lens_url || data.search_metadata?.google_url,

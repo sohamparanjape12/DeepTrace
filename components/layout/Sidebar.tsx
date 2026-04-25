@@ -7,10 +7,10 @@ import { LayoutDashboard, Images, AlertCircle, Settings, Shield, ChevronRight, L
 import { useAuth } from '@/lib/auth-context';
 
 const navItems = [
-  { href: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
-  { href: '/assets',     label: 'Assets',     icon: Images },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/assets', label: 'Assets', icon: Images },
   { href: '/violations', label: 'Violations', icon: AlertCircle },
-  { href: '/settings',   label: 'Settings',   icon: Settings },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 import { ThemeToggle } from './ThemeToggle';
@@ -28,7 +28,7 @@ export function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 h-screen w-60 bg-brand-surface border-r border-brand-border flex flex-col z-40">
       {/* Logo + Theme */}
-      <div className="px-6 py-7 border-b border-brand-border flex items-center justify-between">
+      <div className="px-6 py-7 border-b border-brand-border flex items-start justify-center flex-col gap-2">
         <Link href="/" className="flex items-center gap-3 group">
           <div className="w-8 h-8 rounded-lg bg-brand-text flex items-center justify-center group-hover:scale-105 transition-transform">
             <Shield className="w-4 h-4 text-brand-bg" />
@@ -64,9 +64,9 @@ export function Sidebar() {
 
       {/* Footer: User + Status */}
       <div className="px-4 pb-6 pt-4 border-t border-brand-border space-y-4">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0" />
-          <p className="text-[9px] font-black uppercase tracking-widest text-brand-muted truncate">All Systems Operational</p>
+
+        <div className="flex items-center justify-end gap-2">
+          <ThemeToggle />
         </div>
 
         {user ? (
