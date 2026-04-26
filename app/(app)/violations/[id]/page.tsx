@@ -213,6 +213,8 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
         <TriageActions violation={violation} onUpdate={(v: Violation) => setViolation(v)} />
       </div>
 
+      <ContradictionBanner show={!!(violation.contradiction_flag || violation.abstain)} />
+
       {/* ── Reliability and Scoring ── */}
       <div className="bento-card p-8 space-y-10">
         <div className="flex flex-col md:flex-row gap-8 items-start md:items-center">
@@ -314,6 +316,80 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
         <div className="flex items-center gap-3 pt-2">
           <div className="w-2 h-2 rounded-full bg-blue-500" />
           <p className="text-[10px] font-black text-brand-muted uppercase tracking-widest">Powered by DeepTrace Forensic Content Auditor</p>
+        </div>
+      </div>
+
+      {/* ── Brand Safety & Sentiment ── */}
+      <div className="bento-card p-8 space-y-8">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <h3 className="font-display font-black uppercase text-sm tracking-tight text-brand-text">Brand Impact Analysis</h3>
+            <p className="text-[10px] font-bold text-brand-muted uppercase tracking-widest">Reputation & Safety Audit</p>
+          </div>
+          <div className="flex items-center gap-6">
+            {/* Sentiment */}
+            <div className="flex flex-col items-end">
+              <span className="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Sentiment</span>
+              <div className={clsx(
+                "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all",
+                violation.sentiment === 'positive' ? "bg-emerald-500/5 text-emerald-600 border-emerald-500/10" :
+                violation.sentiment === 'negative' ? "bg-red-500/5 text-red-600 border-red-500/10" :
+                "bg-zinc-500/5 text-zinc-600 border-zinc-500/10"
+              )}>
+                {violation.sentiment || 'neutral'}
+              </div>
+            </div>
+            {/* Risk */}
+            <div className="flex flex-col items-end">
+              <span className="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Risk Profile</span>
+              <div className={clsx(
+                "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all",
+                violation.brand_safety_risk === 'safe' ? "bg-emerald-500/5 text-emerald-600 border-emerald-500/10" :
+                ['high', 'critical'].includes(violation.brand_safety_risk || '') ? "bg-red-500/5 text-red-600 border-red-500/10 animate-pulse" :
+                "bg-amber-500/5 text-amber-600 border-amber-500/10"
+              )}>
+                {violation.brand_safety_risk || 'safe'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
+          {/* Analysis Description */}
+          <div className="md:col-span-2 p-6 bg-brand-surface border border-brand-border rounded-2xl relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-1.5 h-full bg-brand-text/5" />
+            <div className="space-y-4">
+              <p className="text-sm font-medium text-brand-text leading-relaxed font-sans">
+                This forensic audit analyzes the tonal context surrounding the usage. Negative sentiment or low brand safety scores indicate placements that could actively damage the owner's reputation or violate corporate ethics guidelines.
+              </p>
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-brand-accent animate-pulse" />
+                <p className="text-[10px] font-black uppercase tracking-widest text-brand-muted">Real-time Semantic Extraction Active</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Risk Factors List */}
+          <div className="space-y-4">
+            <p className="text-[9px] font-black uppercase tracking-widest text-brand-muted px-1">Detected Risk Factors</p>
+            <div className="flex flex-wrap gap-2">
+              {violation.risk_factors && violation.risk_factors.length > 0 ? (
+                violation.risk_factors.map(risk => (
+                  <span key={risk} className="px-3 py-2 rounded-xl bg-red-500/5 text-red-600 border border-red-500/10 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-transform hover:scale-105">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+                    {risk.replace('_', ' ')}
+                  </span>
+                ))
+              ) : (
+                <div className="w-full p-6 rounded-2xl border border-dashed border-brand-border flex flex-col items-center justify-center gap-3 text-center bg-brand-surface/30">
+                  <CheckCircle className="w-6 h-6 text-emerald-500/20" />
+                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600/60 leading-tight">
+                    No specific risk<br />factors detected
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
