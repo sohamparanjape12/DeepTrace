@@ -3,13 +3,14 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { clsx } from 'clsx';
-import { LayoutDashboard, Images, AlertCircle, Settings, Shield, ChevronRight, LogOut } from 'lucide-react';
+import { LayoutDashboard, Images, AlertCircle, Settings, Shield, ChevronRight, LogOut, FileText } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/assets', label: 'Assets', icon: Images },
   { href: '/violations', label: 'Violations', icon: AlertCircle },
+  { href: '/dmca', label: 'DMCA Takedowns', icon: FileText },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -33,7 +34,7 @@ export function Sidebar() {
           <div className="w-8 h-8 rounded-lg bg-brand-text flex items-center justify-center group-hover:scale-105 transition-transform">
             <Shield className="w-4 h-4 text-brand-bg" />
           </div>
-          <span className="font-display font-black text-lg uppercase tracking-tight text-brand-text">DeepTrace</span>
+          <span className="font-display font-black text-lg tracking-tight text-brand-text" style={{ fontWeight: 900 }}>DeepTrace</span>
         </Link>
       </div>
 

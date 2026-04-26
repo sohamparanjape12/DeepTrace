@@ -16,6 +16,7 @@ import { ReliabilityRing } from '@/components/shared/ReliabilityRing';
 import { ExplainabilityList } from '@/components/shared/ExplainabilityList';
 import { ContradictionBanner } from '@/components/shared/ContradictionBanner';
 import { Badge } from '@/components/ui/Badge';
+import { DMCAPanel } from './dmca-panel';
 
 const classConfig: Record<string, { label: string; classes: string }> = {
   UNAUTHORIZED: { label: 'Unauthorized', classes: 'text-red-700 bg-red-50 border-red-200' },
@@ -213,13 +214,16 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
         <TriageActions violation={violation} onUpdate={(v: Violation) => setViolation(v)} />
       </div>
 
+      {/* ── DMCA Takedown Module ── */}
+      <DMCAPanel violationId={violation.violation_id} dmcaStatus={violation.dmca_status} dmcaNoticeId={violation.dmca_notice_id} />
+
       {/* ── Reliability and Scoring ── */}
       <div className="bento-card p-8 space-y-10">
         <div className="flex flex-col md:flex-row gap-8 items-start md:items-center">
           <ReliabilityRing score={violation.reliability_score || 0} tier={violation.reliability_tier || 'LOW'} />
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <h3 className="font-display font-black uppercase text-xl tracking-tighter italic">Evidence Reliability</h3>
+              <h3 className="font-display font-black uppercase text-xl tracking-tighter">Evidence Reliability</h3>
             </div>
             <p className="text-xs text-brand-muted leading-relaxed max-w-xl">
               The Reliability Scoring Engine (RSE) calculates the statistical likelihood of infringement using

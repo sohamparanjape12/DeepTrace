@@ -792,7 +792,7 @@ export default function UploadPage() {
               </p>
             )}
             <p className="text-meta text-zinc-400 hidden md:block">
-              Gemini will now audit the {selectedMatches.size} matches against this context.
+              DeepTrace AI will now audit the {selectedMatches.size} matches against this context.
             </p>
           </div>
         </div>
@@ -809,7 +809,7 @@ export default function UploadPage() {
               <div>
                 <h3 className="font-display font-black uppercase text-sm tracking-wide text-brand-text">Forensic Analysis Results</h3>
                 <p className="text-sm text-brand-muted mt-1 leading-relaxed max-w-2xl">
-                  Gemini's <strong>Forensic Content Auditor</strong> compares your original asset against each selected match using the
+                  DeepTrace's <strong>Forensic Content Auditor</strong> compares your original asset against each selected match using the
                   weighted formula: <strong>80% visual similarity + 20% contextual analysis</strong>. Results include classification,
                   confidence scores, and detailed reasoning steps.
                 </p>
@@ -823,7 +823,7 @@ export default function UploadPage() {
               <div>
                 <p className="text-sm font-bold text-blue-900">Analyzing matches…</p>
                 <p className="text-xs text-blue-700">
-                  {analysisResults.length} of {selectedMatches.size} complete — Gemini is comparing images and evaluating context
+                  {analysisResults.length} of {selectedMatches.size} complete — DeepTrace AI is comparing images and evaluating context
                 </p>
               </div>
             </div>
