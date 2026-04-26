@@ -120,11 +120,11 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
 
   const handleDelete = async () => {
     if (!user || !id) return;
-    
+
     // Kill listeners immediately to prevent permission errors when doc disappears
     unsubscribeAsset.current?.();
     unsubscribeViolations.current?.();
-    
+
     setIsDeleting(true);
     try {
       const res = await fetch(`/api/assets/${id}`, {
@@ -155,7 +155,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
       {/* Back + Header */}
       <div className="space-y-4">
         <Link href="/assets" className="inline-flex items-center gap-2 text-xs font-bold text-brand-muted hover:text-brand-text transition-colors group">
-          <ArrowLeft className="w-3 h-3 group-hover:-translate-x-0.5 transition-transform" /> 
+          <ArrowLeft className="w-3 h-3 group-hover:-translate-x-0.5 transition-transform" />
           Back to Assets
         </Link>
         <PageHeader
@@ -163,10 +163,10 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
           size="md"
           className="mb-0"
           actions={
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => setShowConfirmDelete(true)} 
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowConfirmDelete(true)}
               className="text-brand-muted hover:text-red-600 hover:bg-red-50 transition-all"
             >
               <Trash2 className="w-4 h-4 mr-2" /> Delete Asset
@@ -189,15 +189,15 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
               </p>
             </div>
             <div className="flex gap-3">
-              <Button 
-                variant="ghost" 
-                className="flex-1" 
+              <Button
+                variant="ghost"
+                className="flex-1"
                 onClick={() => setShowConfirmDelete(false)}
                 disabled={isDeleting}
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white border-transparent"
                 onClick={handleDelete}
                 disabled={isDeleting}

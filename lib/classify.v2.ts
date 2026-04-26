@@ -1,9 +1,9 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { 
-  buildMasterPrompt, 
-  DOMAIN_CLASS_PRIORS, 
-  MasterPromptParams, 
-  DomainClass 
+import {
+  buildMasterPrompt,
+  DOMAIN_CLASS_PRIORS,
+  MasterPromptParams,
+  DomainClass
 } from "./prompts.v2";
 import { scrapePage } from "./jina";
 import { RetryableError, PermanentError } from "./error-classes";
@@ -68,6 +68,9 @@ export interface ClassificationResult {
   transformation_type: string;
   reasoning_steps: string[];
   reasoning: string;
+  sentiment: 'positive' | 'neutral' | 'negative';
+  brand_safety_risk: 'safe' | 'low' | 'medium' | 'high' | 'critical';
+  risk_factors: string[];
 
   // Adaptive weights used (for audit trail)
   applied_weights: Record<string, number | boolean>;
@@ -104,15 +107,15 @@ function getPiracyPrior(domainClass: DomainClass): number {
   for (const config of Object.values(DOMAIN_CLASS_PRIORS)) {
     if (config.class === domainClass) return config.piracy_prior;
   }
-  
+
   switch (domainClass) {
     case 'wire_service': return 0.01;
-    case 'major_news':   return 0.05;
-    case 'social':       return 0.25;
-    case 'betting':      return 0.85;
-    case 'piracy':       return 0.95;
-    case 'ecommerce':    return 0.45;
-    default:             return 0.50; // unknown
+    case 'major_news': return 0.05;
+    case 'social': return 0.25;
+    case 'betting': return 0.85;
+    case 'piracy': return 0.95;
+    case 'ecommerce': return 0.45;
+    default: return 0.50; // unknown
   }
 }
 
@@ -120,7 +123,7 @@ function estimateRegion(url: string, domainClass: DomainClass): string {
   try {
     const hostname = new URL(url).hostname;
     const tld = hostname.split('.').pop()?.toLowerCase();
-    
+
     // Simple TLD mapping
     const regions: Record<string, string> = {
       'com': 'North America',
@@ -142,12 +145,12 @@ function estimateRegion(url: string, domainClass: DomainClass): string {
     };
 
     if (tld && regions[tld]) return regions[tld];
-    
+
     // Fallback based on domain class
     if (domainClass === 'major_news' || domainClass === 'social') return 'Global';
     if (domainClass === 'piracy' || domainClass === 'betting') return 'Offshore/Emerging';
-    
-  } catch (e) {}
+
+  } catch (e) { }
   return 'International';
 }
 
@@ -158,7 +161,7 @@ function calculateRevenueRisk(severity: Severity, domainClass: DomainClass): num
     'MEDIUM': 120,
     'LOW': 45
   };
-  
+
   const multipliers: Record<DomainClass, number> = {
     'piracy': 2.5,
     'major_news': 1.8,
@@ -183,7 +186,7 @@ function bufferToGenerativePart(buf: Buffer, mime = 'image/jpeg') {
 export async function classifyViolation(params: ClassifyParams): Promise<ClassificationResult> {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY || "");
   const modelName = (process.env.GEMINI_MODEL || "gemini-1.5-flash").trim();
-  const model = genAI.getGenerativeModel({ 
+  const model = genAI.getGenerativeModel({
     model: modelName,
     generationConfig: { responseMimeType: "application/json" } as any
   });
@@ -193,7 +196,7 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
   if (!params.pageTitle || !params.pageDescription) {
     scraped = await scrapePage(params.matchUrl);
   }
-  
+
   // Update params with scraped context if original fields are missing
   const enrichedParams = {
     ...params,
@@ -242,7 +245,7 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
     if (part) promptParts.push(part);
     else evidenceQuality.original_image_loaded = false;
   }
-  
+
   if (params.violationImageBuffer) {
     promptParts.push(bufferToGenerativePart(
       params.violationImageBuffer,
@@ -275,19 +278,19 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
     jsonResp = JSON.parse(text);
   } catch (error: any) {
     if (error instanceof RetryableError || error instanceof PermanentError) throw error;
-    
+
     // Check for safety blocks or rate limits
     const msg = error.message?.toLowerCase() || '';
     const code = error.code || (error.status === 'RESOURCE_EXHAUSTED' ? 8 : 0);
-    
+
     if (code === 8 || msg.includes('429') || msg.includes('quota') || msg.includes('rate limit')) {
       throw new RetryableError('Gemini rate limit exceeded (Quota Exhausted)');
     }
-    
+
     if (msg.includes('safety') || msg.includes('blocked')) {
       throw new RetryableError('Gemini safety block (Inappropriate content or filter trigger)');
     }
-    
+
     throw new RetryableError(`Gemini Error: ${error.message || 'Unknown failure'}`);
   }
 
@@ -309,7 +312,7 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
   const applied_weights = { visual: wVisual, context: wContext, attribution: wAttribution };
 
   // 4. Three-Axis Scoring
-  
+
   // Relevancy: "Is this my image?" (Heavily weighted towards visual)
   const gateSim = typeof params.gateSimilarity === 'number'
     ? Math.max(0, Math.min(1, params.gateSimilarity))
@@ -317,10 +320,10 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
 
   const relevancy = gateSim !== null
     ? (jsonResp.visual_match_score * 0.7)
-      + (evidenceQuality.match_type_strength * 0.2)
-      + (gateSim * 0.1)
+    + (evidenceQuality.match_type_strength * 0.2)
+    + (gateSim * 0.1)
     : (jsonResp.visual_match_score * 0.8)
-      + (evidenceQuality.match_type_strength * 0.2);
+    + (evidenceQuality.match_type_strength * 0.2);
 
   // Guardrail: if Gemini reports a very high visual match but the gate
   // saw a very low similarity, penalise relevancy — one of them is wrong
@@ -336,7 +339,7 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
   if (jsonResp.visual_match_score > 0) signalsCount++;
   if (jsonResp.context_authenticity_score > 0) signalsCount++;
   if (jsonResp.attribution_licensing_score > 0) signalsCount++;
-  
+
   const baseConfidence = (signalsCount / 3) * (evidenceQuality.both_images_available ? 1.0 : 0.6);
   const confidence = Math.max(0.1, baseConfidence - (jsonResp.contradictions?.length ? 0.2 : 0));
 
@@ -348,7 +351,7 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
   const piracyPrior = getPiracyPrior(domainClass);
   const commercialMultiplier = jsonResp.commercial_exploitation ? 1.2 : 0.8;
   const severityRaw = Math.min(1.0, piracyPrior * commercialMultiplier * (0.5 + (relevancyAdjusted * 0.5)));
-  
+
   let severity: Severity = 'LOW';
   if (severityRaw >= 0.8) severity = 'CRITICAL';
   else if (severityRaw >= 0.5) severity = 'HIGH';
@@ -432,6 +435,9 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
     credit_present: jsonResp.credit_present,
     context_type: jsonResp.context_type,
     transformation_type: jsonResp.transformation_type,
+    sentiment: jsonResp.sentiment || 'neutral',
+    brand_safety_risk: jsonResp.brand_safety_risk || 'safe',
+    risk_factors: jsonResp.risk_factors || [],
     reasoning_steps: jsonResp.reasoning_steps || [],
     reasoning: (jsonResp.reasoning_steps || []).join(' '),
     applied_weights: {
