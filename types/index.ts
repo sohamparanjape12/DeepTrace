@@ -24,10 +24,11 @@ export interface Asset {
   scan_status?: ScanStatus;    // Legacy scan status
   geminiResult?: any;          // AI processing results
   archivedUrl?: string;        // Permanent archive link
-  
+
   // Existing/Legacy fields preserved for UI compatibility
   name?: string;
   owner_org?: string;
+  owner_id?: string;
   uploaded_at?: string;
   tags?: string[];
   phash?: string;
@@ -35,7 +36,7 @@ export interface Asset {
   storageUrl?: string;
   createdAt?: any;             // Firestore Timestamp or Date
   updatedAt?: any;             // Firestore Timestamp or Date
-  
+
   // Pipeline v2 Checkpointing
   stage?: AssetStage;
   stage_updated_at?: any;      // Timestamp
@@ -82,7 +83,7 @@ export interface Violation {
   contextual_match_score?: number;
   reasoning_steps?: string[];
   is_derivative_work?: boolean;
-  
+
   // Business Impact Fields
   estimated_reach?: number;
   monetized_usage?: boolean;
@@ -95,14 +96,14 @@ export interface Violation {
   reliability_tier?: 'HIGH' | 'MEDIUM' | 'LOW';
   relevancy?: number;                   // 0.0–1.0
   recommended_action?: 'escalate' | 'human_review' | 'monitor' | 'no_action';
-  
+
   // v2 Metadata
   classification_schema_version?: number;
   domain_class?: string;
   contradiction_flag?: boolean;
   explainability_bullets?: string[];
-  abstained?: boolean;
-  
+  abstain?: boolean;
+
   // Nested Data Maps
   scores?: Record<string, number>;
   signals?: Record<string, boolean | string>;
@@ -127,6 +128,9 @@ export interface Violation {
   credit_present?: boolean;
   contradictions?: string[];
   abstained_v1?: boolean;
+  sentiment?: 'positive' | 'neutral' | 'negative';
+  brand_safety_risk?: 'safe' | 'low' | 'medium' | 'high' | 'critical';
+  risk_factors?: string[];
 
   // Pipeline v2 Checkpointing
   stage?: ViolationStage;
