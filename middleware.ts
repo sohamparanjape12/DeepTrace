@@ -3,9 +3,20 @@ import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
   const session = request.cookies.get('session')?.value;
+  const { pathname } = request.nextUrl;
 
   // Protect the dashboard and profile routes, redirect to login if no session cookie
-  if (!session) {
+  // We only check for paths that are NOT public
+  const isPublicRoute = 
+    pathname === '/' ||
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/pricing') ||
+    pathname.startsWith('/infrastructure') ||
+    pathname.startsWith('/legal') ||
+    pathname.startsWith('/api') || // Allow API routes for their own auth handling
+    pathname.includes('.'); // Allow files like icon.svg, favicon.ico, etc.
+
+  if (!session && !isPublicRoute) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
@@ -14,8 +25,13 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Add paths here that should be protected
-    // '/dashboard/:path*', 
-    // '/profile/:path*'
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 };

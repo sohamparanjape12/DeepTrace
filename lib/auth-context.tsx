@@ -34,7 +34,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      if (u) {
+        // User is signed in, sync with server session
+        try {
+          const idToken = await u.getIdToken();
+          await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken }),
+          });
+        } catch (err) {
+          console.error('Failed to sync session:', err);
+        }
+      } else {
+        // User is signed out, clear server session
+        try {
+          await fetch('/api/auth/logout', { method: 'POST' });
+        } catch (err) {
+          console.error('Failed to clear session:', err);
+        }
+      }
+      
       setUser(u);
       setLoading(false);
     });
@@ -50,7 +71,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    await signOut(auth);
+    try {
+      await signOut(auth);
+      // The onAuthStateChanged listener will handle the /api/auth/logout call
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
   };
 
   return (
