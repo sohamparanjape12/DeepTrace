@@ -140,6 +140,14 @@ export async function processViolationStage(violationId: string) {
           updated_at: FieldValue.serverTimestamp(),
         }, { merge: true });
 
+        // Phase 4 Sidecar: Evidence Bundle (fire-and-forget, non-blocking)
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        fetch(`${baseUrl}/api/generate-evidence`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ violationId }),
+        }).catch(err => console.error('[Pipeline] Evidence bundle trigger failed:', err));
+
       } catch (e: any) {
         console.error(`[Pipeline] Classification failed for ${violationId}:`, e);
         const isPermanent = e instanceof PermanentError;

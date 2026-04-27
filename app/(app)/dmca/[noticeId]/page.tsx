@@ -21,7 +21,9 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
   const [loading, setLoading] = useState(true);
   const [isApproving, setIsApproving] = useState(false);
   const [edits, setEdits] = useState<NoticeDraft | null>(null);
-  const [hostEdits, setHostEdits] = useState<{domain: string; agent_name: string; agent_email: string} | null>(null);
+  const [hostEdits, setHostEdits] = useState<{ domain: string; agent_name: string; agent_email: string } | null>(null);
+  const [violation, setViolation] = useState<any>(null);
+  const [generatingEvidence, setGeneratingEvidence] = useState(false);
 
   useEffect(() => {
     // Auth State Check: Confirm auth is fully loaded before executing query
@@ -39,6 +41,14 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
             agent_name: data.host.agent_name || '',
             agent_email: data.host.agent_email || ''
           });
+
+          // Fetch associated violation for evidence bundle
+          if (data.violation_id) {
+            const vSnap = await getDoc(doc(db, 'violations', data.violation_id));
+            if (vSnap.exists()) {
+              setViolation(vSnap.data());
+            }
+          }
         }
       } catch (error: any) {
         console.error(`[FirebaseError] Permission denied or fetch failed at /dmca_notices/${noticeId} for user ${user?.uid}:`, error.code, error.message);
@@ -84,6 +94,30 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
     }
   };
 
+  const handleGenerateEvidence = async () => {
+    if (!notice?.violation_id) return;
+    setGeneratingEvidence(true);
+    try {
+      const res = await fetch('/api/generate-evidence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ violationId: notice.violation_id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Evidence generation failed');
+
+      // Refetch violation
+      const vSnap = await getDoc(doc(db, 'violations', notice.violation_id));
+      if (vSnap.exists()) {
+        setViolation(vSnap.data());
+      }
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setGeneratingEvidence(false);
+    }
+  };
+
   const timelineSteps = [
     { status: 'drafting', label: 'Drafted' },
     { status: 'pending_review', label: 'Pending Review' },
@@ -122,26 +156,26 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
           </div>
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted mb-6 relative z-10">Target Host</p>
           <div className="relative z-10 space-y-2">
-            <input 
-               value={hostEdits?.domain || ''} 
-               onChange={e => setHostEdits(prev => prev ? {...prev, domain: e.target.value} : null)}
-               disabled={!isActiveDraft}
-               placeholder="example.com"
-               className="w-full bg-transparent border-0 p-0 text-3xl md:text-4xl font-display font-black tracking-tight text-brand-text mb-1 focus:ring-0 placeholder:text-brand-muted/30"
+            <input
+              value={hostEdits?.domain || ''}
+              onChange={e => setHostEdits(prev => prev ? { ...prev, domain: e.target.value } : null)}
+              disabled={!isActiveDraft}
+              placeholder="example.com"
+              className="w-full bg-transparent border-0 p-0 text-3xl md:text-4xl font-display font-black tracking-tight text-brand-text mb-1 focus:ring-0 placeholder:text-brand-muted/30"
             />
-            <input 
-               value={hostEdits?.agent_name || ''} 
-               onChange={e => setHostEdits(prev => prev ? {...prev, agent_name: e.target.value} : null)}
-               disabled={!isActiveDraft}
-               placeholder="Copyright Agent Name"
-               className="w-full bg-transparent border-0 p-0 text-sm font-bold text-brand-muted focus:text-brand-text focus:ring-0 placeholder:text-brand-muted/30 transition-colors"
+            <input
+              value={hostEdits?.agent_name || ''}
+              onChange={e => setHostEdits(prev => prev ? { ...prev, agent_name: e.target.value } : null)}
+              disabled={!isActiveDraft}
+              placeholder="Copyright Agent Name"
+              className="w-full bg-transparent border-0 p-0 text-sm font-bold text-brand-muted focus:text-brand-text focus:ring-0 placeholder:text-brand-muted/30 transition-colors"
             />
-            <input 
-               value={hostEdits?.agent_email || ''} 
-               onChange={e => setHostEdits(prev => prev ? {...prev, agent_email: e.target.value} : null)}
-               disabled={!isActiveDraft}
-               placeholder="abuse@example.com"
-               className="w-full bg-transparent border-0 p-0 text-sm font-mono text-brand-muted/70 focus:text-brand-text focus:ring-0 placeholder:text-brand-muted/30 transition-colors"
+            <input
+              value={hostEdits?.agent_email || ''}
+              onChange={e => setHostEdits(prev => prev ? { ...prev, agent_email: e.target.value } : null)}
+              disabled={!isActiveDraft}
+              placeholder="abuse@example.com"
+              className="w-full bg-transparent border-0 p-0 text-sm font-mono text-brand-muted/70 focus:text-brand-text focus:ring-0 placeholder:text-brand-muted/30 transition-colors"
             />
           </div>
         </div>
@@ -151,9 +185,27 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted mb-6">Reference</p>
           <div className="space-y-5">
             <Link href={`/violations/${notice.violation_id}`} className="group/link flex items-center justify-between text-sm font-bold text-brand-text">
-              <span className="flex items-center gap-3"><Shield className="w-4 h-4 text-brand-muted group-hover/link:text-brand-text transition-colors" /> Violation Evidence</span>
+              <span className="flex items-center gap-3"><Shield className="w-4 h-4 text-brand-muted group-hover/link:text-brand-text transition-colors" /> Violation Details</span>
               <ArrowRight className="w-3.5 h-3.5 -rotate-45 group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5 transition-transform text-brand-muted" />
             </Link>
+            {violation?.evidence_bundle_url && (
+              <>
+                <div className="h-px bg-brand-border w-full" />
+                <a href={`/api/evidence/download/${notice.violation_id}`} target="_blank" rel="noopener noreferrer" className="group/link flex items-center justify-between text-sm font-bold text-brand-text">
+                  <span className="flex items-center gap-3"><FileText className="w-4 h-4 text-brand-muted group-hover/link:text-brand-text transition-colors" /> Forensic Bundle (PDF)</span>
+                  <ArrowRight className="w-3.5 h-3.5 -rotate-45 group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5 transition-transform text-brand-muted" />
+                </a>
+              </>
+            )}
+            {violation?.evidence_warc_url && (
+              <>
+                <div className="h-px bg-brand-border w-full" />
+                <a href={violation.evidence_warc_url} target="_blank" rel="noopener noreferrer" className="group/link flex items-center justify-between text-sm font-bold text-brand-text">
+                  <span className="flex items-center gap-3"><Download className="w-4 h-4 text-brand-muted group-hover/link:text-brand-text transition-colors" /> WARC Capture</span>
+                  <ArrowRight className="w-3.5 h-3.5 -rotate-45 group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5 transition-transform text-brand-muted" />
+                </a>
+              </>
+            )}
             <div className="h-px bg-brand-border w-full" />
             {notice.pdf_url ? (
               <a href={`/api/dmca/download/${noticeId}`} target="_blank" rel="noopener noreferrer" className="group/link flex items-center justify-between text-sm font-bold text-blue-600 dark:text-blue-400">
@@ -176,8 +228,8 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
             {isActiveDraft && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />}
             <h3 className="font-display font-black uppercase text-[11px] tracking-widest text-brand-text">Forensic Draft</h3>
           </div>
-          <Badge className="text-[9px] uppercase tracking-widest font-mono bg-transparent text-brand-muted w-fit">
-            Generated via AI
+          <Badge variant="outline" className="text-[9px] uppercase tracking-widest font-mono bg-transparent text-brand-muted w-fit">
+            Forensic Auto-Draft
           </Badge>
         </div>
 
@@ -210,13 +262,54 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
         </div>
 
         {isActiveDraft && (
-          <div className="bg-brand-surface p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6 border-t border-brand-border">
-            <p className="text-xs text-brand-muted leading-relaxed max-w-md font-medium">
-              Review and amend the factual statements. The statutory perjury and good-faith statements will be automatically appended prior to signature.
-            </p>
-            <Button onClick={handleApprove} disabled={isApproving} size="lg" className="w-full md:w-auto font-display font-black uppercase tracking-widest text-[10px] px-8 h-12">
-              {isApproving ? <><Loader2 className="w-4 h-4 animate-spin mr-3" /> Dispatching...</> : <><Send className="w-4 h-4 mr-3" /> Approve & Dispatch</>}
-            </Button>
+          <div className="bg-brand-surface p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-8 border-t border-brand-border">
+            <div className="flex-1 space-y-4">
+              <p className="text-xs text-brand-muted leading-relaxed max-w-md font-medium">
+                Review and amend the factual statements. The statutory perjury and good-faith statements will be automatically appended prior to signature.
+              </p>
+
+              {!violation?.evidence_bundle_url && (
+                <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/50 rounded-xl space-y-3">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-500" />
+                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">Evidence Bundle Required</p>
+                  </div>
+                  <p className="text-[10px] text-amber-600 dark:text-amber-500 font-medium">
+                    You must generate a forensic evidence bundle before this notice can be dispatched.
+                  </p>
+                  <Button
+                    onClick={handleGenerateEvidence}
+                    disabled={generatingEvidence}
+                    variant="outline"
+                    className="w-full bg-white dark:bg-transparent border-amber-200 text-amber-700 hover:bg-amber-50"
+                  >
+                    {generatingEvidence ? (
+                      <><Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> Generating...</>
+                    ) : (
+                      <><Download className="w-3.5 h-3.5 mr-2" /> Generate Evidence Bundle</>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            <div className="shrink-0 flex flex-col items-center gap-3">
+              <Button
+                onClick={handleApprove}
+                disabled={isApproving || !violation?.evidence_bundle_url}
+                size="lg"
+                className="w-full md:w-auto font-display font-black uppercase tracking-widest text-[10px] px-12 h-14 shadow-lg shadow-blue-500/10"
+              >
+                {isApproving ? (
+                  <><Loader2 className="w-4 h-4 animate-spin mr-3" /> Dispatching...</>
+                ) : (
+                  <><Send className="w-4 h-4 mr-3" /> Approve & Dispatch</>
+                )}
+              </Button>
+              {!violation?.evidence_bundle_url && (
+                <p className="text-[9px] font-black uppercase tracking-widest text-red-500 animate-pulse">Missing Forensic Evidence</p>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -228,7 +321,7 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
           {timelineSteps.map((step, idx) => {
             const history = notice.status_history?.find((h: any) => h.status === step.status);
             const currentStepIdx = timelineSteps.findIndex(s => s.status === notice.status);
-            
+
             // Mark as done if it has history OR if it chronologically precedes the current active step
             const isDone = history !== undefined || idx < currentStepIdx;
             const isActive = notice.status === step.status;

@@ -55,39 +55,69 @@ export async function resolveHost(url: string): Promise<HostInfo | null> {
       return info;
     }
 
-    // 3. Fallback to WHOIS
-    if (process.env.WHOISXML_API_KEY) {
-      // If we had a specific API for WHOISXML
-      // But we will use whois-json package
-    }
-    
-    const whoisData = await whois(domain);
-    const emails = whoisData?.emails;
-    const abuseEmail = whoisData?.registrarAbuseContactEmail;
-    
-    if (abuseEmail || emails) {
-      const contactEmail = abuseEmail || (Array.isArray(emails) ? emails[0] : emails);
-      if (contactEmail) {
-        const info: HostInfo = {
-          domain,
-          agent_name: whoisData?.registrar || 'Domain Registrar',
-          agent_email: contactEmail,
-          source: 'whois',
-          resolved_at: new Date().toISOString()
-        };
-        await cacheRef.set(info);
-        return info;
+    // 3. Fallback to WHOIS (Port 43 is often blocked in cloud environments)
+    let whoisData: any = null;
+    try {
+      // Set a short timeout for WHOIS to avoid hanging the request
+      whoisData = await Promise.race([
+        whois(domain),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('WHOIS Timeout')), 5000))
+      ]);
+      
+      const emails = whoisData?.emails;
+      const abuseEmail = whoisData?.registrarAbuseContactEmail;
+      
+      if (abuseEmail || emails) {
+        const contactEmail = abuseEmail || (Array.isArray(emails) ? emails[0] : emails);
+        if (contactEmail) {
+          const info: HostInfo = {
+            domain,
+            agent_name: whoisData?.registrar || 'Domain Registrar',
+            agent_email: contactEmail,
+            source: 'whois',
+            resolved_at: new Date().toISOString()
+          };
+          await cacheRef.set(info);
+          return info;
+        }
       }
+    } catch (e: any) {
+      console.warn(`[HostResolver] WHOIS resolution failed for ${domain}: ${e.message}`);
+      // Port 43 is likely blocked. Fallback to common provider patterns or manual.
     }
 
-    // 4. Return manual
+    // 4. Common Provider Patterns (Last resort before manual)
+    const providerMap: Record<string, string> = {
+      'cloudflare.com': 'abuse@cloudflare.com',
+      'google.com': 'registrar-abuse@google.com',
+      'amazonaws.com': 'trustandsafety@support.aws.com',
+      'namesilo.com': 'abuse@namesilo.com',
+      'godaddy.com': 'abuse@godaddy.com',
+      'namecheap.com': 'abuse@namecheap.com',
+    };
+
+    if (providerMap[domain]) {
+      const info: HostInfo = {
+        domain,
+        agent_name: domain.split('.')[0].charAt(0).toUpperCase() + domain.split('.')[0].slice(1),
+        agent_email: providerMap[domain],
+        source: 'pattern_match',
+        resolved_at: new Date().toISOString()
+      };
+      await cacheRef.set(info);
+      return info;
+    }
+
+    // 5. Return manual
     return {
       domain,
+      agent_name: 'Unknown Host',
+      agent_email: '',
       source: 'manual',
       resolved_at: new Date().toISOString()
     };
   } catch (error) {
-    console.error('Host resolution failed:', error);
+    console.error('Host resolution fatal error:', error);
     return null;
   }
 }

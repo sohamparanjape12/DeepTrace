@@ -1,5 +1,5 @@
 import { clsx } from 'clsx';
-import { ExternalLink, CheckCircle, XCircle, AlertTriangle, ShieldCheck, Info } from 'lucide-react';
+import { ExternalLink, CheckCircle, XCircle, AlertTriangle, ShieldCheck, Info, ShieldAlert } from 'lucide-react';
 import { SeverityChip } from './SeverityChip';
 import { ReliabilityRing } from './ReliabilityRing';
 import type { Violation } from '@/types';
@@ -10,6 +10,8 @@ interface ViolationCardProps {
   onResolve?: (id: string) => void;
   onDispute?: (id: string) => void;
   onFalsePositive?: (id: string) => void;
+  onDMCA?: (id: string) => void;
+  onViewDMCA?: (noticeId: string) => void;
 }
 
 const classConfig: Record<string, { label: string; variant: string }> = {
@@ -22,14 +24,27 @@ const classConfig: Record<string, { label: string; variant: string }> = {
   NOT_A_MATCH: { label: 'Not a Match', variant: 'default' },
 };
 
-export function ViolationCard({ violation, className, onResolve, onDispute, onFalsePositive }: ViolationCardProps) {
+export function ViolationCard({ violation, className, onResolve, onDispute, onFalsePositive, onDMCA, onViewDMCA }: ViolationCardProps) {
   const config = classConfig[violation.gemini_class] ?? classConfig.NEEDS_REVIEW;
   const domain = (() => { try { return new URL(violation.match_url).hostname; } catch { return violation.match_url; } })();
+
+  const isEligible = 
+    (violation.gemini_class === 'UNAUTHORIZED' || violation.gemini_class?.toUpperCase() === 'UNAUTHORIZED') && 
+    ((violation.reliability_score || 0) >= 80 || (violation.reliability_score || 0) >= 0.8) && 
+    (violation.severity === 'CRITICAL' || violation.severity === 'HIGH' || violation.severity?.toUpperCase() === 'HIGH' || violation.severity?.toUpperCase() === 'CRITICAL') &&
+    violation.status !== 'resolved' && 
+    violation.status !== 'disputed' && 
+    violation.status !== 'false_positive' &&
+    (!violation.dmca_status || violation.dmca_status === 'none' || violation.dmca_status === 'withdrawn' || violation.dmca_status === 'uninitiated');
+
+  const hasDMCA = !!violation.dmca_notice_id && !!violation.dmca_status && violation.dmca_status !== 'none' && violation.dmca_status !== 'uninitiated';
 
   return (
     <div className={clsx(
       'group relative bento-card p-0 flex flex-col md:flex-row gap-0 overflow-hidden transition-all duration-300 hover:shadow-soft-xl border-brand-border hover:border-brand-text/20',
       violation.status !== 'open' && 'opacity-60 grayscale-[0.2]',
+      isEligible && 'border-red-500/60 shadow-[0_0_25px_rgba(239,68,68,0.15)] ring-1 ring-red-500/30 bg-red-50/10 dark:bg-red-500/5',
+      hasDMCA && 'border-indigo-500/60 shadow-[0_0_25px_rgba(99,102,241,0.15)] ring-1 ring-indigo-500/30 bg-indigo-50/10 dark:bg-indigo-500/5',
       className,
     )}>
       {/* 1. Visual Evidence Section */}
@@ -153,7 +168,7 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
 
         {/* 3. Operational Section */}
         <div className="pt-4 border-t border-brand-border/50 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-4">
-          {violation.status === 'open' ? (
+          {(violation.status === 'open' || !violation.status) ? (
             <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={(e) => {
@@ -185,6 +200,30 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
               >
                 <XCircle className="w-3.5 h-3.5" /> False Positive
               </button>
+              {isEligible && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onDMCA?.(violation.violation_id);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-red-600 hover:bg-red-700 transition-all active:scale-95 shadow-sm ml-auto"
+                >
+                  <ShieldAlert className="w-3.5 h-3.5" /> DMCA Takedown
+                </button>
+              )}
+              {hasDMCA && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onViewDMCA?.(violation.dmca_notice_id!);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 transition-all active:scale-95 shadow-sm ml-auto dark:text-indigo-300 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 dark:border-indigo-500/20"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" /> View DMCA
+                </button>
+              )}
             </div>
           ) : (
             <div className="flex items-center gap-3">

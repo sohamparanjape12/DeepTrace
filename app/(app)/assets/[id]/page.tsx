@@ -407,7 +407,12 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
               {filteredViolations.map(v => (
                 <div key={v.violation_id} className="relative group">
                   <Link key={v.violation_id} href={`/violations/${v.violation_id}?fromAsset=${id}`}>
-                    <ViolationCard violation={v} className="hover:shadow-soft-lg transition-shadow" />
+                    <ViolationCard 
+                      violation={v} 
+                      className="hover:shadow-soft-lg transition-shadow" 
+                      onDMCA={(id) => router.push(`/violations/${id}?action=dmca`)}
+                      onViewDMCA={(noticeId) => router.push(`/dmca/${noticeId}`)}
+                    />
                   </Link>
                   {v.stage === 'failed_retryable' && (
                     <div className="absolute top-4 right-16 flex gap-2">
