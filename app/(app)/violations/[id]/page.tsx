@@ -215,7 +215,14 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
       </div>
 
       {/* ── DMCA Takedown Module ── */}
-      <DMCAPanel violationId={violation.violation_id} dmcaStatus={violation.dmca_status} dmcaNoticeId={violation.dmca_notice_id} />
+      <DMCAPanel
+        violationId={violation.violation_id}
+        dmcaStatus={(violation as any).dmca_status}
+        dmcaNoticeId={(violation as any).dmca_notice_id}
+        evidenceStatus={violation.evidence_status}
+        evidenceBundleUrl={violation.evidence_bundle_url}
+        evidenceSha256={violation.evidence_sha256}
+      />
 
       {/* ── Reliability and Scoring ── */}
       <div className="bento-card p-8 space-y-10">

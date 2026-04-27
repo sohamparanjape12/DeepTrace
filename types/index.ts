@@ -140,6 +140,19 @@ export interface Violation {
   idempotency_key?: string;     // deterministic: hash(assetId + matchUrl)
   scraped_cache?: { title: string; description: string; bodyText: string; at: any };
   last_error?: { stage: ViolationStage; message: string; at: any };
+
+  // Evidence Bundle (Phase 4)
+  evidence_status?: 'pending' | 'generated' | 'failed';
+  evidence_bundle_url?: string;
+  evidence_sha256?: string;
+  evidence_generated_at?: any;
+  evidence_warc_url?: string;
+  evidence_warc_metadata?: {
+    server_ip: string | null;
+    http_status: number | null;
+    content_type: string | null;
+    captured_at: string;
+  };
 }
 
 export interface AuditEntry {
