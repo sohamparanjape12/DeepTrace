@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Bell, Mail, Shield, Key, Save, ChevronRight } from 'lucide-react';
+import { Bell, Mail, Shield, Key, Save, ChevronRight, Globe } from 'lucide-react';
+import Link from 'next/link';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth-context';
@@ -57,6 +58,27 @@ export default function SettingsPage() {
           </div>
         </div>
       </section>
+
+      {/* Whitelist Link */}
+      <Link href="/settings/whitelist" className="block">
+        <section className="bento-card p-8 flex items-center justify-between group hover:border-brand-text transition-all cursor-pointer">
+          <div className="flex items-center gap-6">
+            <div className="w-12 h-12 rounded-2xl bg-brand-muted/5 flex items-center justify-center group-hover:bg-brand-text/5 transition-colors">
+              <Globe className="w-6 h-6 text-brand-muted group-hover:text-brand-text transition-colors" />
+            </div>
+            <div>
+              <h2 className="font-display font-black uppercase text-sm tracking-tight">Whitelisted Domains</h2>
+              <p className="text-brand-muted text-xs font-medium mt-1">Manage authorized partners and editorial domains to suppress false positives.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-[10px] font-black uppercase tracking-widest text-brand-muted/40">Manage Domains</span>
+            <div className="w-10 h-10 rounded-full border border-brand-border flex items-center justify-center group-hover:border-brand-text group-hover:bg-brand-text group-hover:text-brand-bg transition-all">
+              <ChevronRight className="w-4 h-4" />
+            </div>
+          </div>
+        </section>
+      </Link>
 
       {/* Alert Threshold */}
       <section className="bento-card p-8 space-y-6">

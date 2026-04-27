@@ -3,6 +3,7 @@ import { ImageAnnotatorClient } from '@google-cloud/vision';
 import { db } from '@/lib/firebase-admin';
 import { Asset, Violation, MatchType } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
+import { emitNotification } from '@/lib/notifications/emit';
 
 // Initialize Vision API client
 const visionClient = new ImageAnnotatorClient();

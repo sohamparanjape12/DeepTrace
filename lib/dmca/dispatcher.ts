@@ -6,6 +6,7 @@ import { Asset, Violation } from '../../types';
 import { Client } from '@upstash/qstash';
 import { renderNotice } from './template';
 import crypto from 'crypto';
+import { emitNotification } from '../notifications/emit';
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -126,6 +127,18 @@ export async function dispatch(noticeId: string, approverId: string, pdfBuffer?:
   });
 
   await batch.commit();
+
+  // Emit notification — fire-and-forget
+  void emitNotification({
+    user_id: notice.customer_id,
+    event_type: 'dmca.dispatched',
+    payload: {
+      notice_id: noticeId,
+      violation_id: notice.violation_id,
+      asset_id: notice.asset_id,
+    },
+    source_event_id: `dmca.dispatched:${noticeId}`,
+  });
 
   // Schedule QStash task for T+7 days
   if (process.env.QSTASH_TOKEN) {

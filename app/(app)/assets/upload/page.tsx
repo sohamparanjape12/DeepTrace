@@ -422,7 +422,8 @@ export default function UploadPage() {
   );
 
   return (
-    <div className="space-y-8">
+    <>
+      <div className="space-y-8">
       {/* Back + Title */}
       <div className="flex gap-6">
         <Link href="/assets" className="mt-8">
@@ -969,6 +970,7 @@ export default function UploadPage() {
         </div>
       )}
 
+      </div>
       <AnimatePresence>
         {isFinalizing && (
           <motion.div 
@@ -1051,6 +1053,6 @@ export default function UploadPage() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </>
   );
 }

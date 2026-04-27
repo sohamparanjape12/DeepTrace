@@ -72,5 +72,30 @@ service cloud.firestore {
       allow delete: if request.auth != null && resource.data.owner_id == request.auth.uid;
       allow update: if request.auth != null && resource.data.owner_id == request.auth.uid;
     }
+
+    // ── Notification System ────────────────────────────────────────────────
+
+    // Rules for /notifications — each doc belongs to one user
+    match /notifications/{notificationId} {
+      // Users can only read their own notifications
+      allow read: if request.auth != null && resource.data.user_id == request.auth.uid;
+      // Writes are server-only (firebase-admin bypasses rules)
+      allow create: if false;
+      // Users can update read_at and archived_at only (via API route which uses admin SDK)
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // Rules for /notification_preferences — one doc per user
+    match /notification_preferences/{userId} {
+      allow read:  if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Rules for /notification_digests — server-written only
+    match /notification_digests/{userId}/{rest=**} {
+      allow read:  if request.auth != null && request.auth.uid == userId;
+      allow write: if false; // only firebase-admin writes digests
+    }
   }
 }

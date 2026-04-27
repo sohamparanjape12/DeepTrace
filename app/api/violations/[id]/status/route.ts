@@ -10,7 +10,7 @@ export async function POST(
     const { status, reviewed_by } = await request.json();
     const { id } = await params;
 
-    if (!['resolved', 'disputed', 'false_positive'].includes(status)) {
+    if (!['open', 'resolved', 'disputed', 'false_positive'].includes(status)) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
 

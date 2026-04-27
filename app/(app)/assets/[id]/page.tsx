@@ -157,46 +157,51 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
   });
 
   return (
-    <div className="space-y-12 pb-20">
-      {/* Back + Header */}
-      <div className="space-y-4">
-        <Link href="/assets" className="inline-flex items-center gap-2 text-xs font-bold text-brand-muted hover:text-brand-text transition-colors group">
-          <ArrowLeft className="w-3 h-3 group-hover:-translate-x-0.5 transition-transform" />
-          Back to Assets
-        </Link>
-        <PageHeader
-          title={asset?.name || 'Asset Details'}
-          size="md"
-          className="mb-0"
-          actions={
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowConfirmDelete(true)}
-              className="text-brand-muted hover:text-red-600 hover:bg-red-50 transition-all"
-            >
-              <Trash2 className="w-4 h-4 mr-2" /> Delete Asset
-            </Button>
-          }
-        />
+    <div className="space-y-8 pb-24">
+      {/* ── Asset Header ── */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+        <div className="space-y-4">
+          <Link href="/assets" className="inline-flex items-center gap-2 text-meta hover:text-brand-text transition-colors group">
+            <ArrowLeft className="w-3 h-3 group-hover:-translate-x-0.5 transition-transform" />
+            Library
+          </Link>
+          <div className="space-y-1">
+            <p className="text-meta">Forensic Asset Audit</p>
+            <h1 className="font-display font-black uppercase text-3xl md:text-4xl tracking-tighter text-brand-text leading-tight">
+              {asset?.name || 'Asset Audit'}
+            </h1>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setShowConfirmDelete(true)}
+            className="text-brand-muted hover:text-brand-red-text transition-all group"
+          >
+            <Trash2 className="w-3.5 h-3.5 mr-2 group-hover:scale-110 transition-transform" />
+            Delete Asset
+          </Button>
+        </div>
       </div>
 
       {/* Deletion Overlay */}
       {showConfirmDelete && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-white/80 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
           <div className="bento-card p-8 max-w-sm w-full text-center space-y-6 shadow-2xl animate-in zoom-in-95 duration-300">
-            <div className="w-16 h-16 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center mx-auto text-red-600">
+            <div className="w-16 h-16 rounded-full bg-brand-red-muted flex items-center justify-center mx-auto text-brand-red-text">
               <Trash2 className="w-8 h-8" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-xl font-display font-black uppercase tracking-tight text-brand-text">Delete Asset?</h2>
+              <h2 className="text-xl font-display font-black uppercase tracking-tight text-brand-text">Purge Asset?</h2>
               <p className="text-sm text-brand-muted leading-relaxed">
-                This will permanently remove <span className="font-bold text-brand-text">"{asset.name}"</span> and all associated forensic evidence. This action cannot be undone.
+                This will permanently remove <span className="font-bold text-brand-text">"{asset.name}"</span> and all associated forensic evidence. This action cannot be reversed.
               </p>
             </div>
             <div className="flex gap-3">
               <Button
-                variant="ghost"
+                variant="secondary"
                 className="flex-1"
                 onClick={() => setShowConfirmDelete(false)}
                 disabled={isDeleting}
@@ -204,11 +209,11 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
                 Cancel
               </Button>
               <Button
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white border-transparent"
+                className="flex-1 bg-brand-red-text hover:opacity-90 text-white border-transparent"
                 onClick={handleDelete}
                 disabled={isDeleting}
               >
-                {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm Delete'}
+                {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm Purge'}
               </Button>
             </div>
           </div>
@@ -222,127 +227,105 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
 
       {/* Pending Context Alert */}
       {asset.scan_status === 'pending' && (
-        <div className="bento-card p-6 bg-amber-500/5 border-amber-500/20 flex flex-col md:flex-row items-center justify-between gap-6 animate-in slide-in-from-top-4 duration-500">
-          <div className="flex items-center gap-4 text-center md:text-left">
-            <div className="p-3 rounded-xl bg-amber-500/10 text-amber-600 shrink-0">
-              <Scan className="w-6 h-6 animate-pulse" />
+        <div className="bento-card p-6 bg-brand-amber-muted border-brand-amber-text/10 flex flex-col md:flex-row items-center justify-between gap-6 animate-in slide-in-from-top-4 duration-500">
+          <div className="flex items-center gap-5 text-center md:text-left">
+            <div className="p-4 rounded-xl bg-brand-amber-text/5 text-brand-amber-text shrink-0">
+              <Scan className="w-7 h-7 animate-pulse" />
             </div>
-            <div>
-              <h3 className="text-sm font-display font-black uppercase tracking-tight text-amber-600">Action Required: Complete Registration</h3>
-              <p className="text-xs text-brand-muted mt-1 leading-relaxed max-w-md">
-                This asset is missing forensic context. Provide ownership details and rights metadata to calibrate the AI audit pipeline.
+            <div className="space-y-1">
+              <h3 className="text-sm font-display font-black uppercase tracking-tight text-brand-amber-text">Action Required: Calibrate Forensic Pipeline</h3>
+              <p className="text-xs text-brand-muted leading-relaxed max-w-lg">
+                This asset is missing critical ownership context. Provide rights metadata to enable authorized domain filtering and RSE v2 logic.
               </p>
             </div>
           </div>
           <Link href="/assets/upload" className="w-full md:w-auto">
-            <Button className="w-full md:w-auto bg-amber-600 hover:bg-amber-700 text-white border-transparent flex items-center gap-2">
-              Finish Registration <Scan className="w-4 h-4" />
+            <Button className="w-full md:w-auto bg-brand-amber-text hover:opacity-90 text-white border-transparent flex items-center gap-2 group">
+              Complete Calibration <Scan className="w-4 h-4 group-hover:rotate-90 transition-transform" />
             </Button>
           </Link>
         </div>
       )}
 
-      {/* Asset Hero */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-        {/* Thumbnail */}
-        <div className="lg:col-span-3 aspect-video rounded-xl overflow-hidden bg-brand-bg border border-brand-border relative group">
+      {/* Asset Hero & Meta Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-8">
+        {/* Thumbnail Workspace */}
+        <div className="aspect-[2/1] md:aspect-[3/1] lg:aspect-auto lg:h-full rounded-2xl overflow-hidden bg-brand-bg border border-brand-border relative group shadow-sm min-h-[300px]">
           {asset.thumbnailUrl ? (
             <img
               src={asset.thumbnailUrl}
               alt={asset.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+              className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-1000 ease-out"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
-              <span className="text-brand-muted/30 font-display font-black text-3xl uppercase tracking-tight">
-                {(asset?.name || 'Un').slice(0, 2)}
+              <span className="text-brand-muted/20 font-display font-black text-4xl uppercase tracking-widest">
+                Audit
               </span>
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-          <div className="absolute bottom-6 left-6">
-            <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
+          <div className="absolute bottom-8 left-8">
+            <Badge variant={statusCfg.variant} className="px-4 py-2 border-2 shadow-lg">{statusCfg.label}</Badge>
           </div>
         </div>
 
-        {/* Meta Panel */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bento-card p-8 space-y-6">
-            <h3 className="font-display font-black uppercase text-xs tracking-widest text-brand-muted">Asset Metadata</h3>
-            <div className="space-y-5">
-              <div className="flex items-start gap-3">
-                <Shield className="w-4 h-4 text-brand-muted mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-meta mb-1">Organization</p>
-                  <p className="text-sm font-bold text-brand-text">{asset.owner_org}</p>
-                </div>
+        {/* Intelligence Sidepanel */}
+        <div className="bento-card p-8 space-y-8 flex flex-col h-fit">
+          <div className="space-y-1">
+            <p className="text-meta">Forensic Identity</p>
+            <h3 className="font-display font-black uppercase text-[10px] tracking-widest text-brand-muted">Asset Metadata Registry</h3>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
+            <div className="flex items-start gap-3">
+              <Shield className="w-4 h-4 text-brand-muted mt-0.5 shrink-0" />
+              <div>
+                <p className="text-meta mb-1">Organization</p>
+                <p className="text-sm font-bold text-brand-text">{asset.owner_org}</p>
               </div>
-              <div className="flex items-start gap-3">
-                <Calendar className="w-4 h-4 text-brand-muted mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-meta mb-1">Uploaded</p>
-                  <p className="text-sm font-bold text-brand-text">
-                    {asset.uploaded_at ? new Date(asset.uploaded_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}
+            </div>
+            <div className="flex items-start gap-3">
+              <Calendar className="w-4 h-4 text-brand-muted mt-0.5 shrink-0" />
+              <div>
+                <p className="text-meta mb-1">Audit Initiated</p>
+                <p className="text-sm font-bold text-brand-text">
+                  {asset.uploaded_at ? new Date(asset.uploaded_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <Scan className="w-4 h-4 text-brand-muted mt-0.5 shrink-0" />
+              <div>
+                <p className="text-meta mb-1">Pipeline Access</p>
+                <p className="text-sm font-bold text-brand-text">
+                  {asset.last_scanned_at ? new Date(asset.last_scanned_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Never'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <Scan className="w-4 h-4 text-brand-muted mt-0.5 shrink-0" />
+              <div>
+                <p className="text-meta mb-1">Rights Tier</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="w-2 h-2 rounded-full bg-brand-blue-text animate-pulse" />
+                  <p className="text-xs font-black uppercase tracking-widest text-brand-blue-text">
+                    {rightsTierLabels[asset.rights_tier || 'editorial'] || asset.rights_tier}
                   </p>
                 </div>
               </div>
-              <div className="flex items-start gap-3">
-                <Scan className="w-4 h-4 text-brand-muted mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-meta mb-1">Last Scanned</p>
-                  <p className="text-sm font-bold text-brand-text">
-                    {asset.last_scanned_at ? new Date(asset.last_scanned_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Never'}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <Scan className="w-4 h-4 text-brand-muted mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-meta mb-1">Rights Tier</p>
-                  <p className="text-sm font-bold text-brand-text">{rightsTierLabels[asset.rights_tier || 'editorial'] || asset.rights_tier}</p>
-                </div>
-              </div>
-              {asset.tags && asset.tags.length > 0 && (
-                <div className="flex items-start gap-3">
-                  <Tag className="w-4 h-4 text-brand-muted mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-meta mb-2">Tags</p>
-                    <div className="flex flex-wrap gap-2">
-                      {(asset.tags || []).map(t => (
-                        <span key={t} className="px-2.5 py-1 rounded-full bg-brand-bg border border-brand-border text-[10px] font-black uppercase tracking-widest text-brand-muted">
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
-          <div className="bento-card p-8 space-y-4">
-            <h3 className="font-display font-black uppercase text-xs tracking-widest text-brand-muted">Scan Summary</h3>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center">
-                <p className="text-3xl font-display font-black text-brand-accent">
-                  {violations.filter(v => v.status === 'open').length}
-                </p>
-                <p className="text-meta mt-1">Open</p>
-              </div>
-              <div className="text-center">
-                <p className="text-3xl font-display font-black text-brand-text">
-                  {violations.filter(v => v.severity === 'CRITICAL' && v.status === 'open').length}
-                </p>
-                <p className="text-meta mt-1">Critical</p>
-              </div>
-              <div className="text-center">
-                <p className="text-3xl font-display font-black text-brand-green-text">
-                  {violations.filter(v => v.status === 'resolved').length}
-                </p>
-                <p className="text-meta mt-1">Resolved</p>
-              </div>
+          {asset.tags && asset.tags.length > 0 && (
+            <div className="pt-6 border-t border-brand-border flex flex-wrap gap-2">
+              {(asset.tags || []).map(t => (
+                <span key={t} className="px-2.5 py-1 rounded-md bg-brand-bg border border-brand-border text-[9px] font-black uppercase tracking-widest text-brand-muted">
+                  {t}
+                </span>
+              ))}
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -354,40 +337,39 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
             Violations <span className="opacity-40">({violations.length})</span>
           </h2>
 
-          {/* ─── Filter Bar ─── */}
-          <div className="flex flex-wrap items-center gap-4 bg-brand-surface border border-brand-border p-4 rounded-xl">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-widest text-brand-muted">Severity</span>
+          {/* ─── Filter Control Panel ─── */}
+          <div className="flex flex-wrap items-center gap-6 bg-brand-surface border border-brand-border p-5 rounded-xl shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="text-meta">Severity</span>
               <select
-                className="bg-brand-bg border border-brand-border rounded px-2 py-1 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-brand-accent"
+                className="bg-brand-bg border border-brand-border rounded-md px-3 py-1.5 text-[10px] font-black uppercase tracking-widest focus:outline-none focus:ring-1 focus:ring-brand-accent transition-all cursor-pointer"
                 value={filters.severity}
                 onChange={(e) => setFilters(f => ({ ...f, severity: e.target.value }))}
               >
-                <option value="all">All</option>
+                <option value="all">All Levels</option>
                 <option value="CRITICAL">Critical</option>
                 <option value="HIGH">High</option>
                 <option value="MEDIUM">Medium</option>
                 <option value="LOW">Low</option>
-                <option value="PENDING">Pending</option>
               </select>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-widest text-brand-muted">Status</span>
+            <div className="flex items-center gap-3">
+              <span className="text-meta">Status</span>
               <select
-                className="bg-brand-bg border border-brand-border rounded px-2 py-1 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-brand-accent"
+                className="bg-brand-bg border border-brand-border rounded-md px-3 py-1.5 text-[10px] font-black uppercase tracking-widest focus:outline-none focus:ring-1 focus:ring-brand-accent transition-all cursor-pointer"
                 value={filters.status}
                 onChange={(e) => setFilters(f => ({ ...f, status: e.target.value }))}
               >
-                <option value="all">All</option>
+                <option value="all">All Status</option>
                 <option value="open">Open</option>
                 <option value="resolved">Resolved</option>
                 <option value="disputed">Disputed</option>
               </select>
             </div>
-            <div className="flex items-center gap-2 ml-auto">
-              <span className="text-[10px] font-black uppercase tracking-widest text-brand-muted">Sort</span>
+            <div className="flex items-center gap-3 ml-auto">
+              <span className="text-meta">Ordering</span>
               <select
-                className="bg-brand-bg border border-brand-border rounded px-2 py-1 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-brand-accent"
+                className="bg-brand-bg border border-brand-border rounded-md px-3 py-1.5 text-[10px] font-black uppercase tracking-widest focus:outline-none focus:ring-1 focus:ring-brand-accent transition-all cursor-pointer text-right"
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value as 'desc' | 'asc')}
               >
@@ -407,9 +389,9 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
               {filteredViolations.map(v => (
                 <div key={v.violation_id} className="relative group">
                   <Link key={v.violation_id} href={`/violations/${v.violation_id}?fromAsset=${id}`}>
-                    <ViolationCard 
-                      violation={v} 
-                      className="hover:shadow-soft-lg transition-shadow" 
+                    <ViolationCard
+                      violation={v}
+                      className="hover:shadow-soft-lg transition-shadow"
                       onDMCA={(id) => router.push(`/violations/${id}?action=dmca`)}
                       onViewDMCA={(noticeId) => router.push(`/dmca/${noticeId}`)}
                     />
@@ -419,19 +401,19 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
                       <Button
                         variant="secondary"
                         size="sm"
-                        className="bg-white"
+                        className="bg-brand-surface border-brand-border"
                         onClick={(e) => {
                           e.preventDefault();
                           fetch(`/api/process-violation/${v.violation_id}`, { method: 'POST' });
                         }}
                       >
-                        Retry
+                        Retry Audit
                       </Button>
                     </div>
                   )}
                   {v.stage === 'failed_permanent' && (
                     <div className="absolute top-4 right-16 flex gap-2">
-                      <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-1 rounded">Permanent Failure</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-brand-red-text bg-brand-red-muted border border-brand-red-text/10 px-2.5 py-1 rounded-md">Audit Halted</span>
                     </div>
                   )}
                 </div>

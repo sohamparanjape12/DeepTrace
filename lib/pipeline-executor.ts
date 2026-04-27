@@ -7,6 +7,9 @@ import { setViolationStage, nextRetryDelayMs } from './stage';
 import { Asset, Violation } from '@/types';
 import { isTerminalViolation } from './firestore-schema';
 import { RetryableError, PermanentError } from './error-classes';
+import { emitNotification } from './notifications/emit';
+import { severityToEventType } from './notifications/taxonomy';
+
 
 export async function processViolationStage(violationId: string) {
   const vRef = db.collection('violations').doc(violationId);
@@ -147,6 +150,25 @@ export async function processViolationStage(violationId: string) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ violationId }),
         }).catch(err => console.error('[Pipeline] Evidence bundle trigger failed:', err));
+        
+        // Emit notification — fire-and-forget
+        const recipientId = assetData.owner_id || vData.owner_id;
+        if (recipientId) {
+          void emitNotification({
+            user_id: recipientId,
+            event_type: severityToEventType(result.severity),
+            payload: {
+              violation_id: violationId,
+              asset_id: vData.asset_id,
+              asset_title: assetData.name || 'your asset',
+              host_domain: new URL(vData.match_url || 'https://unknown').hostname,
+              reliability_score: result.reliability_score,
+            },
+            source_event_id: `violation:${violationId}`,
+          });
+        } else {
+          console.warn(`[Pipeline] No owner_id found for violation ${violationId} — skipping notification`);
+        }
 
       } catch (e: any) {
         console.error(`[Pipeline] Classification failed for ${violationId}:`, e);
@@ -225,6 +247,24 @@ export async function updateAssetAggregation(assetId: string) {
       stage_updated_at: FieldValue.serverTimestamp(),
       scan_status: totals.classified > 0 ? 'violations_found' : ((allTerminal && totals.reverse_hits > 0) ? 'clean' : 'scanning')
     }, { merge: true });
+
+    if (newStage === 'complete') {
+      const aSnap = await assetRef.get();
+      const aData = aSnap.data();
+      const recipientId = aData?.owner_id || aData?.userId; // Check multiple possible fields
+
+      if (recipientId) {
+        void emitNotification({
+          user_id: recipientId,
+          event_type: 'pipeline.completed',
+          payload: {
+            asset_id: assetId,
+            asset_title: aData?.name || assetId,
+          },
+          source_event_id: `pipeline.completed:${assetId}`, // Stable ID for idempotency
+        });
+      }
+    }
   } catch (e) {
     console.error(`[Aggregation] Failed for ${assetId}:`, e);
   }

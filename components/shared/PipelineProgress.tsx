@@ -86,6 +86,8 @@ function PulseDot({ active, stalled }: { active: boolean; stalled: boolean }) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export function PipelineProgress({ asset }: PipelineProgressProps) {
+  const [isCollapsed, setIsCollapsed] = useState(asset.stage === 'complete');
+  
   const totals: NonNullable<Asset['totals']> = asset.totals || {
     reverse_hits: 0, gated_pending: 0, gate_dropped: 0,
     gate_passed: 0, scraped: 0, classified: 0,
@@ -105,9 +107,38 @@ export function PipelineProgress({ asset }: PipelineProgressProps) {
   const currentStageIndex = STAGES.findIndex(s => s.key === asset.stage);
   const stageName = STAGES.find(s => s.key === asset.stage)?.label ?? asset.stage?.replace(/_/g, ' ') ?? '—';
 
+  // ── Collapsed View (Only when complete) ───────────────────────────────────
+  if (asset.stage === 'complete' && isCollapsed) {
+    return (
+      <div className="bento-card px-6 py-4 flex items-center justify-between gap-4 bg-brand-green-muted/30 border-brand-green-text/10 group transition-all duration-300">
+        <div className="flex items-center gap-4">
+          <div className="w-8 h-8 rounded-full bg-brand-green-text flex items-center justify-center text-white shrink-0 shadow-soft">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
+          <div className="space-y-0.5">
+            <h3 className="text-xs font-black uppercase tracking-widest text-brand-green-text">Forensic Audit Complete</h3>
+            <p className="text-[10px] text-brand-muted font-bold">
+              {totalViolations} suspects analyzed · 100% calibration achieved
+            </p>
+          </div>
+        </div>
+        <Button 
+          variant="secondary" 
+          size="sm" 
+          onClick={() => setIsCollapsed(false)}
+          className="bg-brand-surface border-brand-border text-[9px] font-black uppercase tracking-widest h-8"
+        >
+          View Audit Registry
+        </Button>
+      </div>
+    );
+  }
+
   // ── Full card ──────────────────────────────────────────────────────────────
   return (
-    <div className="bento-card p-6 space-y-5">
+    <div className="bento-card p-6 space-y-5 animate-in fade-in slide-in-from-top-2 duration-500">
 
       {/* Header row */}
       <div className="flex items-start justify-between gap-4">
@@ -118,6 +149,11 @@ export function PipelineProgress({ asset }: PipelineProgressProps) {
             {isStalled && (
               <span className="text-[9px] font-bold uppercase tracking-widest text-amber-600">
                 {retrying ? '· Retrying…' : '· Paused'}
+              </span>
+            )}
+            {asset.stage === 'complete' && (
+              <span className="text-[9px] font-black uppercase tracking-widest text-brand-green-text">
+                · Verified
               </span>
             )}
           </div>
@@ -132,12 +168,22 @@ export function PipelineProgress({ asset }: PipelineProgressProps) {
           )}
         </div>
 
-        {/* Large percent */}
-        <div className="shrink-0 text-right">
+        {/* Large percent / Collapse toggle */}
+        <div className="flex flex-col items-end gap-3 shrink-0">
           <span className="text-2xl font-black text-brand-text tabular-nums leading-none">
             {percent}
             <span className="text-sm font-bold text-brand-muted ml-0.5">%</span>
           </span>
+          {asset.stage === 'complete' && (
+            <Button 
+              variant="secondary" 
+              size="sm" 
+              onClick={() => setIsCollapsed(true)}
+              className="text-[9px] font-black uppercase tracking-widest h-8 px-4"
+            >
+              Collapse Registry
+            </Button>
+          )}
         </div>
       </div>
 

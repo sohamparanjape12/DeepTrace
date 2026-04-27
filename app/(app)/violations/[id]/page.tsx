@@ -19,10 +19,10 @@ import { Badge } from '@/components/ui/Badge';
 import { DMCAPanel } from './dmca-panel';
 
 const classConfig: Record<string, { label: string; classes: string }> = {
-  UNAUTHORIZED: { label: 'Unauthorized', classes: 'text-red-700 bg-red-50 border-red-200' },
-  EDITORIAL_FAIR_USE: { label: 'Editorial Fair Use', classes: 'text-amber-700 bg-amber-50 border-amber-200' },
-  NEEDS_REVIEW: { label: 'Needs Review', classes: 'text-blue-700 bg-blue-50 border-blue-200' },
-  AUTHORIZED: { label: 'Authorized', classes: 'text-green-700 bg-green-50 border-green-200' },
+  UNAUTHORIZED: { label: 'Unauthorized', classes: 'text-brand-red-text bg-brand-red-muted border-brand-red-text/20' },
+  EDITORIAL_FAIR_USE: { label: 'Editorial Fair Use', classes: 'text-brand-amber-text bg-brand-amber-muted border-brand-amber-text/20' },
+  NEEDS_REVIEW: { label: 'Needs Review', classes: 'text-brand-blue-text bg-brand-blue-muted border-brand-blue-text/20' },
+  AUTHORIZED: { label: 'Authorized', classes: 'text-brand-green-text bg-brand-green-muted border-brand-green-text/20' },
 };
 
 const matchTypeLabels: Record<string, string> = {
@@ -127,7 +127,7 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
   };
 
   return (
-    <div className="space-y-12 max-w-4xl pb-24">
+    <div className="space-y-12 w-full pb-24">
       {/* Back & Status Header */}
       <div className="flex flex-col gap-6">
         <div className="flex items-center gap-4">
@@ -205,25 +205,51 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
           </div>
         ))}
       </div>
+      {/* ── Triage Control Center ── */}
+      <section className="bento-card overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-[2fr_2fr] items-stretch">
+          {/* Audit Context */}
+          <div className="p-6 md:p-8 flex flex-col sm:flex-row items-start sm:items-center gap-8 bg-brand-surface/30">
+            <div className="space-y-2">
+              <p className="text-meta">Audit Verdict</p>
+              <Badge className={clsx("w-fit px-3 py-1.5 text-[10px] font-black uppercase tracking-widest border", cls.classes)}>
+                {cls.label}
+              </Badge>
+            </div>
 
-      {/* ── Status & Actions Bar ── */}
-      <div className="bento-card p-6 flex flex-wrap items-center justify-between gap-6">
-        <div className="flex items-center gap-4">
-          <Badge className={clsx("px-4 py-2 text-sm font-black uppercase tracking-widest border-2", cls.classes)}>
-            {cls.label}
-          </Badge>
-          <div className="h-8 w-px bg-brand-border hidden sm:block" />
-          <div className="flex flex-col">
-            <p className="text-[10px] font-black uppercase text-brand-muted tracking-widest">Action Recommendation</p>
-            <p className="text-sm font-bold text-brand-text">
-              {violation.recommended_action === 'escalate' ? '⚡ Escalate Violation' :
-                violation.recommended_action === 'human_review' ? '👁 Manual Review' : '✓ Monitor Activity'}
-            </p>
+            <div className="h-8 w-px bg-brand-border hidden sm:block" />
+
+            <div className="space-y-2">
+              <p className="text-meta">Forensic Recommendation</p>
+              <div className="flex items-center gap-2">
+                {violation.recommended_action === 'escalate' && (
+                  <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest bg-brand-red-muted text-brand-red-text border border-brand-red-text/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-brand-red-text animate-pulse" />
+                    Escalate Violation
+                  </span>
+                )}
+                {violation.recommended_action === 'human_review' && (
+                  <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest bg-brand-blue-muted text-brand-blue-text border border-brand-blue-text/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-brand-blue-text" />
+                    Manual Review
+                  </span>
+                )}
+                {(!violation.recommended_action || violation.recommended_action === 'monitor' || violation.recommended_action === 'no_action') && (
+                  <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest bg-brand-bg text-brand-muted border border-brand-border">
+                    <span className="w-1.5 h-1.5 rounded-full bg-brand-muted/40" />
+                    Monitor
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Decision Actions */}
+          <div className="p-6 md:p-8 flex items-center justify-start lg:justify-center border-t lg:border-t-0 lg:border-l border-brand-border bg-brand-surface w-full">
+            <TriageActions violation={violation} onUpdate={(v: Violation) => setViolation(v)} />
           </div>
         </div>
-
-        <TriageActions violation={violation} onUpdate={(v: Violation) => setViolation(v)} />
-      </div>
+      </section>
 
       {/* ── DMCA Takedown Module ── */}
       <DMCAPanel
@@ -252,19 +278,19 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
         </div>
 
         {/* Breakdown Gauges */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 pt-4">
-          <div className="space-y-4">
-            <p className="text-[10px] font-black uppercase tracking-widest text-brand-muted">Core Axes</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 pt-4">
+          <div className="space-y-6">
+            <p className="text-meta">Core Axes</p>
             {[
-              { label: 'Relevancy', score: violation.relevancy ?? 0, desc: 'Is this your image?', color: '#6366F1' },
-              { label: 'Confidence', score: violation.confidence ?? 0, desc: 'System certainty', color: '#8B5CF6' },
-            ].map(({ label, score, desc, color }) => (
-              <div key={label} className="space-y-1.5">
+              { label: 'Relevancy', score: violation.relevancy ?? 0, color: 'var(--brand-blue-text)' },
+              { label: 'Confidence', score: violation.confidence ?? 0, color: 'var(--brand-text)' },
+            ].map(({ label, score, color }) => (
+              <div key={label} className="space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-[10px] font-black uppercase tracking-widest text-brand-text">{label}</span>
                   <span className="text-[10px] font-black text-brand-text">{(score * 100).toFixed(0)}%</span>
                 </div>
-                <div className="h-2 bg-brand-border rounded-full overflow-hidden">
+                <div className="h-1.5 bg-brand-border rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-1000 ease-out"
                     style={{ width: `${score * 100}%`, backgroundColor: color }}
@@ -274,18 +300,18 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
             ))}
           </div>
 
-          <div className="space-y-4">
-            <p className="text-[10px] font-black uppercase tracking-widest text-brand-muted">Weighted Evidence</p>
+          <div className="space-y-6">
+            <p className="text-meta">Evidence Weight</p>
             {[
-              { label: 'Visual Match', score: violation.visual_match_score ?? 0, color: '#0EA5E9' },
-              { label: 'Context Match', score: violation.contextual_match_score ?? 0, color: '#F59E0B' },
+              { label: 'Visual Match', score: violation.visual_match_score ?? 0, color: 'var(--brand-text)' },
+              { label: 'Context Match', score: violation.contextual_match_score ?? 0, color: 'var(--brand-muted)' },
             ].map(({ label, score, color }) => (
-              <div key={label} className="space-y-1.5">
+              <div key={label} className="space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-[10px] font-black uppercase tracking-widest text-brand-text">{label}</span>
                   <span className="text-[10px] font-black text-brand-text">{(score * 100).toFixed(0)}%</span>
                 </div>
-                <div className="h-2 bg-brand-border rounded-full overflow-hidden">
+                <div className="h-1.5 bg-brand-border rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-1000 ease-out"
                     style={{ width: `${score * 100}%`, backgroundColor: color }}
@@ -307,8 +333,8 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
           </div>
 
           <div className="space-y-4">
-            <div className="p-4 bg-zinc-50 dark:bg-neutral-900/20 border border-blue-100 rounded-xl space-y-3">
-              <p className="text-[10px] font-black uppercase tracking-widest text-brand-muted">Adaptive Weights Applied</p>
+            <div className="p-4 bg-brand-bg border border-brand-border rounded-xl space-y-3">
+              <p className="text-meta">Adaptive Weights Applied</p>
               <div className="space-y-2">
                 {Object.entries(violation.applied_weights || {}).map(([factor, weight]) => (
                   <div key={factor} className="flex justify-between text-[10px] font-bold">
@@ -325,18 +351,18 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
       {/* ── Evidence Reasoning ── */}
       <div className="bento-card p-8 space-y-6">
         <h3 className="font-display font-black uppercase text-sm tracking-tight border-b border-brand-border pb-4">Analyst Reasoning</h3>
-        <div className="bg-blue-50/50 dark:bg-indigo-800/20 border border-blue-100 p-6 rounded-xl space-y-4">
+        <div className="bg-brand-bg border border-brand-border p-6 rounded-xl space-y-4">
           {(violation.gemini_reasoning || '').split(/Step \d+:/).filter(Boolean).map((step, i) => (
             <div key={i} className="flex gap-4">
-              <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 dark:bg-indigo-400/10 dark:text-indigo-300 flex items-center justify-center text-[10px] font-black shrink-0">{i + 1}</div>
-              <p className="text-sm font-medium text-blue-900 dark:text-indigo-200 leading-relaxed font-sans">{step.trim()}</p>
+              <div className="w-6 h-6 rounded-full bg-brand-border text-brand-text flex items-center justify-center text-[10px] font-black shrink-0">{i + 1}</div>
+              <p className="text-sm font-medium text-brand-text leading-relaxed font-sans">{step.trim()}</p>
             </div>
           ))}
         </div>
 
         <div className="flex items-center gap-3 pt-2">
-          <div className="w-2 h-2 rounded-full bg-blue-500" />
-          <p className="text-[10px] font-black text-brand-muted uppercase tracking-widest">Powered by DeepTrace Forensic Content Auditor</p>
+          <div className="w-2 h-2 rounded-full bg-brand-muted" />
+          <p className="text-meta">Powered by DeepTrace Forensic Content Auditor</p>
         </div>
       </div>
 
@@ -352,22 +378,22 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
             <div className="flex flex-col items-end">
               <span className="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Sentiment</span>
               <div className={clsx(
-                "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all",
-                violation.sentiment === 'positive' ? "bg-emerald-500/5 text-emerald-600 border-emerald-500/10" :
-                  violation.sentiment === 'negative' ? "bg-red-500/5 text-red-600 border-red-500/10" :
-                    "bg-zinc-500/5 text-zinc-600 border-zinc-500/10"
+                "px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest border transition-all",
+                violation.sentiment === 'positive' ? "bg-brand-green-muted text-brand-green-text border-brand-green-text/20" :
+                  violation.sentiment === 'negative' ? "bg-brand-red-muted text-brand-red-text border-brand-red-text/20" :
+                    "bg-brand-bg text-brand-muted border-brand-border"
               )}>
                 {violation.sentiment || 'neutral'}
               </div>
             </div>
             {/* Risk */}
             <div className="flex flex-col items-end">
-              <span className="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Risk Profile</span>
+              <span className="text-meta mb-1.5">Risk Profile</span>
               <div className={clsx(
-                "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all",
-                violation.brand_safety_risk === 'safe' ? "bg-emerald-500/5 text-emerald-600 border-emerald-500/10" :
-                  ['high', 'critical'].includes(violation.brand_safety_risk || '') ? "bg-red-500/5 text-red-600 border-red-500/10 animate-pulse" :
-                    "bg-amber-500/5 text-amber-600 border-amber-500/10"
+                "px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest border transition-all",
+                violation.brand_safety_risk === 'safe' ? "bg-brand-green-muted text-brand-green-text border-brand-green-text/20" :
+                  ['high', 'critical'].includes(violation.brand_safety_risk || '') ? "bg-brand-red-muted text-brand-red-text border-brand-red-text/20 animate-pulse" :
+                    "bg-brand-blue-muted text-brand-blue-text border-brand-blue-text/20"
               )}>
                 {violation.brand_safety_risk || 'safe'}
               </div>
@@ -396,16 +422,16 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
             <div className="flex flex-wrap gap-2">
               {violation.risk_factors && violation.risk_factors.length > 0 ? (
                 violation.risk_factors.map(risk => (
-                  <span key={risk} className="px-3 py-2 rounded-xl bg-red-500/5 text-red-600 border border-red-500/10 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-transform hover:scale-105">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+                  <span key={risk} className="px-3 py-1.5 rounded-md bg-brand-red-muted text-brand-red-text border border-brand-red-text/20 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-brand-red-text/60" />
                     {risk.replace('_', ' ')}
                   </span>
                 ))
               ) : (
-                <div className="w-full p-6 rounded-2xl border border-dashed border-brand-border flex flex-col items-center justify-center gap-3 text-center bg-brand-surface/30">
-                  <CheckCircle className="w-6 h-6 text-emerald-500/20" />
-                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600/60 leading-tight">
-                    No specific risk<br />factors detected
+                <div className="w-full p-4 rounded-xl border border-dashed border-brand-border flex items-center gap-3 bg-brand-bg">
+                  <CheckCircle className="w-4 h-4 text-brand-green-text/40" />
+                  <p className="text-[10px] font-black uppercase tracking-widest text-brand-muted">
+                    No risk factors detected
                   </p>
                 </div>
               )}
@@ -419,17 +445,17 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
         <h3 className="font-display font-black uppercase text-sm tracking-tight border-b border-brand-border pb-4">Extracted Signals</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {[
-            { label: 'Commercial Intent', active: violation.commercial_signal, activeColor: 'bg-indigo-600', activeBg: 'bg-indigo-50 border-indigo-200' },
-            { label: 'Derivative Work', active: violation.is_derivative_work, activeColor: 'bg-amber-500', activeBg: 'bg-amber-50 border-amber-200' },
-            { label: 'Domain Conflict', active: violation.domain_class !== 'unknown' && violation.domain_class !== 'benign', activeColor: 'bg-red-500', activeBg: 'bg-red-50 border-red-200' },
+            { label: 'Commercial Intent', active: violation.commercial_signal, dot: 'bg-brand-blue-text', activeBg: 'bg-brand-blue-muted border-brand-blue-text/20' },
+            { label: 'Derivative Work', active: violation.is_derivative_work, dot: 'bg-brand-red-text', activeBg: 'bg-brand-red-muted border-brand-red-text/20' },
+            { label: 'Domain Conflict', active: violation.domain_class !== 'unknown' && violation.domain_class !== 'benign', dot: 'bg-brand-red-text', activeBg: 'bg-brand-red-muted border-brand-red-text/20' },
           ].map(signal => (
             <div key={signal.label} className={clsx(
               "p-4 rounded-xl border flex items-center gap-3 transition-all",
-              signal.active ? signal.activeBg : "bg-brand-surface border-brand-border grayscale opacity-60"
+              signal.active ? signal.activeBg : "bg-brand-surface border-brand-border opacity-50"
             )}>
-              <div className={clsx("w-2.5 h-2.5 rounded-full shrink-0", signal.active ? signal.activeColor : "bg-brand-muted/30")} />
+              <div className={clsx("w-2 h-2 rounded-full shrink-0", signal.active ? signal.dot : "bg-brand-border")} />
               <span className="text-[10px] font-black uppercase tracking-widest text-brand-text">{signal.label}</span>
-              {signal.active && <CheckCircle className="w-3.5 h-3.5 text-brand-text/30 ml-auto" />}
+              {signal.active && <CheckCircle className="w-3.5 h-3.5 text-brand-text/20 ml-auto" />}
             </div>
           ))}
         </div>

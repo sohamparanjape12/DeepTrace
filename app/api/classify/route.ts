@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { classifyViolation } from '@/lib/classify.v2';
+import { emitNotification } from '@/lib/notifications/emit';
+import { severityToEventType } from '@/lib/notifications/taxonomy';
 
 /**
  * Perform AI classification of a suspected violation using the v2 Forensic Pipeline.
@@ -91,6 +93,21 @@ export async function POST(req: NextRequest) {
       reliability_score: result.reliability_score,
       abstain: result.abstained,
       contradiction_flag: result.contradiction_flag,
+    });
+
+    // Emit notification — fire-and-forget, must not block or throw
+    const violationDoc = await db.collection('violations').doc(violationId).get();
+    const violationData = violationDoc.data();
+    void emitNotification({
+      user_id: violationData?.owner_id,
+      event_type: severityToEventType(result.severity),
+      payload: {
+        violation_id: violationId,
+        asset_id: violationData?.asset_id,
+        host_domain: new URL(body.matchUrl || 'https://unknown').hostname,
+        reliability_score: result.reliability_score,
+      },
+      source_event_id: `violation:${violationId}`,
     });
 
     return NextResponse.json({ success: true, result });

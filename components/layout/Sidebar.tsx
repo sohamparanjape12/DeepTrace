@@ -3,18 +3,21 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { clsx } from 'clsx';
-import { LayoutDashboard, Images, AlertCircle, Settings, Shield, ChevronRight, LogOut, FileText } from 'lucide-react';
+import { LayoutDashboard, Images, AlertCircle, Settings, Shield, ChevronRight, LogOut, FileText, Bell } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/assets', label: 'Assets', icon: Images },
   { href: '/violations', label: 'Violations', icon: AlertCircle },
   { href: '/dmca', label: 'DMCA Takedowns', icon: FileText },
+  { href: '/notifications', label: 'Notifications', icon: Bell },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 import { ThemeToggle } from './ThemeToggle';
+import Image from 'next/image';
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -30,9 +33,9 @@ export function Sidebar() {
     <aside className="fixed left-0 top-0 h-screen w-60 bg-brand-surface border-r border-brand-border flex flex-col z-40">
       {/* Logo + Theme */}
       <div className="px-6 py-7 border-b border-brand-border flex items-start justify-center flex-col gap-2">
-        <Link href="/" className="flex items-center gap-3 group">
-          <div className="w-8 h-8 rounded-lg bg-brand-text flex items-center justify-center group-hover:scale-105 transition-transform">
-            <Shield className="w-4 h-4 text-brand-bg" />
+        <Link href="/" className="flex items-center gap-2 group">
+          <div className="w-8 h-8 rounded-md bg-[#0f0f0f] flex items-center justify-center">
+            <Image src="/icon.svg" alt="Logo" width={20} height={20} />
           </div>
           <span className="font-display font-black text-lg tracking-tight text-brand-text" style={{ fontWeight: 900 }}>DeepTrace</span>
         </Link>
@@ -65,8 +68,9 @@ export function Sidebar() {
       {/* Footer: User + Status */}
       <div className="px-4 pb-6 pt-4 border-t border-brand-border space-y-4">
 
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center justify-between gap-2">
           <ThemeToggle />
+          <NotificationBell />
         </div>
 
         {user ? (

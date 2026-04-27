@@ -363,8 +363,19 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
   const abstain = !evidenceQuality.both_images_available && jsonResp.context_authenticity_score < 0.4;
   const contradiction_flag = (jsonResp.visual_match_score >= 0.8 && jsonResp.context_authenticity_score <= 0.3) || (jsonResp.contradictions?.length > 0);
 
+  // Rights-tier override: these tiers forbid ALL external reuse — editorial fair use is not a valid
+  // classification regardless of what Gemini detects in the page context.
+  const isStrictlyRestricted = (
+    params.rightsTier === 'no_reuse' ||
+    params.rightsTier === 'internal_use_only'
+  );
+
   if (abstain) {
     classification = 'INSUFFICIENT_EVIDENCE';
+  } else if (isStrictlyRestricted) {
+    // No external use is permissible — any detected usage is unauthorized by definition.
+    // Wire-service credit and editorial context are irrelevant overrides for this tier.
+    classification = jsonResp.visual_match_score >= 0.5 ? 'UNAUTHORIZED' : 'NEEDS_REVIEW';
   } else if (domainClass === 'wire_service' && jsonResp.credit_present) {
     classification = 'AUTHORIZED';
   } else if (jsonResp.context_type === 'editorial' || jsonResp.context_type === 'meme_parody') {
@@ -384,7 +395,10 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
 
   // 7. Recommended Action
   let recommended_action: ClassificationResult['recommended_action'] = 'monitor';
-  if (classification === 'UNAUTHORIZED' && severity === 'CRITICAL' && reliability_score >= 80) {
+  if (classification === 'UNAUTHORIZED' && (
+    (severity === 'CRITICAL' && reliability_score >= 80) ||
+    isStrictlyRestricted  // no_reuse / internal_use_only: all detected use is a violation, escalate immediately
+  )) {
     recommended_action = 'escalate';
   } else if (classification === 'UNAUTHORIZED' || classification === 'NEEDS_REVIEW') {
     recommended_action = 'human_review';
@@ -403,6 +417,14 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
   if (domainClass === 'wire_service') explainability_bullets.push(`ℹ Hosted on known wire-service domain`);
   if (contradiction_flag) explainability_bullets.push(`⚠ Conflicting signals detected`);
   if (jsonResp.is_derivative_work) explainability_bullets.push(`→ Transformation: ${jsonResp.transformation_type}`);
+
+  // Rights-tier override audit trail
+  if (isStrictlyRestricted) {
+    explainability_bullets.push(`⛔ Rights tier override: "${params.rightsTier}" prohibits all external reuse`);
+    if (jsonResp.context_type === 'editorial' || jsonResp.context_type === 'meme_parody') {
+      explainability_bullets.push(`⚠ Gemini detected editorial context — overridden by rights tier restriction`);
+    }
+  }
 
   if (gateSim !== null) {
     explainability_bullets.push(

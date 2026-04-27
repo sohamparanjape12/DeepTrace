@@ -15,8 +15,17 @@
   --brand-blue-text: #1F6C9F;
   --brand-green-muted: #EDF3EC;
   --brand-green-text: #346538;
+  --brand-amber-muted: #FFFBEB;
+  --brand-amber-text: #92400E;
   --brand-surface-glass: rgba(255, 255, 255, 0.7);
   --brand-border-glass: rgba(0, 0, 0, 0.05);
+
+  /* Notification severity */
+  --notif-severity-critical: #DC2626;
+  --notif-severity-high:     #F59E0B;
+  --notif-severity-medium:   #3B82F6;
+  --notif-severity-info:     #10B981;
+  --notif-on-critical:       #FFFFFF;
 }
 
 .dark {
@@ -32,8 +41,17 @@
   --brand-blue-text: #60A5FA;
   --brand-green-muted: #131E17;
   --brand-green-text: #4ADE80;
+  --brand-amber-muted: #271C0C;
+  --brand-amber-text: #FBBF24;
   --brand-surface-glass: rgba(10, 10, 12, 0.7);
   --brand-border-glass: rgba(255, 255, 255, 0.05);
+
+  /* Notification severity — dark */
+  --notif-severity-critical: #F87171;
+  --notif-severity-high:     #FBBF24;
+  --notif-severity-medium:   #60A5FA;
+  --notif-severity-info:     #34D399;
+  --notif-on-critical:       #0B0F19;
 }
   
 /* Fix browser autofill colors with theme awareness */
