@@ -110,7 +110,7 @@ export function DMCAPanel({ violationId, dmcaStatus, dmcaNoticeId, evidenceStatu
               <p className="text-xs text-indigo-700 dark:text-indigo-400">Current Status: {dmcaStatus?.replace('_', ' ')}</p>
             </div>
           </div>
-          <Button onClick={() => router.push(`/dmca/${dmcaNoticeId}`)} variant="outline" className="border-indigo-200 text-indigo-900 hover:bg-indigo-100 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-900/50">
+          <Button onClick={() => router.push(`/dmca/${dmcaNoticeId}`)} variant="secondary" className="border-indigo-200 text-indigo-900 hover:bg-indigo-100 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-900/50">
             View Notice Details
           </Button>
         </div>
@@ -168,7 +168,7 @@ export function DMCAPanel({ violationId, dmcaStatus, dmcaNoticeId, evidenceStatu
               <Button
                 onClick={handleGenerateEvidence}
                 disabled={generatingEvidence}
-                variant="outline"
+                variant="secondary"
                 className="w-full flex justify-center gap-2 text-xs"
               >
                 {generatingEvidence ? (

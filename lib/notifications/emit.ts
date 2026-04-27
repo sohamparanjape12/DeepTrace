@@ -31,15 +31,7 @@ export async function emitNotification(input: EmitInput): Promise<void> {
       return;
     }
 
-    // 2. Idempotency check
-    const existing = await db
-      .collection('notifications')
-      .where('source_event_id', '==', data.source_event_id)
-      .limit(1)
-      .get();
-    if (!existing.empty) return;
-
-    // 3. Resolve recipient user IDs
+    // 2. Resolve recipient user IDs
     let recipientIds: string[] = [];
     if (data.user_id) {
       recipientIds = [data.user_id];
@@ -91,8 +83,13 @@ export async function emitNotification(input: EmitInput): Promise<void> {
           channels = ['in_app', ...channels];
         }
 
-        // Write notification doc
-        const notifId = uuidv4();
+        // Write notification doc with deterministic ID for absolute idempotency
+        const notifId = `notif_${data.source_event_id}_${userId}`.replace(/[:\/]/g, '_');
+        const notifRef = db.collection('notifications').doc(notifId);
+        
+        const existing = await notifRef.get();
+        if (existing.exists) continue; // Already exists, skip
+
         const docData = {
           user_id: userId,
           org_id: data.org_id ?? null,
@@ -110,7 +107,7 @@ export async function emitNotification(input: EmitInput): Promise<void> {
           source_event_id: data.source_event_id,
         };
 
-        await db.collection('notifications').doc(notifId).set(docData);
+        await notifRef.set(docData);
 
         // 6. Email delivery
         if (channels.includes('email_immediate') && prefs.email_digest === 'immediate') {

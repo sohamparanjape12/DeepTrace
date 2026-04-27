@@ -35,7 +35,7 @@ export async function draftNotice(violation: Violation, asset: Asset): Promise<N
       temperature: 0.1,
       responseMimeType: 'application/json',
       maxOutputTokens: 800,
-    }
+    } as any
   });
 
   const promptContent = `

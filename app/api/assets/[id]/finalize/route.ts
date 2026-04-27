@@ -52,7 +52,7 @@ export async function POST(
     const batch = db.batch();
     const selectedSet = new Set(selectedMatchUrls);
 
-    violationsSnap.forEach(doc => {
+    violationsSnap.forEach((doc: any) => {
       const data = doc.data();
       if (!selectedSet.has(data.match_url)) {
         batch.update(doc.ref, { stage: 'ignored' });

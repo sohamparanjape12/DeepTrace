@@ -24,7 +24,7 @@ export async function parseCounterNotice(text: string): Promise<any> {
     generationConfig: {
       temperature: 0.1,
       responseMimeType: 'application/json',
-    }
+    } as any
   });
 
   try {

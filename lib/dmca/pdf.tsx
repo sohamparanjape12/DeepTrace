@@ -78,7 +78,7 @@ export const NoticePDF = ({ input, date }: { input: NoticeInput; date: string })
 export async function generateAndUploadPDF(input: NoticeInput, customerId: string, noticeId: string): Promise<{ url: string, buffer: Buffer }> {
   const date = new Date().toISOString().split('T')[0];
   
-  const pdfBuffer = await renderToBuffer(<NoticePDF input={input} date={date} />);
+  const pdfBuffer = await renderToBuffer(<NoticePDF input={input} date={date} /> as any);
   
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(

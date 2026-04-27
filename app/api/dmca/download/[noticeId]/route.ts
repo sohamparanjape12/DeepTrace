@@ -35,9 +35,9 @@ export async function GET(req: NextRequest, props: { params: Promise<{ noticeId:
 
     const date = notice.dispatched_at ? notice.dispatched_at.split('T')[0] : new Date().toISOString().split('T')[0];
     
-    const pdfBuffer = await renderToBuffer(React.createElement(NoticePDF, { input: noticeInput, date: date }));
+    const pdfBuffer = await renderToBuffer(React.createElement(NoticePDF, { input: noticeInput, date: date }) as any);
     
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

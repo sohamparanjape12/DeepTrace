@@ -8,7 +8,7 @@ import { useNotificationStore } from '@/lib/notifications/store';
 
 // ── Icon Map ──────────────────────────────────────────────────────────────────
 
-const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+const ICONS: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
   ShieldAlert, Shield, Eye, CheckCircle, XCircle, Send, AlertTriangle,
 };
 

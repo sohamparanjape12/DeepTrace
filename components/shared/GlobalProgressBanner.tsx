@@ -56,16 +56,16 @@ export function GlobalProgressBanner() {
           return tB - tA;
         });
       
-      const active = assets.find(a => ['uploaded', 'reverse_searched', 'gated', 'analyzing'].includes(a.stage));
+      const active = assets.find(a => a.stage && ['uploaded', 'reverse_searched', 'gated', 'analyzing'].includes(a.stage));
       
       if (active) {
         setActiveAsset(active);
       } else {
-        const recent = assets.find(a => (a.stage === 'complete' || a.stage === 'failed') && !completedAssets.has(a.asset_id));
+        const recent = assets.find(a => a.asset_id && (a.stage === 'complete' || a.stage === 'failed') && !completedAssets.has(a.asset_id));
         if (recent) {
           setActiveAsset(recent);
           setTimeout(() => {
-            setCompletedAssets(prev => new Set(prev).add(recent.asset_id));
+            setCompletedAssets(prev => new Set(prev).add(recent.asset_id!));
             setActiveAsset(current => current?.asset_id === recent.asset_id ? null : current);
           }, 5000);
         } else {
@@ -117,7 +117,7 @@ export function GlobalProgressBanner() {
 
   return (
     <div className="fixed bottom-8 right-8 z-[100] animate-in slide-in-from-bottom-4 fade-in duration-500">
-      <Link href={`/assets/${activeAsset.asset_id}`}>
+      <Link href={`/assets/${activeAsset.asset_id!}`}>
         <div className="
           bg-white dark:bg-zinc-900
           border border-zinc-200 dark:border-zinc-800

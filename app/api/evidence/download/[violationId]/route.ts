@@ -49,7 +49,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ violation
     // 6. Generate the PDF on the fly
     const { buffer } = await generateEvidenceBundle(violation, asset, eligibility, warcResult);
     
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

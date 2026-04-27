@@ -3,10 +3,12 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { useTheme } from '@/lib/theme-provider';
 import { Shield } from 'lucide-react';
 
 export default function LoginPage() {
   const { user, loading, signInWithGoogle } = useAuth();
+  const { resolvedTheme } = useTheme();
   const router = useRouter();
 
   // Redirect to dashboard if already signed in
@@ -32,7 +34,7 @@ export default function LoginPage() {
         <div className="absolute inset-0 opacity-[0.04] dark:opacity-[0.02]"
           style={{
             backgroundImage: 'repeating-linear-gradient(0deg, #fff 0px, #fff 1px, transparent 1px, transparent 60px), repeating-linear-gradient(90deg, #fff 0px, #fff 1px, transparent 1px, transparent 60px)',
-            filter: 'dark' ? 'invert(1)' : 'none',
+            filter: resolvedTheme === 'dark' ? 'invert(1)' : 'none',
           }}
         />
 

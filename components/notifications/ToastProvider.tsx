@@ -25,7 +25,7 @@ export function ToastProvider() {
   React.useEffect(() => {
     for (const n of items) {
       if (!n.id || seenIds.current.has(n.id)) continue;
-      if (!n.channels_delivered.includes('toast')) continue;
+      if (!n.channels_delivered?.includes('toast')) continue;
       if (n.archived_at) continue;
 
       seenIds.current.add(n.id);

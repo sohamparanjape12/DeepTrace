@@ -17,6 +17,14 @@ if (!admin.apps.length) {
   }
 }
 
-export const db = admin.apps.length ? admin.firestore() : {} as any;
-export const storage = admin.apps.length ? admin.storage() : {} as any;
-export const auth = admin.apps.length ? admin.auth() : {} as any;
+export const db: admin.firestore.Firestore = admin.apps.length 
+  ? admin.firestore() 
+  : ({} as admin.firestore.Firestore);
+
+export const storage: admin.storage.Storage = admin.apps.length 
+  ? admin.storage() 
+  : ({} as admin.storage.Storage);
+
+export const auth: admin.auth.Auth = admin.apps.length 
+  ? admin.auth() 
+  : ({} as admin.auth.Auth);

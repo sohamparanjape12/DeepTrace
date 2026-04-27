@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import type { NotificationPreferences, ChannelToggles } from '@/lib/notifications/types';
-import { DEFAULT_PREFERENCES } from '@/lib/notifications/preferences';
+import { DEFAULT_PREFERENCES } from '@/lib/notifications/shared';
 
 const CATEGORIES: Array<{ key: keyof NotificationPreferences['channels']; label: string }> = [
   { key: 'violations', label: 'Violations' },

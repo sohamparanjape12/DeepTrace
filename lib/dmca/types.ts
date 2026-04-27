@@ -33,7 +33,7 @@ export interface HostInfo {
   agent_name?: string;
   agent_email?: string;
   agent_address?: string;
-  source: 'directory' | 'whois' | 'manual' | 'cache';
+  source: 'directory' | 'whois' | 'manual' | 'cache' | 'pattern_match';
   resolved_at: string;
 }
 

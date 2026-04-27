@@ -448,7 +448,7 @@ export async function generateEvidenceBundle(
       eligibility={eligibility}
       warc={warc}
       generatedAt={generatedAt}
-    />
+    /> as any
   );
 
   // Compute SHA-256 hash for zero-edit integrity verification

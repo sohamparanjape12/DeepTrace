@@ -12,6 +12,7 @@ import {
   Fingerprint, CheckCircle, X, Eye, Lock, BarChart3,
 } from 'lucide-react';
 import Link from 'next/link';
+import { LandingNav } from '@/components/layout/LandingNav';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -217,38 +218,7 @@ export default function Home() {
         }}
       />
 
-      {/* ── Nav ────────────────────────────────────── */}
-      <nav
-        ref={navRef}
-        className="fixed top-4 md:top-6 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-fit z-50
-          px-4 py-2 flex items-center justify-between md:justify-start gap-6 md:gap-12
-          border border-zinc-200 dark:border-white/10
-          bg-white dark:bg-black/60 backdrop-blur-3xl
-          rounded-full transition-all duration-500 shadow-lg dark:shadow-none"
-      >
-        <div className="flex items-center gap-2.5 pl-1">
-          <div className="w-2 h-2 rounded-full bg-brand-accent shadow-sm" />
-          <span className="font-display font-black text-sm tracking-[-0.04em] uppercase text-zinc-950 dark:text-white">
-            DeepTrace
-          </span>
-        </div>
-
-        <div className="hidden lg:flex items-center gap-10 text-[10px] font-black uppercase tracking-[0.25em] text-zinc-400 dark:text-white/20">
-          <a href="#discovery" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Discovery</a>
-          <a href="#analysis" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Analysis</a>
-          <a href="#resolution" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Resolution</a>
-        </div>
-
-        <Link href="/dashboard">
-          <Button
-            variant="primary"
-            className="rounded-full px-5 md:px-7 py-2.5 h-auto text-[10px] font-black uppercase tracking-widest
-              bg-zinc-950 dark:bg-zinc-100 text-white dark:text-black hover:scale-[1.02] transition-all"
-          >
-            Launch Console
-          </Button>
-        </Link>
-      </nav>
+      <LandingNav />
 
       {/* ── Hero ───────────────────────────────────── */}
       <section className="macro-spacing px-6 flex flex-col lg:flex-row gap-16 max-w-6xl mx-auto min-h-[92dvh] items-center relative z-10 pt-40 lg:pt-20">
@@ -309,7 +279,7 @@ export default function Home() {
           <div className="relative w-full max-w-[320px] h-[450px] overflow-visible flex justify-center items-center">
             {/* Background Card Left */}
             <div className="absolute w-full -translate-x-24 -rotate-[12deg] z-0 opacity-100 transition-all duration-700">
-              <ForensicCard 
+              <ForensicCard
                 img="/images/sports-stadium.png"
                 confidence="94.1%"
                 id="#STD-142"
@@ -317,10 +287,10 @@ export default function Home() {
                 progress={82}
               />
             </div>
-            
+
             {/* Background Card Right */}
             <div className="absolute w-full translate-x-24 rotate-[10deg] z-10 opacity-100 transition-all duration-700">
-              <ForensicCard 
+              <ForensicCard
                 img="/images/sports-hero.png"
                 confidence="97.4%"
                 id="#BB-088"
@@ -331,7 +301,7 @@ export default function Home() {
 
             {/* Main Card (Center) */}
             <div className="relative z-20 w-full scale-105">
-              <ForensicCard 
+              <ForensicCard
                 img="/images/sports-basketball.png"
                 confidence="99.8%"
                 id="#SPT-772"

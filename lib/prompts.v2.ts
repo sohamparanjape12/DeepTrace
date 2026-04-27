@@ -1,4 +1,4 @@
-export type DomainClass = 'wire_service' | 'major_news' | 'social' | 'betting' | 'piracy' | 'ecommerce' | 'unknown';
+export type DomainClass = 'wire_service' | 'major_news' | 'social' | 'betting' | 'piracy' | 'ecommerce' | 'stock_photo' | 'portfolio' | 'unknown';
 
 export const DOMAIN_CLASS_PRIORS: Record<string, { class: DomainClass, piracy_prior: number }> = {
   // Wire services — zero tolerance for false positives

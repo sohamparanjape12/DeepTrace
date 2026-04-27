@@ -106,6 +106,13 @@ export interface Violation {
   contradiction_flag?: boolean;
   explainability_bullets?: string[];
   abstain?: boolean;
+  gate_similarity?: number;
+  gate_tier?: 'NEAR_IDENTICAL' | 'TRANSFORMED' | 'HIGH_RISK_OVERRIDE' | 'DROPPED_LOW_SIM' | 'DROPPED_NO_HASH';
+  gate_phash_distance?: number;
+  gate_dhash_distance?: number;
+  gate_domain_class?: string;
+  gate_reason?: string;
+  gate_forwarded?: boolean;
 
   // Nested Data Maps
   scores?: Record<string, number>;

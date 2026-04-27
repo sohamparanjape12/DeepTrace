@@ -426,7 +426,7 @@ export default function UploadPage() {
       <div className="space-y-8">
       {/* Back + Title */}
       <div className="flex gap-6">
-        <Link href="/assets" className="mt-8">
+        <Link href="/assets">
           <Button variant="ghost" size="sm" className="flex items-center gap-2">
             <ArrowLeft className="w-3.5 h-3.5" /> Back
           </Button>

@@ -123,7 +123,7 @@ export async function processViolationStage(violationId: string) {
           ownerOrg: assetData.owner_org || '',
           tags: assetData.tags || [],
           matchUrl: vData.match_url,
-          pageTitle: vData.scraped_cache?.title || vData.page_context,
+          pageTitle: vData.scraped_cache?.title || vData.page_context || '',
           pageDescription: vData.scraped_cache?.description || '',
           matchType: 'visually_similar',
           originalAssetUrl: assetData.storageUrl || assetData.url,
@@ -204,7 +204,7 @@ export async function updateAssetAggregation(assetId: string) {
     const violationsSnap = await db.collection('violations').where('asset_id', '==', assetId).get();
     
     // Filter out ignored violations (those not selected in the wizard)
-    const activeDocs = violationsSnap.docs.filter(doc => doc.data().stage !== 'ignored');
+    const activeDocs = violationsSnap.docs.filter((doc: any) => doc.data().stage !== 'ignored');
     
     const totals = {
       reverse_hits: activeDocs.length,
@@ -218,7 +218,7 @@ export async function updateAssetAggregation(assetId: string) {
     };
 
     let allTerminal = true;
-    activeDocs.forEach(doc => {
+    activeDocs.forEach((doc: any) => {
       const v = doc.data() as any;
       if (v.stage) {
         if (v.stage === 'gated_pending') totals.gated_pending++;

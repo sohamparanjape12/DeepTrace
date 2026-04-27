@@ -20,6 +20,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ass
       if (!assetSnap.exists) return { error: 'Asset not found', status: 404 };
 
       const assetData = assetSnap.data();
+      if (!assetData) return { error: 'Asset data is empty', status: 404 };
+
       const now = Date.now();
       
       // Check lock (ignore if force=true)
@@ -74,7 +76,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ass
     // 4. Filter work queue
     const toProcess = violationsSnap.docs.filter(doc => {
       const v = doc.data();
-      if (!v.stage) return true;
+      if (!v || !v.stage) return true;
 
       const isPermanent = v.stage === 'failed_permanent' || ['gate_dropped', 'classified'].includes(v.stage);
       if (isPermanent) return force && v.stage === 'failed_permanent';

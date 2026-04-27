@@ -34,9 +34,7 @@ export function Sidebar() {
       {/* Logo + Theme */}
       <div className="px-6 py-7 border-b border-brand-border flex items-start justify-center flex-col gap-2">
         <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 rounded-md bg-[#0f0f0f] flex items-center justify-center">
-            <Image src="/icon.svg" alt="Logo" width={20} height={20} />
-          </div>
+          <Image src="/icon.svg" alt="Logo" width={20} height={20} />
           <span className="font-display font-black text-lg tracking-tight text-brand-text" style={{ fontWeight: 900 }}>DeepTrace</span>
         </Link>
       </div>

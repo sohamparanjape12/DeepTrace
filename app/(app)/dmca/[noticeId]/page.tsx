@@ -228,7 +228,7 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
             {isActiveDraft && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />}
             <h3 className="font-display font-black uppercase text-[11px] tracking-widest text-brand-text">Forensic Draft</h3>
           </div>
-          <Badge variant="outline" className="text-[9px] uppercase tracking-widest font-mono bg-transparent text-brand-muted w-fit">
+          <Badge variant="default" className="text-[9px] uppercase tracking-widest font-mono bg-transparent text-brand-muted w-fit">
             Forensic Auto-Draft
           </Badge>
         </div>
@@ -280,7 +280,7 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
                   <Button
                     onClick={handleGenerateEvidence}
                     disabled={generatingEvidence}
-                    variant="outline"
+                    variant="secondary"
                     className="w-full bg-white dark:bg-transparent border-amber-200 text-amber-700 hover:bg-amber-50"
                   >
                     {generatingEvidence ? (
