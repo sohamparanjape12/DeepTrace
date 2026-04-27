@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { clsx } from 'clsx';
 import type { Violation } from '@/types';
 import { useAuth } from '@/lib/auth-context';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { TriageActions } from './TriageActions';
 import { ReliabilityRing } from '@/components/shared/ReliabilityRing';
@@ -35,7 +35,7 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
   const { id } = use(params);
   const searchParams = useSearchParams();
   const fromAsset = searchParams.get('fromAsset');
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [violation, setViolation] = useState<Violation | null>(null);
   const [asset, setAsset] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,7 +52,8 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
   }, [action, isLoading, violation]);
 
   useEffect(() => {
-    if (!user || !id) return;
+    // Auth State Check: Ensure auth is fully loaded and user is confirmed before executing Firestore calls
+    if (authLoading || !user || !id || !auth.currentUser) return;
 
     async function fetchData() {
       try {
@@ -78,15 +79,15 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
             setAsset(aDoc.data());
           }
         }
-      } catch (err) {
-        console.error(err);
+      } catch (err: any) {
+        console.error(`[FirebaseError] Permission denied or fetch failed at /violations/${id} or associated asset for user ${user?.uid}:`, err.code, err.message);
       } finally {
         setIsLoading(false);
       }
     }
 
     fetchData();
-  }, [id, user]);
+  }, [id, user, authLoading]);
 
   if (isLoading) return <div className="p-12 animate-pulse space-y-8">
     <div className="h-10 w-48 bg-brand-border rounded-lg" />

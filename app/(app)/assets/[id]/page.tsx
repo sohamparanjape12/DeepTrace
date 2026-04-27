@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import type { Asset, Violation } from '@/types';
 import { useAuth } from '@/lib/auth-context';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { doc, collection, query, where, orderBy, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { PipelineProgress } from '@/components/shared/PipelineProgress';
 import { useRef } from 'react';
@@ -33,7 +33,7 @@ const rightsTierLabels: Record<string, string> = {
 
 export default function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [asset, setAsset] = useState<(Asset & { last_scanned_at?: string }) | null>(null);
   const [violations, setViolations] = useState<Violation[]>([]);
   const [scans, setScans] = useState<any[]>([]);
@@ -50,7 +50,8 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
   const unsubscribeViolations = useRef<Unsubscribe | null>(null);
 
   useEffect(() => {
-    if (!user || !id) return;
+    // Auth State Check: Ensure auth is fully loaded before starting listeners
+    if (authLoading || !user || !id || !auth.currentUser) return;
 
     // 2. Subscribe to Asset
     unsubscribeAsset.current = onSnapshot(doc(db, 'assets', id), (snap) => {
@@ -71,6 +72,9 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
       if (data.scan_status === 'scanning' || data.scan_status === 'violations_found') {
         fetch(`/api/resume/${id}`, { method: 'POST' }).catch(err => console.error('[Client] Resume trigger failed:', err));
       }
+    }, (err) => {
+      console.error(`[FirebaseError] Permission denied or listener failed at /assets/${id} for user ${user.uid}:`, err.code, err.message);
+      setIsLoading(false);
     });
 
     // 3. Subscribe to Violations
@@ -81,14 +85,16 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
       orderBy('detected_at', sortOrder)
     );
     unsubscribeViolations.current = onSnapshot(vQuery, (snap) => {
-      setViolations(snap.docs.map(d => d.data() as Violation).filter(v => v.stage !== 'ignored'));
+      setViolations(snap.docs.map(d => d.data() as Violation).filter(v => (v.stage as string) !== 'ignored'));
+    }, (err) => {
+      console.error(`[FirebaseError] Permission denied or listener failed at /violations (asset:${id}) for user ${user.uid}:`, err.code, err.message);
     });
 
     return () => {
       unsubscribeAsset.current?.();
       unsubscribeViolations.current?.();
     };
-  }, [id, user, sortOrder]);
+  }, [id, user, sortOrder, authLoading]);
 
   if (isLoading) return (
     <div className="p-12 animate-pulse space-y-8">
@@ -142,7 +148,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
     }
   };
 
-  const statusCfg = scanStatusConfig[asset.scan_status];
+  const statusCfg = scanStatusConfig[asset?.scan_status ?? 'pending'] || scanStatusConfig['pending'];
 
   const filteredViolations = violations.filter(v => {
     if (filters.severity !== 'all' && v.severity !== filters.severity) return false;
@@ -159,7 +165,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
           Back to Assets
         </Link>
         <PageHeader
-          title={asset.name}
+          title={asset?.name || 'Asset Details'}
           size="md"
           className="mb-0"
           actions={
@@ -249,7 +255,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <span className="text-brand-muted/30 font-display font-black text-3xl uppercase tracking-tight">
-                {asset.name.slice(0, 2)}
+                {(asset?.name || 'Un').slice(0, 2)}
               </span>
             </div>
           )}
@@ -276,7 +282,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
                 <div>
                   <p className="text-meta mb-1">Uploaded</p>
                   <p className="text-sm font-bold text-brand-text">
-                    {new Date(asset.uploaded_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    {asset.uploaded_at ? new Date(asset.uploaded_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'}
                   </p>
                 </div>
               </div>
@@ -293,16 +299,16 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
                 <Scan className="w-4 h-4 text-brand-muted mt-0.5 shrink-0" />
                 <div>
                   <p className="text-meta mb-1">Rights Tier</p>
-                  <p className="text-sm font-bold text-brand-text">{rightsTierLabels[asset.rights_tier]}</p>
+                  <p className="text-sm font-bold text-brand-text">{rightsTierLabels[asset.rights_tier || 'editorial'] || asset.rights_tier}</p>
                 </div>
               </div>
-              {asset.tags?.length > 0 && (
+              {asset.tags && asset.tags.length > 0 && (
                 <div className="flex items-start gap-3">
                   <Tag className="w-4 h-4 text-brand-muted mt-0.5 shrink-0" />
                   <div>
                     <p className="text-meta mb-2">Tags</p>
                     <div className="flex flex-wrap gap-2">
-                      {asset.tags.map(t => (
+                      {(asset.tags || []).map(t => (
                         <span key={t} className="px-2.5 py-1 rounded-full bg-brand-bg border border-brand-border text-[10px] font-black uppercase tracking-widest text-brand-muted">
                           {t}
                         </span>
@@ -411,7 +417,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
                   {v.stage === 'failed_retryable' && (
                     <div className="absolute top-4 right-16 flex gap-2">
                       <Button
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         className="bg-white"
                         onClick={(e) => {

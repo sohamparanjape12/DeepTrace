@@ -16,6 +16,7 @@ async function runTests() {
         rightsTier: "commercial",
         ownerOrg: "FC Sports",
         tags: ["soccer", "championship", "final"],
+        violationId: "test-v-1",
       },
     },
     {
@@ -29,6 +30,7 @@ async function runTests() {
         rightsTier: "editorial",
         ownerOrg: "FC Sports",
         tags: ["soccer", "championship", "final"],
+        violationId: "test-v-2",
       },
     },
     {
@@ -42,6 +44,7 @@ async function runTests() {
         rightsTier: "commercial",
         ownerOrg: "FC Sports",
         tags: ["soccer", "championship", "highlights"],
+        violationId: "test-v-3",
       },
     },
     {
@@ -55,6 +58,7 @@ async function runTests() {
         rightsTier: "all_rights",
         ownerOrg: "FC Sports",
         tags: ["soccer", "fail", "player1"],
+        violationId: "test-v-4",
       },
     },
     {
@@ -68,6 +72,20 @@ async function runTests() {
         rightsTier: "commercial",
         ownerOrg: "FC Sports",
         tags: ["soccer", "review"],
+        violationId: "test-v-5",
+      },
+    },
+    {
+      name: "6. Brand Safety Risk (Gambling site)",
+      params: {
+        matchUrl: "https://win-big-sports-betting.com/promotions",
+        pageTitle: "Bet on the Championship Final - Win Big!",
+        pageDescription: "Exclusive odds for the FC Sports game. Join now for a 200% bonus.",
+        matchType: "full_match",
+        rightsTier: "no_reuse",
+        ownerOrg: "FC Sports",
+        tags: ["soccer", "betting", "odds"],
+        violationId: "test-v-risk",
       },
     },
   ];
@@ -85,6 +103,9 @@ async function runTests() {
         commercial_signal: result.commercial_signal,
         watermark_likely_removed: result.watermark_likely_removed,
       });
+      console.log("Sentiment   :", result.sentiment);
+      console.log("Risk        :", result.brand_safety_risk);
+      console.log("Risk Factors:", result.risk_factors);
     } catch (e) {
       console.error("Test failed:", e);
     }

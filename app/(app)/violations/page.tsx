@@ -10,9 +10,10 @@ import type { Severity, Violation } from '@/types';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth-context';
 import { collection, onSnapshot, query, orderBy, where } from 'firebase/firestore';
+import { auth } from '@/lib/firebase';
 
 export default function ViolationsPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('all');
   const [violations, setViolations] = useState<Violation[]>([]);
@@ -20,32 +21,33 @@ export default function ViolationsPage() {
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
   useEffect(() => {
-    if (!user) return;
+    // Auth State Check: Confirm auth is fully loaded before executing query
+    if (authLoading || !user || !auth.currentUser) return;
     const q = query(
-      collection(db, 'violations'), 
+      collection(db, 'violations'),
       where('owner_id', '==', user.uid),
       orderBy('detected_at', sortOrder)
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const vData = snapshot.docs
         .map(doc => doc.data() as Violation)
-        .filter(v => v.stage !== 'ignored');
+        .filter(v => (v.stage as string) !== 'ignored');
       setViolations(vData);
       setIsLoading(false);
-    }, (error) => {
-      console.error("Error fetching violations:", error);
+    }, (err) => {
+      console.error(`[FirebaseError] Permission denied or listener failed at /violations for user ${user.uid}:`, err.code, err.message);
       setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user, sortOrder]);
+  }, [user, sortOrder, authLoading]);
 
   const ALL_TABS = [
-    { key: 'all',      label: 'All',      count: violations.length },
+    { key: 'all', label: 'All', count: violations.length },
     { key: 'CRITICAL', label: 'Critical', count: violations.filter(v => v.severity === 'CRITICAL').length },
-    { key: 'HIGH',     label: 'High',     count: violations.filter(v => v.severity === 'HIGH').length },
-    { key: 'MEDIUM',   label: 'Medium',   count: violations.filter(v => v.severity === 'MEDIUM').length },
-    { key: 'LOW',      label: 'Low',      count: violations.filter(v => v.severity === 'LOW').length },
+    { key: 'HIGH', label: 'High', count: violations.filter(v => v.severity === 'HIGH').length },
+    { key: 'MEDIUM', label: 'Medium', count: violations.filter(v => v.severity === 'MEDIUM').length },
+    { key: 'LOW', label: 'Low', count: violations.filter(v => v.severity === 'LOW').length },
   ];
 
   const filtered = activeTab === 'all'
@@ -80,7 +82,7 @@ export default function ViolationsPage() {
         <FilterTabs tabs={ALL_TABS} active={activeTab} onChange={setActiveTab} />
         <div className="flex items-center gap-2 bg-brand-surface border border-brand-border px-3 py-1.5 rounded-lg">
           <span className="text-[10px] font-black uppercase tracking-widest text-brand-muted">Sort</span>
-          <select 
+          <select
             className="bg-transparent text-xs font-bold focus:outline-none"
             value={sortOrder}
             onChange={(e) => setSortOrder(e.target.value as 'desc' | 'asc')}

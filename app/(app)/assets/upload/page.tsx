@@ -23,7 +23,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { doc, setDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from '@/lib/auth-context';
 import { ReliabilityRing } from '@/components/shared/ReliabilityRing';
@@ -81,7 +81,7 @@ interface AnalysisResult {
 }
 
 export default function UploadPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
 
@@ -157,11 +157,13 @@ export default function UploadPage() {
 
   // Listen to Firestore for violations in real-time
   useEffect(() => {
-    if (currentStep !== 4 || !assetId) return;
+    // Auth State Check: Confirm auth is fully loaded before executing query
+    if (authLoading || currentStep !== 4 || !assetId || !user || !auth.currentUser) return;
 
     const q = query(
       collection(db, 'violations'),
-      where('asset_id', '==', assetId)
+      where('asset_id', '==', assetId),
+      where('owner_id', '==', user.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -205,10 +207,12 @@ export default function UploadPage() {
         setIsAnalyzing(false);
         setAnalysisDone(true);
       }
+    }, (err) => {
+      console.error(`[FirebaseError] Permission denied or listener failed at /violations (upload:${assetId}) for user ${user.uid}:`, err.code, err.message);
     });
 
     return () => unsubscribe();
-  }, [currentStep, assetId]);
+  }, [currentStep, assetId, user, authLoading]);
 
   const toggleTag = (tag: string) => {
     setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);

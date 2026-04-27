@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Badge } from '@/components/ui/Badge';
@@ -15,18 +15,19 @@ import { useRouter } from 'next/navigation';
 
 export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeId: string }> }) {
   const { noticeId } = use(params);
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [notice, setNotice] = useState<DMCANotice | null>(null);
   const [loading, setLoading] = useState(true);
   const [isApproving, setIsApproving] = useState(false);
   const [edits, setEdits] = useState<NoticeDraft | null>(null);
-  const [hostEdits, setHostEdits] = useState<{domain: string; agent_name: string; agent_email: string} | null>(null);
+  const [hostEdits, setHostEdits] = useState<{ domain: string; agent_name: string; agent_email: string } | null>(null);
   const [violation, setViolation] = useState<any>(null);
   const [generatingEvidence, setGeneratingEvidence] = useState(false);
 
   useEffect(() => {
-    if (!user || !noticeId) return;
+    // Auth State Check: Confirm auth is fully loaded before executing query
+    if (authLoading || !user || !noticeId || !auth.currentUser) return;
 
     async function fetchNotice() {
       try {
@@ -49,14 +50,14 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
             }
           }
         }
-      } catch (error) {
-        console.error(error);
+      } catch (error: any) {
+        console.error(`[FirebaseError] Permission denied or fetch failed at /dmca_notices/${noticeId} for user ${user?.uid}:`, error.code, error.message);
       } finally {
         setLoading(false);
       }
     }
     fetchNotice();
-  }, [user, noticeId]);
+  }, [user, noticeId, authLoading]);
 
   if (loading) return <div className="p-12 animate-pulse"><div className="h-64 bg-brand-surface border border-brand-border rounded-2xl"></div></div>;
 
@@ -104,7 +105,7 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Evidence generation failed');
-      
+
       // Refetch violation
       const vSnap = await getDoc(doc(db, 'violations', notice.violation_id));
       if (vSnap.exists()) {
@@ -138,9 +139,9 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <PageHeader
             title="Notice Detail"
-            description="Review and dispatch the auto-generated DMCA takedown notice."
+            subtitle="Review and dispatch the auto-generated DMCA takedown notice."
           />
-          <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-widest px-3 py-1 bg-brand-surface w-fit">
+          <Badge className="font-mono text-[10px] uppercase tracking-widest px-3 py-1 bg-brand-surface w-fit">
             ID: {noticeId.split('-')[0]}
           </Badge>
         </div>
@@ -155,26 +156,26 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
           </div>
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted mb-6 relative z-10">Target Host</p>
           <div className="relative z-10 space-y-2">
-            <input 
-               value={hostEdits?.domain || ''} 
-               onChange={e => setHostEdits(prev => prev ? {...prev, domain: e.target.value} : null)}
-               disabled={!isActiveDraft}
-               placeholder="example.com"
-               className="w-full bg-transparent border-0 p-0 text-3xl md:text-4xl font-display font-black tracking-tight text-brand-text mb-1 focus:ring-0 placeholder:text-brand-muted/30"
+            <input
+              value={hostEdits?.domain || ''}
+              onChange={e => setHostEdits(prev => prev ? { ...prev, domain: e.target.value } : null)}
+              disabled={!isActiveDraft}
+              placeholder="example.com"
+              className="w-full bg-transparent border-0 p-0 text-3xl md:text-4xl font-display font-black tracking-tight text-brand-text mb-1 focus:ring-0 placeholder:text-brand-muted/30"
             />
-            <input 
-               value={hostEdits?.agent_name || ''} 
-               onChange={e => setHostEdits(prev => prev ? {...prev, agent_name: e.target.value} : null)}
-               disabled={!isActiveDraft}
-               placeholder="Copyright Agent Name"
-               className="w-full bg-transparent border-0 p-0 text-sm font-bold text-brand-muted focus:text-brand-text focus:ring-0 placeholder:text-brand-muted/30 transition-colors"
+            <input
+              value={hostEdits?.agent_name || ''}
+              onChange={e => setHostEdits(prev => prev ? { ...prev, agent_name: e.target.value } : null)}
+              disabled={!isActiveDraft}
+              placeholder="Copyright Agent Name"
+              className="w-full bg-transparent border-0 p-0 text-sm font-bold text-brand-muted focus:text-brand-text focus:ring-0 placeholder:text-brand-muted/30 transition-colors"
             />
-            <input 
-               value={hostEdits?.agent_email || ''} 
-               onChange={e => setHostEdits(prev => prev ? {...prev, agent_email: e.target.value} : null)}
-               disabled={!isActiveDraft}
-               placeholder="abuse@example.com"
-               className="w-full bg-transparent border-0 p-0 text-sm font-mono text-brand-muted/70 focus:text-brand-text focus:ring-0 placeholder:text-brand-muted/30 transition-colors"
+            <input
+              value={hostEdits?.agent_email || ''}
+              onChange={e => setHostEdits(prev => prev ? { ...prev, agent_email: e.target.value } : null)}
+              disabled={!isActiveDraft}
+              placeholder="abuse@example.com"
+              className="w-full bg-transparent border-0 p-0 text-sm font-mono text-brand-muted/70 focus:text-brand-text focus:ring-0 placeholder:text-brand-muted/30 transition-colors"
             />
           </div>
         </div>
@@ -266,7 +267,7 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
               <p className="text-xs text-brand-muted leading-relaxed max-w-md font-medium">
                 Review and amend the factual statements. The statutory perjury and good-faith statements will be automatically appended prior to signature.
               </p>
-              
+
               {!violation?.evidence_bundle_url && (
                 <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/50 rounded-xl space-y-3">
                   <div className="flex items-center gap-2">
@@ -276,8 +277,8 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
                   <p className="text-[10px] text-amber-600 dark:text-amber-500 font-medium">
                     You must generate a forensic evidence bundle before this notice can be dispatched.
                   </p>
-                  <Button 
-                    onClick={handleGenerateEvidence} 
+                  <Button
+                    onClick={handleGenerateEvidence}
                     disabled={generatingEvidence}
                     variant="outline"
                     className="w-full bg-white dark:bg-transparent border-amber-200 text-amber-700 hover:bg-amber-50"
@@ -291,12 +292,12 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
                 </div>
               )}
             </div>
-            
+
             <div className="shrink-0 flex flex-col items-center gap-3">
-              <Button 
-                onClick={handleApprove} 
-                disabled={isApproving || !violation?.evidence_bundle_url} 
-                size="lg" 
+              <Button
+                onClick={handleApprove}
+                disabled={isApproving || !violation?.evidence_bundle_url}
+                size="lg"
                 className="w-full md:w-auto font-display font-black uppercase tracking-widest text-[10px] px-12 h-14 shadow-lg shadow-blue-500/10"
               >
                 {isApproving ? (
@@ -320,7 +321,7 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
           {timelineSteps.map((step, idx) => {
             const history = notice.status_history?.find((h: any) => h.status === step.status);
             const currentStepIdx = timelineSteps.findIndex(s => s.status === notice.status);
-            
+
             // Mark as done if it has history OR if it chronologically precedes the current active step
             const isDone = history !== undefined || idx < currentStepIdx;
             const isActive = notice.status === step.status;

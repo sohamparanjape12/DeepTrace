@@ -1,5 +1,6 @@
 'use client';
 
+// @ts-ignore
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface TrendData {
