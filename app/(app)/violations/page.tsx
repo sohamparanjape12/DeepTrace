@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ViolationCard } from '@/components/shared/ViolationCard';
 import { FilterTabs } from '@/components/shared/FilterTabs';
@@ -12,6 +13,7 @@ import { collection, onSnapshot, query, orderBy, where } from 'firebase/firestor
 
 export default function ViolationsPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState('all');
   const [violations, setViolations] = useState<Violation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -109,6 +111,8 @@ export default function ViolationsPage() {
                 onResolve={(id) => { handleResolve(id); }}
                 onDispute={(id) => { handleDispute(id); }}
                 onFalsePositive={(id) => { handleFalsePositive(id); }}
+                onDMCA={(id) => { router.push(`/violations/${id}?action=dmca`); }}
+                onViewDMCA={(noticeId) => { router.push(`/dmca/${noticeId}`); }}
               />
             </Link>
           ))}

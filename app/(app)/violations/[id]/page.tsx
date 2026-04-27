@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, use, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, ExternalLink, Calendar, Globe, Cpu, CheckCircle, Shield } from 'lucide-react';
@@ -40,6 +40,16 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
   const [asset, setAsset] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUnauthorized, setIsUnauthorized] = useState(false);
+  const dmcaRef = useRef<HTMLDivElement>(null);
+  const action = searchParams.get('action');
+
+  useEffect(() => {
+    if (action === 'dmca' && !isLoading && violation) {
+      setTimeout(() => {
+        dmcaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 500);
+    }
+  }, [action, isLoading, violation]);
 
   useEffect(() => {
     if (!user || !id) return;
