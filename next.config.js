@@ -11,7 +11,7 @@ const nextConfig = {
   experimental: {
     after: true,
   },
-  serverExternalPackages: ['imghash', 'sharp'],
+  serverExternalPackages: ['imghash', 'sharp', 'warcio'],
 };
 
 module.exports = nextConfig;

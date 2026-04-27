@@ -3,15 +3,27 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Shield, FileText, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { Shield, FileText, CheckCircle, AlertTriangle, Loader2, Download, ExternalLink, FileCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { clsx } from 'clsx';
 
-export function DMCAPanel({ violationId, dmcaStatus, dmcaNoticeId }: { violationId: string, dmcaStatus?: string, dmcaNoticeId?: string }) {
+interface DMCAPanelProps {
+  violationId: string;
+  dmcaStatus?: string;
+  dmcaNoticeId?: string;
+  evidenceStatus?: string;
+  evidenceBundleUrl?: string;
+  evidenceSha256?: string;
+}
+
+export function DMCAPanel({ violationId, dmcaStatus, dmcaNoticeId, evidenceStatus, evidenceBundleUrl, evidenceSha256 }: DMCAPanelProps) {
   const router = useRouter();
   const [eligibility, setEligibility] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [drafting, setDrafting] = useState(false);
+  const [generatingEvidence, setGeneratingEvidence] = useState(false);
+  const [localEvidenceUrl, setLocalEvidenceUrl] = useState(evidenceBundleUrl || null);
+  const [localEvidenceSha, setLocalEvidenceSha] = useState(evidenceSha256 || null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -29,6 +41,26 @@ export function DMCAPanel({ violationId, dmcaStatus, dmcaNoticeId }: { violation
     }
     checkEligibility();
   }, [violationId]);
+
+  const handleGenerateEvidence = async () => {
+    setGeneratingEvidence(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/generate-evidence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ violationId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Evidence generation failed');
+      setLocalEvidenceUrl(data.bundleUrl);
+      setLocalEvidenceSha(data.sha256);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setGeneratingEvidence(false);
+    }
+  };
 
   const handleDraft = async () => {
     setDrafting(true);
@@ -75,6 +107,8 @@ export function DMCAPanel({ violationId, dmcaStatus, dmcaNoticeId }: { violation
 
   const isEligible = eligibility?.eligible;
   const needsOnboarding = eligibility?.blocked_by?.includes('missing_attestation');
+  const hasEvidence = !!(localEvidenceUrl || evidenceStatus === 'generated');
+  const evidenceUrl = localEvidenceUrl || evidenceBundleUrl;
 
   return (
     <div className="bento-card p-8 space-y-6">
@@ -82,6 +116,61 @@ export function DMCAPanel({ violationId, dmcaStatus, dmcaNoticeId }: { violation
         <Shield className="w-5 h-5 text-brand-text" />
         <h3 className="font-display font-black uppercase text-sm tracking-tight text-brand-text">DMCA Takedown Module</h3>
       </div>
+
+      {/* ── Evidence Bundle Section ── */}
+      {isEligible && (
+        <div className="bg-brand-surface p-4 rounded-xl border border-brand-border space-y-3">
+          <div className="flex items-center gap-2">
+            <FileCheck className="w-4 h-4 text-brand-text" />
+            <p className="text-[10px] font-black uppercase tracking-widest text-brand-muted">Forensic Evidence Bundle</p>
+          </div>
+
+          {hasEvidence ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
+                <CheckCircle className="w-4 h-4" />
+                <span className="font-medium">Evidence bundle generated</span>
+              </div>
+              {localEvidenceSha && (
+                <p className="text-[10px] text-brand-muted font-mono truncate" title={localEvidenceSha || evidenceSha256 || ''}>
+                  SHA-256: {(localEvidenceSha || evidenceSha256 || '').slice(0, 24)}…
+                </p>
+              )}
+              <div className="flex gap-2">
+                {evidenceUrl && (
+                  <a
+                    href={evidenceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-accent hover:underline"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    View Evidence Bundle (PDF)
+                  </a>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs text-brand-muted">
+                Generate a forensically sound PDF containing visual evidence, WARC capture, and AI analysis for legal review.
+              </p>
+              <Button
+                onClick={handleGenerateEvidence}
+                disabled={generatingEvidence}
+                variant="outline"
+                className="w-full flex justify-center gap-2 text-xs"
+              >
+                {generatingEvidence ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Generating Evidence Bundle...</>
+                ) : (
+                  <><Download className="w-4 h-4" /> Generate Evidence Bundle</>
+                )}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-4">
@@ -98,8 +187,9 @@ export function DMCAPanel({ violationId, dmcaStatus, dmcaNoticeId }: { violation
            {isEligible ? (
              <Button 
                 onClick={handleDraft} 
-                disabled={drafting}
+                disabled={drafting || (!hasEvidence)}
                 className="w-full flex justify-center gap-2"
+                title={!hasEvidence ? 'Generate an Evidence Bundle first' : undefined}
              >
                 {drafting ? <><Loader2 className="w-4 h-4 animate-spin" /> Drafting Notice...</> : <><FileText className="w-4 h-4" /> Draft Takedown Notice</>}
              </Button>
@@ -110,6 +200,10 @@ export function DMCAPanel({ violationId, dmcaStatus, dmcaNoticeId }: { violation
              </div>
            ) : (
              <Button disabled className="w-full opacity-50 grayscale">Violation Not Eligible</Button>
+           )}
+
+           {isEligible && !hasEvidence && (
+             <p className="text-[10px] text-amber-500 text-center">⚠ Evidence bundle required before drafting a notice</p>
            )}
         </div>
 
