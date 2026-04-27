@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { clsx } from 'clsx';
 import type { Violation } from '@/types';
 import { useAuth } from '@/lib/auth-context';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { TriageActions } from './TriageActions';
 import { ReliabilityRing } from '@/components/shared/ReliabilityRing';
@@ -35,14 +35,15 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
   const { id } = use(params);
   const searchParams = useSearchParams();
   const fromAsset = searchParams.get('fromAsset');
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [violation, setViolation] = useState<Violation | null>(null);
   const [asset, setAsset] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUnauthorized, setIsUnauthorized] = useState(false);
 
   useEffect(() => {
-    if (!user || !id) return;
+    // Auth State Check: Ensure auth is fully loaded and user is confirmed before executing Firestore calls
+    if (authLoading || !user || !id || !auth.currentUser) return;
 
     async function fetchData() {
       try {
@@ -68,15 +69,15 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
             setAsset(aDoc.data());
           }
         }
-      } catch (err) {
-        console.error(err);
+      } catch (err: any) {
+        console.error(`[FirebaseError] Permission denied or fetch failed at /violations/${id} or associated asset for user ${user?.uid}:`, err.code, err.message);
       } finally {
         setIsLoading(false);
       }
     }
 
     fetchData();
-  }, [id, user]);
+  }, [id, user, authLoading]);
 
   if (isLoading) return <div className="p-12 animate-pulse space-y-8">
     <div className="h-10 w-48 bg-brand-border rounded-lg" />
@@ -391,53 +392,6 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Brand Safety & Sentiment ── */}
-      <div className="bento-card p-8 space-y-6">
-        <div className="flex items-center justify-between border-b border-brand-border pb-4">
-          <h3 className="font-display font-black uppercase text-sm tracking-tight text-brand-text">Brand Safety & Sentiment</h3>
-          <div className="flex items-center gap-2">
-            <span className={clsx(
-              'text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border',
-              violation.sentiment === 'positive' ? 'text-green-700 bg-green-50 border-green-200' :
-              violation.sentiment === 'negative' ? 'text-red-700 bg-red-50 border-red-200' :
-              'text-zinc-700 bg-zinc-50 border-zinc-200'
-            )}>
-              Sentiment: {violation.sentiment || 'neutral'}
-            </span>
-            <span className={clsx(
-              'text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border',
-              violation.brand_safety_risk === 'safe' ? 'text-green-700 bg-green-50 border-green-200' :
-              ['high', 'critical'].includes(violation.brand_safety_risk || '') ? 'text-red-700 bg-red-50 border-red-200 animate-pulse' :
-              'text-amber-700 bg-amber-50 border-amber-200'
-            )}>
-              Risk: {violation.brand_safety_risk || 'safe'}
-            </span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="space-y-3">
-            <p className="text-[10px] font-black uppercase tracking-widest text-brand-muted italic leading-relaxed">
-              This audit analyzes the tonal context of the usage. Negative sentiment or low brand safety scores indicate usage that could actively damage the owner's reputation.
-            </p>
-          </div>
-          
-          <div className="flex flex-wrap gap-2">
-            {violation.risk_factors && violation.risk_factors.length > 0 ? (
-              violation.risk_factors.map(risk => (
-                <span key={risk} className="px-2.5 py-1 rounded bg-red-50 text-red-600 border border-red-100 text-[10px] font-black uppercase tracking-widest">
-                  ⚠ {risk.replace('_', ' ')}
-                </span>
-              ))
-            ) : (
-              <span className="px-2.5 py-1 rounded bg-green-50 text-green-600 border border-green-100 text-[10px] font-black uppercase tracking-widest">
-                ✓ No specific risk factors detected
-              </span>
-            )}
           </div>
         </div>
       </div>

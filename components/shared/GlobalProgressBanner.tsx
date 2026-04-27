@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, limit, orderBy } from 'firebase/firestore';
 import { Asset } from '@/types';
 import { Brain, ChevronRight } from 'lucide-react';
@@ -30,19 +30,21 @@ const SVG_R = 24;
 const SVG_CIRC = 2 * Math.PI * SVG_R; // ≈ 150.8
 
 export function GlobalProgressBanner() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [completedAssets, setCompletedAssets] = useState<Set<string>>(new Set());
   const [activeAsset, setActiveAsset] = useState<Asset | null>(null);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    // Auth State Check: Ensure listener only starts after user is fully authenticated
+    if (authLoading || !user || !auth.currentUser) return;
+
     const q = query(
       collection(db, 'assets'),
       where('owner_id', '==', user.uid),
       where('stage', 'in', ['uploaded', 'reverse_searched', 'gated', 'analyzing', 'complete', 'failed']),
-      limit(10) // Increased limit since we sort client-side now
+      limit(10)
     );
 
     const unsubscribe = onSnapshot(q, (snap) => {
@@ -54,19 +56,14 @@ export function GlobalProgressBanner() {
           return tB - tA;
         });
       
-      // Find the most relevant asset to show:
-      // 1. One that is actively scanning
-      // 2. Or one that just completed (and we haven't dismissed yet)
       const active = assets.find(a => ['uploaded', 'reverse_searched', 'gated', 'analyzing'].includes(a.stage));
       
       if (active) {
         setActiveAsset(active);
       } else {
-        // Look for the most recently completed/failed one
         const recent = assets.find(a => (a.stage === 'complete' || a.stage === 'failed') && !completedAssets.has(a.asset_id));
         if (recent) {
           setActiveAsset(recent);
-          // Set a timer to dismiss it
           setTimeout(() => {
             setCompletedAssets(prev => new Set(prev).add(recent.asset_id));
             setActiveAsset(current => current?.asset_id === recent.asset_id ? null : current);
@@ -76,10 +73,10 @@ export function GlobalProgressBanner() {
         }
       }
     }, (err) => {
-      console.error('[GlobalBanner] Query failed:', err);
+      console.error(`[FirebaseError] Permission denied or listener failed at /GlobalProgressBanner for user ${user.uid}:`, err.code, err.message);
     });
     return () => unsubscribe();
-  }, [user, completedAssets]);
+  }, [user, authLoading, completedAssets]);
 
   // ── Derived state ──────────────────────────────────────────────────────────
   const totals = activeAsset?.totals;

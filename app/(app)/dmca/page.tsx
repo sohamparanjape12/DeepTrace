@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Badge } from '@/components/ui/Badge';
@@ -12,12 +12,14 @@ import { Shield, Clock, ExternalLink, ChevronRight, FileText } from 'lucide-reac
 import { clsx } from 'clsx';
 
 export default function DMCADashboard() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [notices, setNotices] = useState<DMCANotice[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
+    // Auth State Check: Ensure listener only starts after user is fully authenticated
+    if (authLoading || !user || !auth.currentUser) return;
+
     const q = query(
       collection(db, 'dmca_notices'),
       where('customer_id', '==', user.uid)
@@ -28,10 +30,13 @@ export default function DMCADashboard() {
       snapshot.forEach(doc => results.push({ ...doc.data() as DMCANotice, id: doc.id }));
       setNotices(results.sort((a, b) => new Date(b.draft?.generated_at || 0).getTime() - new Date(a.draft?.generated_at || 0).getTime()));
       setLoading(false);
+    }, (err) => {
+      console.error(`[FirebaseError] Permission denied or listener failed at /dmca_notices for user ${user.uid}:`, err.code, err.message);
+      setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, authLoading]);
 
   const statusColors: Record<string, string> = {
     drafting: 'bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700',

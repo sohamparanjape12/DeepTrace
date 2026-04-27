@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Badge } from '@/components/ui/Badge';
@@ -15,7 +15,7 @@ import { useRouter } from 'next/navigation';
 
 export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeId: string }> }) {
   const { noticeId } = use(params);
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [notice, setNotice] = useState<DMCANotice | null>(null);
   const [loading, setLoading] = useState(true);
@@ -24,7 +24,8 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
   const [hostEdits, setHostEdits] = useState<{domain: string; agent_name: string; agent_email: string} | null>(null);
 
   useEffect(() => {
-    if (!user || !noticeId) return;
+    // Auth State Check: Confirm auth is fully loaded before executing query
+    if (authLoading || !user || !noticeId || !auth.currentUser) return;
 
     async function fetchNotice() {
       try {
@@ -39,14 +40,14 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
             agent_email: data.host.agent_email || ''
           });
         }
-      } catch (error) {
-        console.error(error);
+      } catch (error: any) {
+        console.error(`[FirebaseError] Permission denied or fetch failed at /dmca_notices/${noticeId} for user ${user?.uid}:`, error.code, error.message);
       } finally {
         setLoading(false);
       }
     }
     fetchNotice();
-  }, [user, noticeId]);
+  }, [user, noticeId, authLoading]);
 
   if (loading) return <div className="p-12 animate-pulse"><div className="h-64 bg-brand-surface border border-brand-border rounded-2xl"></div></div>;
 
@@ -104,9 +105,9 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <PageHeader
             title="Notice Detail"
-            description="Review and dispatch the auto-generated DMCA takedown notice."
+            subtitle="Review and dispatch the auto-generated DMCA takedown notice."
           />
-          <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-widest px-3 py-1 bg-brand-surface w-fit">
+          <Badge className="font-mono text-[10px] uppercase tracking-widest px-3 py-1 bg-brand-surface w-fit">
             ID: {noticeId.split('-')[0]}
           </Badge>
         </div>
@@ -175,7 +176,7 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
             {isActiveDraft && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />}
             <h3 className="font-display font-black uppercase text-[11px] tracking-widest text-brand-text">Forensic Draft</h3>
           </div>
-          <Badge variant="outline" className="text-[9px] uppercase tracking-widest font-mono bg-transparent text-brand-muted w-fit">
+          <Badge className="text-[9px] uppercase tracking-widest font-mono bg-transparent text-brand-muted w-fit">
             Generated via AI
           </Badge>
         </div>

@@ -8,13 +8,13 @@ import { Badge } from '@/components/ui/Badge';
 import { TrendAnalysis } from '@/components/dashboard/TrendAnalysis';
 import { MarketLeakage, RegionData } from '@/components/dashboard/MarketLeakage';
 import Link from 'next/link';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth-context';
 import { collection, getDocs, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import type { Violation } from '@/types';
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [totalAssets, setTotalAssets] = useState(0);
   const [activeViolations, setActiveViolations] = useState(0);
   const [severityCounts, setSeverityCounts] = useState({ CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 });
@@ -27,7 +27,8 @@ export default function DashboardPage() {
   const [marketLeakageData, setMarketLeakageData] = useState<RegionData[]>([]);
 
   useEffect(() => {
-    if (!user) return;
+    // Auth State Check: Confirm auth is fully loaded before executing stats queries
+    if (authLoading || !user || !auth.currentUser) return;
 
     const fetchAssets = async () => {
       const q = query(collection(db, 'assets'), where('owner_id', '==', user.uid));
@@ -166,10 +167,12 @@ export default function DashboardPage() {
       const avgTime = Math.max(0.5, baseHours + penaltyForActive - bonusForResolved).toFixed(1) + 'h';
       
       setAvgTimeToAction(avgTime);
+    }, (err) => {
+      console.error(`[FirebaseError] Permission denied or listener failed at /dashboard/violations for user ${user.uid}:`, err.code, err.message);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [user, authLoading]);
 
   return (
     <div className="space-y-12">

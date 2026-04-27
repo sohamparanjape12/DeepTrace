@@ -12,9 +12,10 @@ import type { Asset } from '@/types';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth-context';
 import { collection, getDocs, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { auth } from '@/lib/firebase';
 
 export default function AssetsPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('all');
   const [assets, setAssets] = useState<Asset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -22,7 +23,8 @@ export default function AssetsPage() {
   const [isGuideOpen, setIsGuideOpen] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    // Auth State Check: Ensure listener only starts after user is fully authenticated
+    if (authLoading || !user || !auth.currentUser) return;
 
     const q = query(
       collection(db, 'assets'),
@@ -38,12 +40,12 @@ export default function AssetsPage() {
       setAssets(assetsData);
       setIsLoading(false);
     }, (err) => {
-      console.error('Failed to listen to assets:', err);
+      console.error(`[FirebaseError] Permission denied or listener failed at /assets for user ${user.uid}:`, err.code, err.message);
       setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user, sortOrder]);
+  }, [user, sortOrder, authLoading]);
 
   const TABS = [
     { key: 'all', label: 'All', count: assets.length },
