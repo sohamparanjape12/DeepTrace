@@ -15,7 +15,7 @@ const config: Config = {
           border: "var(--brand-border)",
           text: "var(--brand-text)",
           muted: "var(--brand-muted)",
-          accent: "#E11D48",
+          accent: "var(--brand-accent)",
           "red-muted": "var(--brand-red-muted)",
           "red-text": "var(--brand-red-text)",
           "blue-muted": "var(--brand-blue-muted)",

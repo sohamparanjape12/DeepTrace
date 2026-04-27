@@ -1,10 +1,11 @@
 // Shared type definitions for DeepTrace
+import { AssetStage, ViolationStage } from '../lib/types/pipeline';
 
 export type ScanStatus = 'pending' | 'scanning' | 'clean' | 'violations_found';
 export type RightsTier = 'editorial' | 'commercial' | 'all_rights' | 'no_reuse';
-export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
-export type GeminiClass = 'AUTHORIZED' | 'UNAUTHORIZED' | 'EDITORIAL_FAIR_USE' | 'NEEDS_REVIEW' | 'INSUFFICIENT_EVIDENCE';
-export type ViolationStatus = 'open' | 'resolved' | 'disputed' | 'false_positive';
+export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'PENDING';
+export type GeminiClass = 'AUTHORIZED' | 'UNAUTHORIZED' | 'EDITORIAL_FAIR_USE' | 'NEEDS_REVIEW' | 'INSUFFICIENT_EVIDENCE' | 'ANALYZING' | 'NOT_A_MATCH';
+export type ViolationStatus = 'open' | 'resolved' | 'disputed' | 'false_positive' | 'dropped';
 export type MatchType = 'full_match' | 'partial_match' | 'visually_similar';
 
 export type AssetStatus = 'pending' | 'processed' | 'failed';
@@ -23,7 +24,7 @@ export interface Asset {
   scan_status?: ScanStatus;    // Legacy scan status
   geminiResult?: any;          // AI processing results
   archivedUrl?: string;        // Permanent archive link
-  
+
   // Existing/Legacy fields preserved for UI compatibility
   name?: string;
   owner_org?: string;
@@ -35,6 +36,25 @@ export interface Asset {
   storageUrl?: string;
   createdAt?: any;             // Firestore Timestamp or Date
   updatedAt?: any;             // Firestore Timestamp or Date
+
+  // Pipeline v2 Checkpointing
+  stage?: AssetStage;
+  stage_updated_at?: any;      // Timestamp
+  totals?: {
+    reverse_hits: number;
+    gated_pending: number;
+    gate_dropped: number;
+    gate_passed: number;
+    scraped: number;
+    classified: number;
+    failed_retryable: number;
+    failed_permanent: number;
+  };
+  idempotency?: {
+    reverse_search_done: boolean;
+    gate_done: boolean;
+  };
+  last_error?: { stage: AssetStage; message: string; at: any };
 }
 
 export interface Violation {
@@ -63,7 +83,7 @@ export interface Violation {
   contextual_match_score?: number;
   reasoning_steps?: string[];
   is_derivative_work?: boolean;
-  
+
   // Business Impact Fields
   estimated_reach?: number;
   monetized_usage?: boolean;
@@ -76,14 +96,14 @@ export interface Violation {
   reliability_tier?: 'HIGH' | 'MEDIUM' | 'LOW';
   relevancy?: number;                   // 0.0–1.0
   recommended_action?: 'escalate' | 'human_review' | 'monitor' | 'no_action';
-  
+
   // v2 Metadata
   classification_schema_version?: number;
   domain_class?: string;
   contradiction_flag?: boolean;
   explainability_bullets?: string[];
   abstain?: boolean;
-  
+
   // Nested Data Maps
   scores?: Record<string, number>;
   signals?: Record<string, boolean | string>;
@@ -111,6 +131,15 @@ export interface Violation {
   sentiment?: 'positive' | 'neutral' | 'negative';
   brand_safety_risk?: 'safe' | 'low' | 'medium' | 'high' | 'critical';
   risk_factors?: string[];
+
+  // Pipeline v2 Checkpointing
+  stage?: ViolationStage;
+  stage_updated_at?: any;      // Timestamp
+  attempts?: { gate: number; scrape: number; classify: number };
+  next_retry_at?: any;          // Timestamp for exponential backoff
+  idempotency_key?: string;     // deterministic: hash(assetId + matchUrl)
+  scraped_cache?: { title: string; description: string; bodyText: string; at: any };
+  last_error?: { stage: ViolationStage; message: string; at: any };
 }
 
 export interface AuditEntry {

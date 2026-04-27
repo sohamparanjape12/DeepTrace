@@ -1,12 +1,16 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { 
-  buildMasterPrompt, 
-  DOMAIN_CLASS_PRIORS, 
-  MasterPromptParams, 
-  DomainClass 
+import {
+  buildMasterPrompt,
+  DOMAIN_CLASS_PRIORS,
+  MasterPromptParams,
+  DomainClass
 } from "./prompts.v2";
+import { scrapePage } from "./jina";
+import { RetryableError, PermanentError } from "./error-classes";
 
 // ── Types ──
+let lastGeminiRequestAt = 0;
+const MIN_GEMINI_GAP = 4000; // 4 seconds
 
 export type Classification = 'AUTHORIZED' | 'UNAUTHORIZED' | 'EDITORIAL_FAIR_USE' | 'NEEDS_REVIEW' | 'INSUFFICIENT_EVIDENCE';
 export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
@@ -23,6 +27,14 @@ export interface ClassifyParams extends MasterPromptParams {
   originalAssetUrl?: string;
   violationImageUrl?: string;
   assetFirstPublishUrl?: string;
+  /** Raw suspect image bytes if the worker already downloaded them (e.g. for pHash). Avoids a second fetch. */
+  violationImageBuffer?: Buffer;
+  /** Mime type to pair with violationImageBuffer. Defaults to 'image/jpeg' if omitted. */
+  violationImageMime?: string;
+  /** Similarity score (0..1) from the perceptual-filter gate. Blended into relevancy as a sanity check. */
+  gateSimilarity?: number;
+  /** Gate tier label, forwarded into explainability bullets only. */
+  gateTier?: 'NEAR_IDENTICAL' | 'TRANSFORMED' | 'HIGH_RISK_OVERRIDE' | 'DROPPED_LOW_SIM' | 'DROPPED_NO_HASH';
 }
 
 export interface ClassificationResult {
@@ -61,7 +73,11 @@ export interface ClassificationResult {
   risk_factors: string[];
 
   // Adaptive weights used (for audit trail)
-  applied_weights: Record<string, number>;
+  applied_weights: Record<string, number | boolean>;
+
+  // Business Impact
+  region: string;
+  revenue_risk: number;
 
   // Legacy compatibility fields
   commercial_signal: boolean;
@@ -91,16 +107,78 @@ function getPiracyPrior(domainClass: DomainClass): number {
   for (const config of Object.values(DOMAIN_CLASS_PRIORS)) {
     if (config.class === domainClass) return config.piracy_prior;
   }
-  
+
   switch (domainClass) {
     case 'wire_service': return 0.01;
-    case 'major_news':   return 0.05;
-    case 'social':       return 0.25;
-    case 'betting':      return 0.85;
-    case 'piracy':       return 0.95;
-    case 'ecommerce':    return 0.45;
-    default:             return 0.50; // unknown
+    case 'major_news': return 0.05;
+    case 'social': return 0.25;
+    case 'betting': return 0.85;
+    case 'piracy': return 0.95;
+    case 'ecommerce': return 0.45;
+    default: return 0.50; // unknown
   }
+}
+
+function estimateRegion(url: string, domainClass: DomainClass): string {
+  try {
+    const hostname = new URL(url).hostname;
+    const tld = hostname.split('.').pop()?.toLowerCase();
+
+    // Simple TLD mapping
+    const regions: Record<string, string> = {
+      'com': 'North America',
+      'net': 'Global',
+      'org': 'Global',
+      'io': 'North America',
+      'uk': 'Western Europe',
+      'de': 'Western Europe',
+      'fr': 'Western Europe',
+      'it': 'Western Europe',
+      'es': 'Western Europe',
+      'nl': 'Western Europe',
+      'cn': 'APAC',
+      'jp': 'APAC',
+      'in': 'APAC',
+      'br': 'LATAM',
+      'mx': 'LATAM',
+      'ru': 'Eastern Europe',
+    };
+
+    if (tld && regions[tld]) return regions[tld];
+
+    // Fallback based on domain class
+    if (domainClass === 'major_news' || domainClass === 'social') return 'Global';
+    if (domainClass === 'piracy' || domainClass === 'betting') return 'Offshore/Emerging';
+
+  } catch (e) { }
+  return 'International';
+}
+
+function calculateRevenueRisk(severity: Severity, domainClass: DomainClass): number {
+  const baseRates: Record<Severity, number> = {
+    'CRITICAL': 850,
+    'HIGH': 350,
+    'MEDIUM': 120,
+    'LOW': 45
+  };
+
+  const multipliers: Record<DomainClass, number> = {
+    'piracy': 2.5,
+    'major_news': 1.8,
+    'social': 1.2,
+    'betting': 2.0,
+    'wire_service': 0.8,
+    'ecommerce': 3.0,
+    'unknown': 1.0,
+    'stock_photo': 0.5,
+    'portfolio': 0.3
+  };
+
+  return Math.round(baseRates[severity] * (multipliers[domainClass] || 1));
+}
+
+function bufferToGenerativePart(buf: Buffer, mime = 'image/jpeg') {
+  return { inlineData: { data: buf.toString('base64'), mimeType: mime } };
 }
 
 // ── Main Classifier ──
@@ -108,12 +186,26 @@ function getPiracyPrior(domainClass: DomainClass): number {
 export async function classifyViolation(params: ClassifyParams): Promise<ClassificationResult> {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY || "");
   const modelName = (process.env.GEMINI_MODEL || "gemini-1.5-flash").trim();
-  const model = genAI.getGenerativeModel({ 
+  const model = genAI.getGenerativeModel({
     model: modelName,
     generationConfig: { responseMimeType: "application/json" } as any
   });
 
-  // 1. Evidence Quality Check
+  // 1. Scrape Page Context (Jina Reader) if not provided
+  let scraped = { title: '', description: '', bodyText: '' };
+  if (!params.pageTitle || !params.pageDescription) {
+    scraped = await scrapePage(params.matchUrl);
+  }
+
+  // Update params with scraped context if original fields are missing
+  const enrichedParams = {
+    ...params,
+    pageTitle: params.pageTitle || scraped.title,
+    pageDescription: params.pageDescription || scraped.description,
+    pageBody: params.pageBody || scraped.bodyText
+  };
+
+  // 2. Evidence Quality Check
   const evidenceQuality: EvidenceQuality = {
     original_image_loaded: !!params.originalAssetUrl,
     suspect_image_loaded: !!params.violationImageUrl,
@@ -121,16 +213,20 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
     match_type_strength: params.matchType === 'full_match' ? 1.0 : params.matchType === 'partial_match' ? 0.7 : 0.4
   };
 
-  const domainClass = classifyDomain(params.matchUrl);
+  const domainClass = classifyDomain(enrichedParams.matchUrl);
 
-  // 2. Gemini Evidence Gathering
-  const textPrompt = buildMasterPrompt(params);
+  // 3. Gemini Evidence Gathering
+  const textPrompt = buildMasterPrompt(enrichedParams);
   const promptParts: any[] = [{ text: textPrompt }];
 
   const fetchToGenerativePart = async (url: string) => {
     try {
       const resp = await fetch(url, { headers: { 'User-Agent': 'DeepTrace/1.0' } });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      if (!resp.ok) {
+        if (resp.status === 429 || resp.status >= 500) throw new RetryableError(`Image fetch: ${resp.status}`);
+        if (resp.status === 404 || resp.status === 403) throw new PermanentError(`Image inaccessible: ${resp.status}`);
+        throw new PermanentError(`Image fetch failed: ${resp.status}`);
+      }
       const buffer = await resp.arrayBuffer();
       return {
         inlineData: {
@@ -139,8 +235,8 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
         }
       };
     } catch (err) {
-      console.error(`Failed to fetch image from ${url}:`, err);
-      return null;
+      if (err instanceof RetryableError || err instanceof PermanentError) throw err;
+      throw new RetryableError((err as any).message);
     }
   };
 
@@ -149,37 +245,53 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
     if (part) promptParts.push(part);
     else evidenceQuality.original_image_loaded = false;
   }
-  if (params.violationImageUrl) {
+
+  if (params.violationImageBuffer) {
+    promptParts.push(bufferToGenerativePart(
+      params.violationImageBuffer,
+      params.violationImageMime || 'image/jpeg'
+    ));
+    evidenceQuality.suspect_image_loaded = true;
+  } else if (params.violationImageUrl) {
     const part = await fetchToGenerativePart(params.violationImageUrl);
     if (part) promptParts.push(part);
     else evidenceQuality.suspect_image_loaded = false;
   }
 
-  evidenceQuality.both_images_available = evidenceQuality.original_image_loaded && evidenceQuality.suspect_image_loaded;
+  evidenceQuality.both_images_available =
+    evidenceQuality.original_image_loaded && evidenceQuality.suspect_image_loaded;
 
   let jsonResp: any;
   try {
+    // 2. Enforcement of Rate Limit (pacing)
+    const now = Date.now();
+    const timeSinceLast = now - lastGeminiRequestAt;
+    if (timeSinceLast < MIN_GEMINI_GAP) {
+      await new Promise(resolve => setTimeout(resolve, MIN_GEMINI_GAP - timeSinceLast));
+    }
+    lastGeminiRequestAt = Date.now();
+
     const result = await model.generateContent(promptParts);
-    const text = result.response.text();
+    const response = await result.response;
+    const text = response.text();
+    if (!text || text.length < 5) throw new RetryableError('Empty Gemini response');
     jsonResp = JSON.parse(text);
-  } catch (error) {
-    console.error("Gemini v2 call failed:", error);
-    jsonResp = {
-      visual_match_score: 0,
-      context_authenticity_score: 0,
-      attribution_licensing_score: 0,
-      commercial_exploitation: false,
-      is_derivative_work: false,
-      watermark_intact: false,
-      credit_present: false,
-      context_type: 'unknown',
-      transformation_type: 'none',
-      sentiment: 'neutral',
-      brand_safety_risk: 'safe',
-      risk_factors: [],
-      reasoning_steps: ["System Error: Classification pipeline failed."],
-      contradictions: []
-    };
+  } catch (error: any) {
+    if (error instanceof RetryableError || error instanceof PermanentError) throw error;
+
+    // Check for safety blocks or rate limits
+    const msg = error.message?.toLowerCase() || '';
+    const code = error.code || (error.status === 'RESOURCE_EXHAUSTED' ? 8 : 0);
+
+    if (code === 8 || msg.includes('429') || msg.includes('quota') || msg.includes('rate limit')) {
+      throw new RetryableError('Gemini rate limit exceeded (Quota Exhausted)');
+    }
+
+    if (msg.includes('safety') || msg.includes('blocked')) {
+      throw new RetryableError('Gemini safety block (Inappropriate content or filter trigger)');
+    }
+
+    throw new RetryableError(`Gemini Error: ${error.message || 'Unknown failure'}`);
   }
 
   // 3. Adaptive Weighting Logic
@@ -200,28 +312,46 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
   const applied_weights = { visual: wVisual, context: wContext, attribution: wAttribution };
 
   // 4. Three-Axis Scoring
-  
+
   // Relevancy: "Is this my image?" (Heavily weighted towards visual)
-  const relevancy = (jsonResp.visual_match_score * 0.8) + (evidenceQuality.match_type_strength * 0.2);
+  const gateSim = typeof params.gateSimilarity === 'number'
+    ? Math.max(0, Math.min(1, params.gateSimilarity))
+    : null;
+
+  const relevancy = gateSim !== null
+    ? (jsonResp.visual_match_score * 0.7)
+    + (evidenceQuality.match_type_strength * 0.2)
+    + (gateSim * 0.1)
+    : (jsonResp.visual_match_score * 0.8)
+    + (evidenceQuality.match_type_strength * 0.2);
+
+  // Guardrail: if Gemini reports a very high visual match but the gate
+  // saw a very low similarity, penalise relevancy — one of them is wrong
+  // and we prefer the deterministic signal.
+  const relevancyAdjusted = (gateSim !== null
+    && jsonResp.visual_match_score >= 0.9
+    && gateSim <= 0.4)
+    ? relevancy * 0.6
+    : relevancy;
 
   // Confidence: "How sure are we?"
   let signalsCount = 0;
   if (jsonResp.visual_match_score > 0) signalsCount++;
   if (jsonResp.context_authenticity_score > 0) signalsCount++;
   if (jsonResp.attribution_licensing_score > 0) signalsCount++;
-  
+
   const baseConfidence = (signalsCount / 3) * (evidenceQuality.both_images_available ? 1.0 : 0.6);
   const confidence = Math.max(0.1, baseConfidence - (jsonResp.contradictions?.length ? 0.2 : 0));
 
   // Reliability Score (0–100)
-  const reliability_score = Math.round(((relevancy * 0.5) + (confidence * 0.5)) * 100);
+  const reliability_score = Math.round(((relevancyAdjusted * 0.5) + (confidence * 0.5)) * 100);
   const reliability_tier = reliability_score >= 80 ? 'HIGH' : reliability_score >= 50 ? 'MEDIUM' : 'LOW';
 
   // Severity: "How bad is this?" (Domain prior * commercial signal * relevancy)
   const piracyPrior = getPiracyPrior(domainClass);
   const commercialMultiplier = jsonResp.commercial_exploitation ? 1.2 : 0.8;
-  const severityRaw = Math.min(1.0, piracyPrior * commercialMultiplier * (0.5 + (relevancy * 0.5)));
-  
+  const severityRaw = Math.min(1.0, piracyPrior * commercialMultiplier * (0.5 + (relevancyAdjusted * 0.5)));
+
   let severity: Severity = 'LOW';
   if (severityRaw >= 0.8) severity = 'CRITICAL';
   else if (severityRaw >= 0.5) severity = 'HIGH';
@@ -274,8 +404,17 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
   if (contradiction_flag) explainability_bullets.push(`⚠ Conflicting signals detected`);
   if (jsonResp.is_derivative_work) explainability_bullets.push(`→ Transformation: ${jsonResp.transformation_type}`);
 
+  if (gateSim !== null) {
+    explainability_bullets.push(
+      `ℹ Pre-filter similarity ${Math.round(gateSim * 100)}%${params.gateTier ? ` (${params.gateTier})` : ''}`
+    );
+  }
+  if (gateSim !== null && jsonResp.visual_match_score >= 0.9 && gateSim <= 0.4) {
+    explainability_bullets.push('⚠ Gemini and pre-filter disagree — relevancy dampened');
+  }
+
   return {
-    relevancy,
+    relevancy: relevancyAdjusted,
     confidence,
     reliability_score,
     reliability_tier,
@@ -301,7 +440,15 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
     risk_factors: jsonResp.risk_factors || [],
     reasoning_steps: jsonResp.reasoning_steps || [],
     reasoning: (jsonResp.reasoning_steps || []).join(' '),
-    applied_weights,
+    applied_weights: {
+      visual: wVisual,
+      context: wContext,
+      attribution: wAttribution,
+      gate_similarity_used: gateSim !== null,
+      gate_similarity_value: gateSim ?? 0,
+    },
+    region: estimateRegion(enrichedParams.matchUrl, domainClass),
+    revenue_risk: calculateRevenueRisk(severity, domainClass),
     // Legacy mapping
     commercial_signal: jsonResp.commercial_exploitation,
     watermark_likely_removed: jsonResp.is_derivative_work && !jsonResp.watermark_intact,

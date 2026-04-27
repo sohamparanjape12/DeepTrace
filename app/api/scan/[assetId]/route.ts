@@ -49,20 +49,20 @@ export async function POST(
 
     // 3. Process matches
     const violationsFound: Violation[] = [];
-    
+
     const processMatchGroup = (urls: any[] | null | undefined, type: MatchType) => {
       if (!urls) return;
       urls.forEach((urlObj) => {
         if (!urlObj.url) return;
         violationsFound.push({
           violation_id: uuidv4(),
-          owner_id: asset.owner_id || '', 
+          owner_id: asset.owner_id || '',
           asset_id: assetId,
           detected_at: new Date().toISOString(),
           match_url: urlObj.url,
           match_type: type,
           status: 'open',
-          severity: 'LOW', 
+          severity: 'LOW',
           gemini_class: 'NEEDS_REVIEW'
         });
       });
@@ -76,8 +76,8 @@ export async function POST(
     // 4. Save violations to Firestore (Commit placeholders first)
     const batch = db.batch();
     violationsFound.forEach((violation) => {
-      const page = pageMatches.find(p => 
-        p.fullMatchingImages?.some(img => img.url === violation.match_url) || 
+      const page = pageMatches.find(p =>
+        p.fullMatchingImages?.some(img => img.url === violation.match_url) ||
         p.partialMatchingImages?.some(img => img.url === violation.match_url)
       );
       if (page && page.pageTitle) {
@@ -92,11 +92,11 @@ export async function POST(
     // 5. Trigger v2 Classification
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const classificationPromises = violationsFound.map((violation) => {
-      const page = pageMatches.find(p => 
-        p.fullMatchingImages?.some(img => img.url === violation.match_url) || 
+      const page = pageMatches.find(p =>
+        p.fullMatchingImages?.some(img => img.url === violation.match_url) ||
         p.partialMatchingImages?.some(img => img.url === violation.match_url)
       );
-      
+
       return fetch(`${appUrl}/api/classify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -121,10 +121,10 @@ export async function POST(
     // Wait for all classification triggers to be dispatched
     await Promise.all(classificationPromises);
 
-    await assetRef.update({ 
-      scan_status: violationsFound.length > 0 ? 'violations_found' : 'clean' 
+    await assetRef.update({
+      scan_status: violationsFound.length > 0 ? 'violations_found' : 'clean'
     });
-    
+
     return NextResponse.json({
       matchesFound: violationsFound.length,
       assetId

@@ -1,12 +1,26 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { UploadZone } from '@/components/shared/UploadZone';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { ArrowLeft, ArrowRight, Upload, Search, FileText, Brain, CheckCircle, ExternalLink, AlertTriangle, Loader2, ImageIcon } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  ArrowRight, 
+  Upload, 
+  Search, 
+  FileText, 
+  Brain, 
+  CheckCircle, 
+  ExternalLink, 
+  AlertTriangle, 
+  Loader2, 
+  ImageIcon,
+  Fingerprint
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { doc, setDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -25,12 +39,12 @@ const RIGHTS_TIERS = [
 
 const SPORTS_TAGS = ['Football', 'Basketball', 'Cricket', 'Tennis', 'F1', 'Golf', 'Rugby', 'Cycling', 'Swimming', 'Athletics'];
 
-// Step indicator config
+// Step indicator config — no internal tool names exposed
 const STEPS = [
-  { num: 1, label: 'Upload Asset', icon: Upload, description: 'Upload your original image' },
-  { num: 2, label: 'Web Scan', icon: Search, description: 'SerpAPI reverse image search' },
-  { num: 3, label: 'Provide Context', icon: FileText, description: 'Describe your asset' },
-  { num: 4, label: 'Forensic Analysis', icon: Brain, description: 'Gemini AI classification' },
+  { num: 1, label: 'Upload Asset', icon: Upload, description: 'Register your original image' },
+  { num: 2, label: 'Web Discovery', icon: Search, description: 'Scan the web for copies' },
+  { num: 3, label: 'Provide Context', icon: FileText, description: 'Describe your asset rights' },
+  { num: 4, label: 'Forensic Analysis', icon: Brain, description: 'AI-powered rights audit' },
 ];
 
 interface SerpResult {
@@ -90,11 +104,56 @@ export default function UploadPage() {
   const [rightsTier, setRightsTier] = useState('editorial');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [assetDescription, setAssetDescription] = useState('');
+  const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
 
-  // Step 4 state
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isFinalizing, setIsFinalizing] = useState(false);
   const [analysisResults, setAnalysisResults] = useState<AnalysisResult[]>([]);
   const [analysisDone, setAnalysisDone] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // ── Persistence Logic ──
+  useEffect(() => {
+    const saved = localStorage.getItem('upload_wizard_state');
+    if (saved) {
+      try {
+        const state = JSON.parse(saved);
+        if (state.currentStep) setCurrentStep(state.currentStep);
+        if (state.uploadedUrl) setUploadedUrl(state.uploadedUrl);
+        if (state.assetId) setAssetId(state.assetId);
+        if (state.serpResults) setSerpResults(state.serpResults);
+        if (state.selectedMatches) setSelectedMatches(new Set(state.selectedMatches));
+        if (state.assetName) setAssetName(state.assetName);
+        if (state.ownerOrg) setOwnerOrg(state.ownerOrg);
+        if (state.rightsTier) setRightsTier(state.rightsTier);
+        if (state.selectedTags) setSelectedTags(state.selectedTags);
+        if (state.assetDescription) setAssetDescription(state.assetDescription);
+      } catch (e) {
+        console.error('Failed to restore wizard state:', e);
+      }
+    }
+    setIsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    const state = {
+      currentStep,
+      uploadedUrl,
+      assetId,
+      serpResults,
+      selectedMatches: Array.from(selectedMatches),
+      assetName,
+      ownerOrg,
+      rightsTier,
+      selectedTags,
+      assetDescription
+    };
+    localStorage.setItem('upload_wizard_state', JSON.stringify(state));
+  }, [isHydrated, currentStep, uploadedUrl, assetId, serpResults, selectedMatches, assetName, ownerOrg, rightsTier, selectedTags, assetDescription]);
+
+  const clearState = () => localStorage.removeItem('upload_wizard_state');
 
   // Listen to Firestore for violations in real-time
   useEffect(() => {
@@ -219,7 +278,7 @@ export default function UploadPage() {
       setTimeout(() => {
         setIsUploading(false);
         setCurrentStep(2);
-        triggerReverseSearch(downloadURL);
+        triggerReverseSearch(downloadURL, newAssetId);
       }, 500);
 
     } catch (e: any) {
@@ -229,15 +288,22 @@ export default function UploadPage() {
   };
 
   // ── Step 2: SerpAPI reverse image search ──
-  const triggerReverseSearch = async (imageUrl: string) => {
+  const triggerReverseSearch = async (imageUrl: string, targetAssetId?: string) => {
     setIsSearching(true);
     setSearchError(null);
+
+    const activeAssetId = targetAssetId || assetId;
+    if (!activeAssetId || !user) return;
 
     try {
       const res = await fetch('/api/reverse-search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl }),
+        body: JSON.stringify({
+          imageUrl,
+          assetId: activeAssetId,
+          userId: user.uid
+        }),
       });
 
       if (!res.ok) {
@@ -255,48 +321,55 @@ export default function UploadPage() {
     }
   };
 
-  // ── Step 4: Gemini forensic analysis (Background Batch) ──
+  // ── Step 4: Run Final Audit ──
   const runForensicAnalysis = async () => {
-    if (!uploadedUrl || !assetId || !user || selectedMatches.size === 0) return;
-    setIsAnalyzing(true);
-    setAnalysisDone(false);
-    // analysisResults will be populated by the Firestore listener
+    // Check validation
+    const errors = new Set<string>();
+    if (!assetName) errors.add('name');
+    if (!ownerOrg) errors.add('org');
 
-    const matchesToAnalyze = Array.from(selectedMatches).map(i => serpResults[i]);
-
-    // Update asset in Firestore with context from step 3
-    try {
-      await setDoc(doc(db, 'assets', assetId), {
-        name: assetName || file?.name.replace(/\.[^/.]+$/, '') || 'Unnamed',
-        owner_org: ownerOrg,
-        rights_tier: rightsTier,
-        tags: selectedTags,
-        scan_status: 'scanning',
-        asset_description: assetDescription,
-      }, { merge: true });
-    } catch (e) {
-      console.error('Failed to update asset:', e);
+    if (errors.size > 0) {
+      setValidationErrors(errors);
+      return;
     }
 
+    if (!assetId || !user) return;
+    
+    // Show the sleek transition animation INSTANTLY
+    setIsFinalizing(true);
+    setIsAnalyzing(true);
+
     try {
-      // Fire and forget - background API handles the loop
-      await fetch('/api/analyze-batch', {
+      const selectedMatchUrls = Array.from(selectedMatches).map(idx => serpResults[idx].link);
+
+      // Trigger the transactional Finalize API (handles metadata + selective violation pruning)
+      const res = await fetch(`/api/assets/${assetId}/finalize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          assetId,
-          userId: user.uid,
-          uploadedUrl,
-          rightsTier,
+          name: assetName,
           ownerOrg,
+          rightsTier,
           selectedTags,
           assetDescription,
-          matchesToAnalyze,
-        }),
+          selectedMatchUrls
+        })
       });
+
+      if (!res.ok) throw new Error('Finalize API failed');
+
+      // Hold the animation for at least 3s for "Forensic Theatre"
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      // Clear persistence upon successful handoff to pipeline
+      clearState();
+
+      // Redirect to the durable Asset Detail page
+      router.push(`/assets/${assetId}`);
     } catch (e) {
-      console.error('Failed to start batch analysis:', e);
+      console.error('Failed to finalize audit:', e);
       setIsAnalyzing(false);
+      setIsFinalizing(false);
     }
   };
 
@@ -315,7 +388,7 @@ export default function UploadPage() {
       case 'CRITICAL': return 'bg-red-500 text-white';
       case 'HIGH': return 'bg-orange-500 text-white';
       case 'MEDIUM': return 'bg-yellow-400 text-yellow-900';
-      default: return 'bg-zinc-200 text-zinc-700';
+      default: return 'bg-brand-bg text-brand-muted';
     }
   };
 
@@ -325,7 +398,7 @@ export default function UploadPage() {
         <span className="text-[10px] font-black uppercase tracking-widest text-brand-muted">{label}</span>
         <span className="text-[10px] font-black text-brand-text">{(score * 100).toFixed(0)}%</span>
       </div>
-      <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-brand-border rounded-full overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-700 ease-out"
           style={{
@@ -334,6 +407,13 @@ export default function UploadPage() {
           }}
         />
       </div>
+    </div>
+  );
+
+  if (!isHydrated) return (
+    <div className="h-[60vh] flex flex-col items-center justify-center gap-4">
+      <Fingerprint className="w-12 h-12 text-brand-text/20 animate-pulse" />
+      <p className="text-meta text-brand-muted tracking-[0.3em]">Restoring Forensic Session</p>
     </div>
   );
 
@@ -348,6 +428,7 @@ export default function UploadPage() {
         </Link>
         <PageHeader
           title="Register & Analyze Asset"
+          size="xl"
           subtitle="Upload your asset, scan the web for copies, and run AI-powered forensic analysis."
           className="mb-0"
         />
@@ -363,18 +444,18 @@ export default function UploadPage() {
             <div key={step.num} className="flex items-center flex-1">
               <div className="flex flex-col items-center flex-1">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${isComplete ? 'bg-brand-text text-white' :
-                    isActive ? 'bg-brand-text text-white ring-4 ring-brand-text/20' :
-                      'bg-zinc-100 text-zinc-400'
+                  isActive ? 'bg-brand-text text-white dark:text-black ring-4 ring-brand-text/20' :
+                    'bg-brand-bg text-neutral-200 dark:text-neutral-600'
                   }`}>
-                  {isComplete ? <CheckCircle className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
+                  {isComplete ? <CheckCircle className="w-5 h-5 text-neutral-200 dark:text-neutral-800" /> : <Icon className="w-5 h-5" />}
                 </div>
-                <p className={`mt-2 text-[10px] font-black uppercase tracking-widest transition-colors ${isActive || isComplete ? 'text-brand-text' : 'text-zinc-300'
+                <p className={`mt-2 text-[10px] font-black uppercase tracking-widest transition-colors ${isActive || isComplete ? 'text-brand-text' : 'text-brand-muted/40'
                   }`}>{step.label}</p>
-                <p className={`text-[10px] text-center transition-colors mt-0.5 ${isActive ? 'text-brand-muted' : 'text-zinc-300'
+                <p className={`text-[10px] text-center transition-colors mt-0.5 ${isActive ? 'text-brand-muted' : 'text-brand-muted/40'
                   }`}>{step.description}</p>
               </div>
               {i < STEPS.length - 1 && (
-                <div className={`h-px flex-1 mx-2 -mt-6 transition-colors ${currentStep > step.num ? 'bg-brand-text' : 'bg-zinc-200'
+                <div className={`h-px flex-1 mx-2 -mt-6 transition-colors ${currentStep > step.num ? 'bg-brand-text' : 'bg-brand-border'
                   }`} />
               )}
             </div>
@@ -393,8 +474,9 @@ export default function UploadPage() {
               <div>
                 <h3 className="font-display font-black uppercase text-sm tracking-wide text-brand-text">Upload Your Original Asset</h3>
                 <p className="text-sm text-brand-muted mt-1 leading-relaxed max-w-2xl">
-                  Upload the image you own. Your asset will be securely stored in our database (Cloudinary + Firestore).
-                  DeepTrace will then search the web for visually similar copies using SerpAPI's reverse image search.
+                  Upload the image you own. Your asset is securely stored and
+                  registered in the DeepTrace platform. Once uploaded, our systems
+                  will automatically scan the web for visually similar copies.
                 </p>
               </div>
             </div>
@@ -423,7 +505,7 @@ export default function UploadPage() {
               )}
             </Button>
             <p className="text-meta text-zinc-400">
-              Your image will be uploaded to secure storage and then scanned across the web.
+              Your image is stored securely and will be scanned across the web.
             </p>
           </div>
         </div>
@@ -438,10 +520,10 @@ export default function UploadPage() {
                 <Search className="w-5 h-5 text-purple-600" />
               </div>
               <div>
-                <h3 className="font-display font-black uppercase text-sm tracking-wide text-brand-text">Web Scan Results</h3>
+                <h3 className="font-display font-black uppercase text-sm tracking-wide text-brand-text">Web Discovery Results</h3>
                 <p className="text-sm text-brand-muted mt-1 leading-relaxed max-w-2xl">
-                  These are images found across the web that visually match your asset. <strong>SerpAPI's reverse image search</strong> powers this scan.
-                  Select the matches you want DeepTrace to analyze with Gemini's Forensic Content Auditor.
+                  These are images found across the web that visually match your asset.
+                  Select the matches you want DeepTrace to analyze in the forensic audit.
                 </p>
               </div>
             </div>
@@ -452,12 +534,12 @@ export default function UploadPage() {
             <div className="bento-card p-6">
               <p className="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3">Your Original Asset</p>
               <div className="flex items-start gap-4">
-                <div className="w-24 h-24 rounded-lg overflow-hidden bg-zinc-100 border border-brand-border shrink-0">
+                <div className="w-24 h-24 rounded-lg overflow-hidden bg-brand-bg border border-brand-border shrink-0">
                   <img src={uploadedUrl} alt="Original" className="w-full h-full object-cover" />
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-bold text-brand-text">{file?.name || 'Uploaded asset'}</p>
-                  <p className="text-xs text-brand-muted">Stored in Cloudinary • Registered in Firestore</p>
+                  <p className="text-xs text-brand-muted">Stored securely · Registered in DeepTrace</p>
                   <Badge variant="success">Uploaded</Badge>
                 </div>
               </div>
@@ -472,7 +554,7 @@ export default function UploadPage() {
                 </div>
                 <div className="absolute inset-0 border-4 border-brand-text rounded-full border-t-transparent animate-spin" />
               </div>
-              <p className="text-sm font-bold text-brand-text">Scanning the web with SerpAPI…</p>
+              <p className="text-sm font-bold text-brand-text">Scanning the web for copies…</p>
               <p className="text-xs text-brand-muted">Searching for visually similar images across the internet</p>
             </div>
           ) : searchError ? (
@@ -487,12 +569,13 @@ export default function UploadPage() {
           ) : serpResults.length === 0 ? (
             <div className="bento-card p-12 text-center space-y-4">
               <ImageIcon className="w-12 h-12 text-zinc-300 mx-auto" />
-              <p className="font-display font-black text-xl text-zinc-300 uppercase">No Similar Images Found</p>
+              <p className="font-display font-black text-xl text-zinc-300 uppercase">No Matches Found</p>
               <p className="text-sm text-brand-muted max-w-md mx-auto">
-                SerpAPI did not find any visually similar images on the web. Your asset appears to be unique, or copies haven't been indexed yet.
+                Our web scan did not surface any visually similar images. Your asset appears to be unique,
+                or infringing copies have not yet been indexed.
               </p>
               <Button size="sm" variant="secondary" onClick={() => setCurrentStep(3)}>
-                Continue to Context →
+                Continue to Context
               </Button>
             </div>
           ) : (
@@ -513,11 +596,11 @@ export default function UploadPage() {
                     key={i}
                     onClick={() => toggleMatch(i)}
                     className={`group text-left rounded-xl border-2 overflow-hidden transition-all duration-200 ${selectedMatches.has(i)
-                        ? 'border-brand-text ring-2 ring-brand-text/20 shadow-soft-lg'
-                        : 'border-brand-border hover:border-zinc-400'
+                      ? 'border-brand-text ring-2 ring-brand-text/20 shadow-soft-lg'
+                      : 'border-brand-border hover:border-zinc-400'
                       }`}
                   >
-                    <div className="aspect-video bg-zinc-100 relative overflow-hidden">
+                    <div className="aspect-video bg-brand-bg relative overflow-hidden">
                       {(result.thumbnail || result.original) ? (
                         <img
                           src={result.thumbnail || result.original}
@@ -532,7 +615,7 @@ export default function UploadPage() {
                       )}
                       {selectedMatches.has(i) && (
                         <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-brand-text flex items-center justify-center">
-                          <CheckCircle className="w-4 h-4 text-white" />
+                          <CheckCircle className="w-4 h-4 text-white dark:text-black" />
                         </div>
                       )}
                     </div>
@@ -551,10 +634,10 @@ export default function UploadPage() {
                   onClick={() => setCurrentStep(3)}
                   className="flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  <ArrowRight className="w-4 h-4" /> Continue with {selectedMatches.size} Match{selectedMatches.size !== 1 ? 'es' : ''}
+                  <ArrowRight className="w-4 h-4" /> Analyze {selectedMatches.size} Match{selectedMatches.size !== 1 ? 'es' : ''}
                 </Button>
                 <p className="text-meta text-zinc-400">
-                  Selected matches will be analyzed by Gemini in the next step.
+                  Selected matches will be assessed in the forensic audit.
                 </p>
               </div>
             </>
@@ -573,9 +656,7 @@ export default function UploadPage() {
               <div>
                 <h3 className="font-display font-black uppercase text-sm tracking-wide text-brand-text">Provide Asset Context</h3>
                 <p className="text-sm text-brand-muted mt-1 leading-relaxed max-w-2xl">
-                  Describe your asset so Gemini can evaluate <strong>contextual similarity</strong>. This information is weighted at
-                  <strong> 20%</strong> in the forensic formula (visual analysis is 80%). The more context you provide, the more accurate
-                  the classification will be.
+                  Describe your asset origin and intent. This contextual metadata contributes <strong>20%</strong> to the final forensic evidence score.
                 </p>
               </div>
             </div>
@@ -583,66 +664,68 @@ export default function UploadPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <label htmlFor="assetName" className="text-meta">Asset Name *</label>
+              <label htmlFor="assetName" className={`text-meta ${validationErrors.has('name') ? 'text-red-500 font-bold' : ''}`}>
+                Asset Name * {validationErrors.has('name') && <span className="ml-1 animate-pulse">(Required)</span>}
+              </label>
               <input
                 id="assetName"
                 type="text"
                 value={assetName}
-                onChange={e => setAssetName(e.target.value)}
+                onChange={e => {
+                  setAssetName(e.target.value);
+                  if (e.target.value) {
+                    const newErrors = new Set(validationErrors);
+                    newErrors.delete('name');
+                    setValidationErrors(newErrors);
+                  }
+                }}
                 placeholder="e.g. Champions League Final — Hero Shot"
-                className="w-full px-4 py-3 rounded-xl border border-brand-border bg-white text-sm font-medium text-brand-text placeholder:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-brand-text/20 focus:border-brand-text transition-all"
+                className={`w-full px-4 py-3 rounded-xl border bg-brand-bg dark:bg-neutral-900/50 text-sm font-medium text-brand-text placeholder:text-brand-muted/30 focus:outline-none focus:ring-2 focus:ring-brand-text/20 focus:bg-brand-surface transition-all autofill:shadow-[0_0_0_1000px_#121214_inset] ${validationErrors.has('name') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-brand-border dark:border-neutral-700 focus:border-brand-text'
+                  }`}
               />
-              <p className="text-[10px] text-zinc-400">A descriptive name for your asset — saved to Firestore.</p>
+              <p className="text-[10px] text-zinc-400">A descriptive name for your asset</p>
             </div>
             <div className="space-y-2">
-              <label htmlFor="ownerOrg" className="text-meta">Organization *</label>
+              <label htmlFor="ownerOrg" className={`text-meta ${validationErrors.has('org') ? 'text-red-500 font-bold' : ''}`}>
+                Organization * {validationErrors.has('org') && <span className="ml-1 animate-pulse">(Required)</span>}
+              </label>
               <input
                 id="ownerOrg"
                 type="text"
                 value={ownerOrg}
-                onChange={e => setOwnerOrg(e.target.value)}
-                placeholder="e.g. UEFA Media"
-                className="w-full px-4 py-3 rounded-xl border border-brand-border bg-white text-sm font-medium text-brand-text placeholder:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-brand-text/20 focus:border-brand-text transition-all"
+                onChange={e => {
+                  setOwnerOrg(e.target.value);
+                  if (e.target.value) {
+                    const newErrors = new Set(validationErrors);
+                    newErrors.delete('org');
+                    setValidationErrors(newErrors);
+                  }
+                }}
+                placeholder="e.g. ICC / Australian Cricket Board"
+                className={`w-full px-4 py-3 rounded-xl border bg-brand-bg dark:bg-neutral-900/50 text-sm font-medium text-brand-text placeholder:text-brand-muted/30 focus:outline-none focus:ring-2 focus:ring-brand-text/20 focus:bg-brand-surface transition-all autofill:shadow-[0_0_0_1000px_#121214_inset] ${validationErrors.has('org') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-brand-border dark:border-neutral-700 focus:border-brand-text'
+                  }`}
               />
-              <p className="text-[10px] text-zinc-400">Your organization name — used in the Gemini prompt as the asset origin.</p>
+              <p className="text-[10px] text-zinc-400">The legal rights holder — helps determine "fair use".</p>
             </div>
-          </div>
-
-          {/* Asset Description */}
-          <div className="space-y-2">
-            <label htmlFor="assetDescription" className="text-meta">Asset Description *</label>
-            <textarea
-              id="assetDescription"
-              value={assetDescription}
-              onChange={e => setAssetDescription(e.target.value)}
-              placeholder="e.g. Official match-day photograph from the 2024 Champions League Final at Wembley, captured by our staff photographer. Shows the winning team celebrating with the trophy."
-              rows={4}
-              className="w-full px-4 py-3 rounded-xl border border-brand-border bg-white text-sm font-medium text-brand-text placeholder:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-brand-text/20 focus:border-brand-text transition-all resize-none"
-            />
-            <p className="text-[10px] text-zinc-400">
-              Describe what your image depicts. Gemini uses this context (20% weight) alongside visual analysis (80% weight) to judge if web matches are copies of your asset.
-            </p>
           </div>
 
           {/* Rights Tier */}
           <div className="space-y-3">
-            <label className="text-meta">Rights Tier</label>
-            <p className="text-[10px] text-zinc-400 -mt-1">Select the license type — Gemini checks if web usage aligns with this tier.</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <label className="text-meta">Rights Tier *</label>
+            <p className="text-[10px] text-zinc-400 -mt-1">Select the license type — AI checks if web usage aligns with this tier.</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {RIGHTS_TIERS.map(({ value, label }) => (
                 <button
                   key={value}
                   type="button"
                   onClick={() => setRightsTier(value)}
-                  className={`px-4 py-3 rounded-xl border text-left transition-all ${rightsTier === value
-                    ? 'border-brand-text bg-brand-text text-white'
-                    : 'border-brand-border bg-white text-brand-text hover:border-zinc-400'
+                  className={`p-4 rounded-xl border-2 text-left transition-all duration-200 ${rightsTier === value
+                    ? 'border-brand-text bg-white dark:bg-white/5 shadow-soft'
+                    : 'border-brand-border dark:border-neutral-800 bg-brand-bg dark:bg-black/20 text-brand-text hover:border-brand-muted'
                     }`}
                 >
-                  <p className="text-[10px] font-black uppercase tracking-widest mb-0.5 opacity-60">
-                    {value.replace('_', ' ')}
-                  </p>
-                  <p className="text-xs font-bold">{label.split(' — ')[1]}</p>
+                  <p className="text-[10px] font-black uppercase tracking-tight text-brand-text">{value.replace('_', ' ')}</p>
+                  <p className="text-[10px] text-brand-muted mt-1 leading-tight">{label.split(' — ')[1]}</p>
                 </button>
               ))}
             </div>
@@ -650,17 +733,23 @@ export default function UploadPage() {
 
           {/* Tags */}
           <div className="space-y-3">
-            <label className="text-meta">Sport Tags</label>
-            <p className="text-[10px] text-zinc-400 -mt-1">Optional — helps Gemini understand the domain of your asset.</p>
+            <label className="text-meta">Sport Tags <span className="text-zinc-400 font-normal ml-1">(Optional)</span></label>
+            <p className="text-[10px] text-zinc-400 -mt-1">Helps AI understand the domain context.</p>
             <div className="flex flex-wrap gap-2">
               {SPORTS_TAGS.map(tag => (
                 <button
                   key={tag}
                   type="button"
-                  onClick={() => toggleTag(tag)}
+                  onClick={() => {
+                    if (selectedTags.includes(tag)) {
+                      setSelectedTags(selectedTags.filter(t => t !== tag));
+                    } else {
+                      setSelectedTags([...selectedTags, tag]);
+                    }
+                  }}
                   className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${selectedTags.includes(tag)
-                    ? 'bg-brand-text text-white border-brand-text'
-                    : 'bg-white text-brand-muted border-brand-border hover:border-zinc-400 hover:text-brand-text'
+                    ? 'bg-brand-text text-white dark:text-black border-brand-text'
+                    : 'bg-brand-surface text-brand-muted border-brand-border hover:border-brand-muted hover:text-brand-text'
                     }`}
                 >
                   {tag}
@@ -669,19 +758,42 @@ export default function UploadPage() {
             </div>
           </div>
 
+          {/* Asset Description */}
+          <div className="space-y-2 pt-4">
+            <div className="flex items-center justify-between">
+              <label htmlFor="assetDescription" className="text-meta">Asset Description <span className="text-zinc-400 font-normal ml-1">(Highly Recommended)</span></label>
+            </div>
+            <textarea
+              id="assetDescription"
+              rows={4}
+              value={assetDescription}
+              onChange={e => setAssetDescription(e.target.value)}
+              placeholder="Provide a detailed description of what is happening in the image..."
+              className="w-full px-4 py-3 rounded-xl border border-brand-border dark:border-neutral-700 bg-brand-bg dark:bg-neutral-900/50 text-sm font-medium text-brand-text placeholder:text-brand-muted/30 focus:outline-none focus:ring-2 focus:ring-brand-text/20 focus:border-brand-text focus:bg-brand-surface transition-all resize-none"
+            />
+          </div>
+
           {/* Navigation */}
-          <div className="flex items-center justify-between pt-4 border-t border-brand-border">
+          <div className="flex items-center gap-4 pt-6 border-t border-brand-border">
             <Button variant="secondary" size="lg" onClick={() => setCurrentStep(2)} className="flex items-center gap-2">
               <ArrowLeft className="w-4 h-4" /> Back to Matches
             </Button>
             <Button
               size="lg"
-              disabled={!assetName.trim() || !ownerOrg.trim() || !assetDescription.trim()}
-              onClick={() => { setCurrentStep(4); runForensicAnalysis(); }}
-              className="flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+              onClick={runForensicAnalysis}
+              className={`flex items-center gap-2 px-8 ${(validationErrors.size > 0 || !assetName.trim() || !ownerOrg.trim()) ? 'opacity-70 grayscale-[0.5]' : ''
+                }`}
             >
               <Brain className="w-4 h-4" /> Run Forensic Analysis
             </Button>
+            {validationErrors.size > 0 && (
+              <p className="text-xs font-bold text-red-500 animate-in fade-in slide-in-from-left-2">
+                Please fill in the required fields.
+              </p>
+            )}
+            <p className="text-meta text-zinc-400 hidden md:block">
+              DeepTrace AI will now audit the {selectedMatches.size} matches against this context.
+            </p>
           </div>
         </div>
       )}
@@ -697,7 +809,7 @@ export default function UploadPage() {
               <div>
                 <h3 className="font-display font-black uppercase text-sm tracking-wide text-brand-text">Forensic Analysis Results</h3>
                 <p className="text-sm text-brand-muted mt-1 leading-relaxed max-w-2xl">
-                  Gemini's <strong>Forensic Content Auditor</strong> compares your original asset against each selected match using the
+                  DeepTrace's <strong>Forensic Content Auditor</strong> compares your original asset against each selected match using the
                   weighted formula: <strong>80% visual similarity + 20% contextual analysis</strong>. Results include classification,
                   confidence scores, and detailed reasoning steps.
                 </p>
@@ -711,7 +823,7 @@ export default function UploadPage() {
               <div>
                 <p className="text-sm font-bold text-blue-900">Analyzing matches…</p>
                 <p className="text-xs text-blue-700">
-                  {analysisResults.length} of {selectedMatches.size} complete — Gemini is comparing images and evaluating context
+                  {analysisResults.length} of {selectedMatches.size} complete — DeepTrace AI is comparing images and evaluating context
                 </p>
               </div>
             </div>
@@ -768,13 +880,12 @@ export default function UploadPage() {
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                          result.recommended_action === 'escalate' ? 'text-red-700 bg-red-50 border-red-200' :
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${result.recommended_action === 'escalate' ? 'text-red-700 bg-red-50 border-red-200' :
                           result.recommended_action === 'human_review' ? 'text-amber-700 bg-amber-50 border-amber-200' :
-                          'text-green-700 bg-green-50 border-green-200'
-                        }`}>
+                            'text-green-700 bg-green-50 border-green-200'
+                          }`}>
                           {result.recommended_action === 'escalate' ? '⚡ ESCALATE' :
-                           result.recommended_action === 'human_review' ? '👁 REVIEW' : '✓ MONITOR'}
+                            result.recommended_action === 'human_review' ? '👁 REVIEW' : '✓ MONITOR'}
                         </span>
                         <span className="text-[10px] font-black uppercase tracking-widest text-brand-muted">
                           Domain: <span className="text-brand-text">{result.domain_class}</span>
@@ -853,6 +964,89 @@ export default function UploadPage() {
           )}
         </div>
       )}
+
+      <AnimatePresence>
+        {isFinalizing && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
+            className="fixed inset-0 z-[999] bg-white/80 dark:bg-black/90 backdrop-blur-2xl flex flex-col items-center justify-center p-6"
+          >
+            {/* Minimalist Scanner - Brackets & Scanning Line */}
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.1, duration: 0.8 }}
+              className="relative w-64 h-64 flex items-center justify-center"
+            >
+              {/* Brackets */}
+              <div className="absolute inset-0 border-[1.5px] border-brand-text/10 rounded-[2rem]" />
+              <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-brand-text rounded-tl-xl" />
+              <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-brand-text rounded-tr-xl" />
+              <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-brand-text rounded-bl-xl" />
+              <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-brand-text rounded-br-xl" />
+
+              {/* Central Icon */}
+              <motion.div
+                animate={{ opacity: [0.4, 1, 0.4] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <Fingerprint className="w-16 h-16 text-brand-text" />
+              </motion.div>
+
+              {/* Subtle Scanning Beam */}
+              <motion.div 
+                animate={{ top: ['10%', '90%', '10%'] }}
+                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute left-6 right-6 h-[2px] bg-gradient-to-r from-transparent via-brand-text/50 to-transparent z-10" 
+              />
+            </motion.div>
+
+            {/* Status Readouts */}
+            <div className="mt-12 text-center space-y-6">
+              <div className="space-y-1">
+                <motion.h2 
+                  initial={{ y: 10, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                  className="text-lg font-display font-black uppercase tracking-[0.4em] text-brand-text"
+                >
+                  Finalizing Audit
+                </motion.h2>
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.4 }}
+                  className="text-[10px] font-mono uppercase tracking-widest text-brand-muted"
+                >
+                  Synchronizing {selectedMatches.size} vectors to pipeline
+                </motion.p>
+              </div>
+
+              {/* Progress Steps - Minimal Dots */}
+              <div className="flex items-center justify-center gap-2">
+                {[0, 1, 2].map((i) => (
+                  <motion.div
+                    key={i}
+                    animate={{ 
+                      scale: [1, 1.2, 1],
+                      opacity: [0.3, 1, 0.3]
+                    }}
+                    transition={{ 
+                      duration: 1.5, 
+                      repeat: Infinity, 
+                      delay: i * 0.2 
+                    }}
+                    className="w-1.5 h-1.5 rounded-full bg-brand-text"
+                  />
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

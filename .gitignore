@@ -3,7 +3,5 @@ node_modules
 .agents
 .env
 .env.local
+
 service-account.json
-scratch/
-*.log
-tsc_output.txt

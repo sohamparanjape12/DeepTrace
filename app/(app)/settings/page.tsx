@@ -30,7 +30,7 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-12">
-      <PageHeader title="Settings" subtitle="Configure your organization's alert and scan preferences." />
+      <PageHeader title="Settings" size="xl" subtitle="Configure your organization's alert and scan preferences." />
 
       {/* Org Profile */}
       <section className="bento-card p-8 space-y-6">
@@ -71,8 +71,8 @@ export default function SettingsPage() {
               key={value}
               onClick={() => setThreshold(value)}
               className={`px-5 py-4 rounded-xl border text-left transition-all ${threshold === value
-                  ? 'border-brand-text bg-brand-text text-brand-bg shadow-lg shadow-brand-text/10'
-                  : 'border-brand-border bg-brand-surface text-brand-text hover:border-brand-muted'
+                ? 'border-brand-text bg-brand-text text-brand-bg shadow-lg shadow-brand-text/10'
+                : 'border-brand-border bg-brand-surface text-brand-text hover:border-brand-muted'
                 }`}
             >
               <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${threshold === value ? 'text-brand-bg/60' : 'text-brand-muted'}`}>{value}</p>
@@ -129,27 +129,6 @@ export default function SettingsPage() {
               className="w-full px-4 py-3 rounded-xl border border-brand-border bg-brand-surface text-sm font-medium text-brand-text placeholder:text-brand-muted/30 focus:outline-none focus:ring-2 focus:ring-brand-text/20 focus:border-brand-text transition-all font-mono text-xs"
             />
           </div>
-        </div>
-      </section>
-
-      {/* API Keys */}
-      <section className="bento-card p-8 space-y-6">
-        <div className="flex items-center gap-3">
-          <Key className="w-5 h-5 text-brand-muted" />
-          <h2 className="font-display font-black uppercase text-sm tracking-tight">API & Integrations</h2>
-        </div>
-        <div className="space-y-4">
-          {[
-            { label: 'Gemini API Key', value: '●●●●●●●●●●●●' },
-            { label: 'Firebase Project ID', value: '●●●●●●●●●●' },
-            { label: 'Storage Bucket', value: '●●●●●●●●●●●●●●●●' },
-          ].map(({ label, value }) => (
-            <div key={label} className="flex items-center justify-between p-4 bg-brand-bg rounded-xl border border-brand-border">
-              <p className="text-xs font-bold text-brand-text">{label}</p>
-              <p className="text-xs font-mono text-brand-muted">{value}</p>
-            </div>
-          ))}
-          <p className="text-[10px] font-bold text-brand-muted">API keys are configured via environment variables and not editable here.</p>
         </div>
       </section>
 

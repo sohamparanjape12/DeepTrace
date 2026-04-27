@@ -1,21 +1,21 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export interface AnalysisContext {
-  caption?: string;
-  surroundingText?: string;
-  hashtags?: string[];
-  metadata?: Record<string, any>;
-  imageUrl?: string;
+    caption?: string;
+    surroundingText?: string;
+    hashtags?: string[];
+    metadata?: Record<string, any>;
+    imageUrl?: string;
 }
 
 export interface AnalysisResult {
-  severity: "CRITICAL" | "HIGH" | "LOW";
-  sentiment_flag: "SAFE" | "TOXIC" | "MOCKERY";
-  reasoning: string;
+    severity: "CRITICAL" | "HIGH" | "LOW";
+    sentiment_flag: "SAFE" | "TOXIC" | "MOCKERY";
+    reasoning: string;
 }
 
 export function buildIntelligencePrompt(context: AnalysisContext): string {
-  return `You are the central intelligence layer for DeepTrace and Brand protection platform. 
+    return `You are the central intelligence layer for DeepTrace and Brand protection platform. 
 
 You will be provided with an image (a potentially unauthorized use of a digital asset) and its surrounding context (caption, surrounding webpage text, hashtags, and metadata).
 
@@ -51,46 +51,46 @@ Output Format:
 }
 
 export async function analyzeAssetContext(context: AnalysisContext): Promise<AnalysisResult> {
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY || "");
-  const modelName = (process.env.GEMINI_MODEL || "gemini-1.5-flash").trim();
-  const model = genAI.getGenerativeModel({ 
-    model: modelName,
-    generationConfig: { responseMimeType: "application/json" } as any
-  });
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY || "");
+    const modelName = (process.env.GEMINI_MODEL || "gemini-1.5-flash").trim();
+    const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: { responseMimeType: "application/json" } as any
+    });
 
-  const promptText = buildIntelligencePrompt(context);
-  const promptParts: any[] = [{ text: promptText }];
+    const promptText = buildIntelligencePrompt(context);
+    const promptParts: any[] = [{ text: promptText }];
 
-  if (context.imageUrl) {
-    try {
-      const resp = await fetch(context.imageUrl, { headers: { 'User-Agent': 'DeepTrace/1.0' } });
-      if (resp.ok) {
-        const buffer = await resp.arrayBuffer();
-        promptParts.push({
-          inlineData: {
-            data: Buffer.from(buffer).toString("base64"),
-            mimeType: resp.headers.get("content-type") || "image/jpeg"
-          }
-        });
-      } else {
-        console.warn(`Failed to fetch image from ${context.imageUrl}: HTTP ${resp.status}`);
-      }
-    } catch (err) {
-      console.warn(`Failed to fetch image from ${context.imageUrl}:`, err);
+    if (context.imageUrl) {
+        try {
+            const resp = await fetch(context.imageUrl, { headers: { 'User-Agent': 'DeepTrace/1.0' } });
+            if (resp.ok) {
+                const buffer = await resp.arrayBuffer();
+                promptParts.push({
+                    inlineData: {
+                        data: Buffer.from(buffer).toString("base64"),
+                        mimeType: resp.headers.get("content-type") || "image/jpeg"
+                    }
+                });
+            } else {
+                console.warn(`Failed to fetch image from ${context.imageUrl}: HTTP ${resp.status}`);
+            }
+        } catch (err) {
+            console.warn(`Failed to fetch image from ${context.imageUrl}:`, err);
+        }
     }
-  }
 
-  try {
-    const result = await model.generateContent(promptParts);
-    const text = result.response.text();
-    return JSON.parse(text) as AnalysisResult;
-  } catch (error) {
-    console.error("Analysis generation failed:", error);
-    // Fallback in case of failure
-    return {
-      severity: "LOW",
-      sentiment_flag: "SAFE",
-      reasoning: "System fallback due to classification error."
-    };
-  }
+    try {
+        const result = await model.generateContent(promptParts);
+        const text = result.response.text();
+        return JSON.parse(text) as AnalysisResult;
+    } catch (error) {
+        console.error("Analysis generation failed:", error);
+        // Fallback in case of failure
+        return {
+            severity: "LOW",
+            sentiment_flag: "SAFE",
+            reasoning: "System fallback due to classification error."
+        };
+    }
 }

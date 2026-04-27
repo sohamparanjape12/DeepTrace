@@ -3,311 +3,694 @@
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { useRef, useState } from 'react';
-import { Card } from '@/components/ui/Card';
+import { useRef } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Marquee } from '@/components/shared/Marquee';
-import { Shield, Search, AlertCircle, BarChart3, ArrowUpRight, Globe, Zap, Fingerprint, ChevronRight } from 'lucide-react';
+import {
+  Shield, Search, ArrowUpRight, Globe, Zap,
+  Fingerprint, CheckCircle, X, Eye, Lock, BarChart3,
+} from 'lucide-react';
 import Link from 'next/link';
 
 gsap.registerPlugin(ScrollTrigger);
 
+/* ─── Data ─────────────────────────────────────── */
+
+const STATS = [
+  { value: '2.4M+', label: 'Assets Protected' },
+  { value: '147', label: 'Countries Covered' },
+  { value: '<24h', label: 'Avg. Takedown Time' },
+  { value: '99.8%', label: 'Detection Accuracy' },
+];
+
+const HOW_IT_WORKS = [
+  {
+    step: '01',
+    title: 'Visual Fingerprinting',
+    description:
+      'Our AI generates a cryptographic fingerprint of your media that survives heavy compression, cropping, and filtering.',
+    icon: Fingerprint,
+  },
+  {
+    step: '02',
+    title: 'Automated Discovery',
+    description:
+      'The global crawler network scans the internet daily, using computer vision to find matches against your official assets.',
+    icon: Globe,
+  },
+  {
+    step: '03',
+    title: 'Forensic Classification',
+    description:
+      'Autonomous AI audits matches to classify violation types and severity, triggering immediate resolution pathways.',
+    icon: Zap,
+  },
+];
+
+const TESTIMONIALS = [
+  {
+    quote:
+      'DeepTrace identified 340 unlicensed uses of our catalog within the first week. The automated takedown pipeline is remarkable.',
+    author: 'Mara Svensson',
+    role: 'Head of IP, Nexus Studio',
+    dark: false,
+  },
+  {
+    quote:
+      'We recovered $180k in licensing fees in Q1 alone. This is the infrastructure every creative agency needs.',
+    author: 'James Okafor',
+    role: 'COO, Vantage Media',
+    dark: true,
+  },
+  {
+    quote:
+      'The fingerprinting caught our images even after heavy AI editing. The detection rate is unlike anything we\'ve seen.',
+    author: 'Priya Nair',
+    role: 'Legal Director, Luminary Press',
+    dark: false,
+  },
+];
+
+/* ─── Scan UI mock data ─────────────────────────── */
+const SCAN_HITS = [
+  { domain: 'blog.example.com', status: 'match', conf: '99.2%' },
+  { domain: 'cdn.marketplace.io', status: 'match', conf: '97.8%' },
+  { domain: 'assets.unknown.net', status: 'review', conf: '84.1%' },
+  { domain: 'static.news-site.co', status: 'match', conf: '98.4%' },
+];
+const SCAN_STATS = [
+  { label: 'Scanned', val: '1.4M' },
+  { label: 'Matches', val: '23' },
+  { label: 'Resolved', val: '18' },
+];
+
+/* ─── Bar chart bar heights (deterministic) ──────── */
+const BAR_HEIGHTS = [28, 55, 38, 72, 44, 61, 30, 80, 47, 65, 33, 78,
+  42, 58, 25, 70, 50, 35, 68, 45, 73, 29, 60, 40, 55, 36, 77, 48, 62, 31,
+  56, 43, 71, 38, 64, 27, 53, 46, 69, 34];
+const WAVEFORM = [4, 7, 5, 9, 6, 8, 4, 7, 5, 9];
+
+/* ─── Forensic Card Component ──────────────────── */
+function ForensicCard({
+  img, confidence, id, layer, progress, isMain = false
+}: {
+  img: string, confidence: string, id: string, layer: string, progress: number, isMain?: boolean
+}) {
+  return (
+    <div className={`relative bg-brand-surface border border-brand-border rounded-[2rem] overflow-hidden shadow-soft-lg group/card transition-all duration-700 ${isMain ? 'hover:shadow-xl' : ''}`}>
+      <div className="p-1.5">
+        <div className="relative aspect-[4/5] rounded-[1.4rem] overflow-hidden bg-brand-bg border border-brand-border">
+          <img
+            src={img}
+            alt="Forensic Asset"
+            className={`w-full h-full object-cover ${isMain ? 'opacity-90' : 'grayscale opacity-60'} transition-transform duration-[4s] group-hover/card:scale-110`}
+          />
+          {isMain && (
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-brand-accent/20 to-transparent h-1/4 w-full animate-scan" />
+          )}
+          <div className="absolute inset-4 pointer-events-none opacity-20">
+            <div className="absolute top-0 left-0 w-3 h-3 border-t border-l border-brand-accent" />
+            <div className="absolute top-0 right-0 w-3 h-3 border-t border-r border-brand-accent" />
+            <div className="absolute bottom-0 left-0 w-3 h-3 border-b border-l border-brand-accent" />
+            <div className="absolute bottom-0 right-0 w-3 h-3 border-b border-r border-brand-accent" />
+          </div>
+        </div>
+      </div>
+
+      <div className="px-6 py-5 pt-4 space-y-4">
+        <div className="flex justify-between items-end">
+          <div className="space-y-0.5">
+            <p className="text-[9px] font-black uppercase tracking-widest text-brand-muted">Confidence</p>
+            <p className="text-2xl font-display font-black text-brand-text tracking-tighter">{confidence}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] font-mono text-brand-muted">{id}</p>
+          </div>
+        </div>
+
+        <div className="h-0.5 bg-brand-border rounded-full overflow-hidden">
+          <div className="h-full bg-brand-accent transition-all duration-1000" style={{ width: `${progress}%` }} />
+        </div>
+
+        <div className="flex items-center justify-between pt-1">
+          <div className="flex items-center gap-2">
+            <div className={`w-1.5 h-1.5 rounded-full bg-green-500 ${isMain ? 'animate-pulse' : ''}`} />
+            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-brand-text">Verified Secure</span>
+          </div>
+          <span className="text-[9px] font-black uppercase tracking-[0.2em] text-brand-muted">{layer}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Component ─────────────────────────────────── */
 export default function Home() {
-  const container = useRef(null);
-  const navRef = useRef(null);
+  const container = useRef<HTMLElement>(null);
+  const navRef = useRef<HTMLElement>(null);
 
   useGSAP(() => {
-    // 1. Hero Entrance
-    const tl = gsap.timeline({ defaults: { ease: 'expo.out', duration: 1.2 } });
+    /* Hero entrance */
+    const tl = gsap.timeline({ defaults: { ease: 'power4.out', duration: 1.8 } });
+    tl.from('.hero-title', { y: 120, opacity: 0, filter: 'blur(10px)' })
+      .from('.hero-sub', { y: 40, opacity: 0, filter: 'blur(5px)' }, '-=1.4')
+      .from('.hero-cta', { y: 30, opacity: 0, stagger: 0.15 }, '-=1.2')
+      .from('.hero-visual-bg', { y: 60, rotation: 0, opacity: 0, stagger: 0.1, duration: 2 }, '-=1.6')
+      .from('.hero-visual', { scale: 0.9, opacity: 0, filter: 'blur(20px)', duration: 2.2 }, '-=1.8');
 
-    tl.from('.hero-title', {
-      y: 80,
-      opacity: 0,
-    })
-      .from('.hero-sub', {
-        y: 30,
-        opacity: 0,
-      }, '-=0.8')
-      .from('.hero-cta', {
-        y: 20,
-        opacity: 0,
-        stagger: 0.1
-      }, '-=0.6');
-
-    // 2. Floating Nav Shrink on Scroll
+    /* Nav shrink on scroll */
     gsap.to(navRef.current, {
-      scrollTrigger: {
-        start: 'top -50',
-        end: 'top -200',
-        scrub: true,
-      },
-      scale: 0.9,
-      y: -10,
-      backgroundColor: 'var(--brand-surface-glass)',
+      scrollTrigger: { start: 'top -100', end: 'top -300', scrub: 1 },
+      scale: 0.95, y: -8,
+      boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
     });
 
-    // 3. 3D Bento Reveal
+    /* Bento reveal */
     gsap.from('.bento-item', {
-      scrollTrigger: {
-        trigger: '.bento-grid',
-        start: 'top 75%',
-      },
-      y: 100,
-      rotationX: 15,
-      opacity: 0,
-      stagger: 0.15,
-      duration: 1.4,
-      ease: 'power4.out',
-      clearProps: 'all'
+      scrollTrigger: { trigger: '.bento-grid', start: 'top 85%' },
+      y: 80, rotationX: 8, opacity: 0, filter: 'blur(10px)',
+      stagger: { amount: 0.6, grid: [2, 2], from: 'start' },
+      duration: 1.8, ease: 'expo.out', clearProps: 'all',
     });
 
-    // 4. Metric Count-Up Animation
-    const metrics = [
-      { target: '.stat-assets', val: 1284 },
-      { target: '.stat-violations', val: 42 },
-      { target: '.stat-nodes', val: 148 },
-    ];
+    /* Stats */
+    gsap.from('.stat-item', {
+      scrollTrigger: { trigger: '.stats-section', start: 'top 85%' },
+      y: 30, opacity: 0, stagger: 0.1, duration: 1, ease: 'power3.out',
+    });
 
-    metrics.forEach(({ target, val }) => {
-      const obj = { value: 0 };
-      gsap.to(obj, {
-        scrollTrigger: {
-          trigger: '.bento-grid',
-          start: 'top 80%',
-        },
-        value: val,
-        duration: 2.5,
-        ease: 'power2.out',
-        onUpdate: () => {
-          const el = document.querySelector(target);
-          if (el) el.textContent = Math.floor(obj.value).toLocaleString();
-        }
-      });
+    /* How it works */
+    gsap.from('.how-step', {
+      scrollTrigger: { trigger: '.how-section', start: 'top 80%' },
+      y: 50, opacity: 0, stagger: 0.15, duration: 1.2, ease: 'power3.out',
+    });
+
+    /* Testimonials */
+    gsap.from('.testimonial-card', {
+      scrollTrigger: { trigger: '.testimonials-section', start: 'top 80%' },
+      y: 40, opacity: 0, stagger: 0.12, duration: 1.2, ease: 'power3.out',
     });
   }, { scope: container });
 
   return (
-    <main ref={container} className="bg-brand-bg min-h-screen selection:bg-brand-accent/20 relative">
-      {/* Visual Depth Overlay */}
-      <div className="fixed inset-0 pointer-events-none opacity-[0.03] noise-overlay" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.65\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\'/%3E%3C/svg%3E")' }} />
+    <main
+      ref={container}
+      className="bg-brand-bg min-h-screen selection:bg-brand-accent/20 relative overflow-x-hidden"
+    >
+      {/* Noise overlay */}
+      <div
+        className="fixed inset-0 pointer-events-none opacity-[0.03] z-0"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+        }}
+      />
 
-      {/* Floating Pill Nav */}
-      <nav ref={navRef} className="fixed top-8 left-1/2 -translate-x-1/2 z-50 glass-pill px-8 py-3 flex items-center gap-8 transition-shadow hover:shadow-lg">
-        <span className="font-display font-black text-xl tracking-tighter uppercase whitespace-nowrap">DeepTrace</span>
-        <div className="hidden md:flex items-center gap-8 text-meta">
-          <a href="#" className="hover:text-brand-text transition-colors relative group">
-            Assets
-            <span className="absolute -bottom-1 left-0 w-0 h-px bg-brand-text transition-all group-hover:w-full" />
-          </a>
-          <a href="#" className="hover:text-brand-text transition-colors relative group">
-            Violations
-            <span className="absolute -bottom-1 left-0 w-0 h-px bg-brand-text transition-all group-hover:w-full" />
-          </a>
-          <a href="#" className="hover:text-brand-text transition-colors relative group">
-            Nodes
-            <span className="absolute -bottom-1 left-0 w-0 h-px bg-brand-text transition-all group-hover:w-full" />
-          </a>
+      {/* Technical grid */}
+      <div
+        className="fixed inset-0 pointer-events-none opacity-[0.01] dark:opacity-[0.02] z-0"
+        style={{
+          backgroundImage:
+            'linear-gradient(to right, currentColor 1px, transparent 1px), linear-gradient(to bottom, currentColor 1px, transparent 1px)',
+          backgroundSize: '48px 48px',
+        }}
+      />
+
+      {/* ── Nav ────────────────────────────────────── */}
+      <nav
+        ref={navRef}
+        className="fixed top-4 md:top-6 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-fit z-50
+          px-4 py-2 flex items-center justify-between md:justify-start gap-6 md:gap-12
+          border border-zinc-200 dark:border-white/10
+          bg-white dark:bg-black/60 backdrop-blur-3xl
+          rounded-full transition-all duration-500 shadow-lg dark:shadow-none"
+      >
+        <div className="flex items-center gap-2.5 pl-1">
+          <div className="w-2 h-2 rounded-full bg-brand-accent shadow-sm" />
+          <span className="font-display font-black text-sm tracking-[-0.04em] uppercase text-zinc-950 dark:text-white">
+            DeepTrace
+          </span>
         </div>
-        <Link className="whitespace-nowrap m-0" href="/dashboard">
-          <Button variant='primary' className="whitespace-nowrap rounded-full m-0 px-4 py-2">
-            Secure Asset
+
+        <div className="hidden lg:flex items-center gap-10 text-[10px] font-black uppercase tracking-[0.25em] text-zinc-400 dark:text-white/20">
+          <a href="#discovery" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Discovery</a>
+          <a href="#analysis" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Analysis</a>
+          <a href="#resolution" className="hover:text-zinc-950 dark:hover:text-white transition-colors">Resolution</a>
+        </div>
+
+        <Link href="/dashboard">
+          <Button
+            variant="primary"
+            className="rounded-full px-5 md:px-7 py-2.5 h-auto text-[10px] font-black uppercase tracking-widest
+              bg-zinc-950 dark:bg-zinc-100 text-white dark:text-black hover:scale-[1.02] transition-all"
+          >
+            Launch Console
           </Button>
         </Link>
       </nav>
 
-      {/* Hero: Artistic Asymmetry */}
-      <section className="macro-spacing px-6 md:px-12 flex flex-col lg:flex-row gap-20 max-w-[1500px] mx-auto min-h-[90vh] items-center">
-        <div className="lg:w-3/5 space-y-10">
-          <div className="space-y-2">
-            <Badge variant="info" className="mb-4">Intelligence v1.0.4</Badge>
-            <div className="overflow-hidden">
-              <h1 className="hero-title text-7xl md:text-8xl font-display font-black leading-[0.8] tracking-tight uppercase">
-                Trace the <br />
-                <span className="text-brand-muted">Untraceable.</span>
-              </h1>
-            </div>
+      {/* ── Hero ───────────────────────────────────── */}
+      <section className="macro-spacing px-6 flex flex-col lg:flex-row gap-16 max-w-6xl mx-auto min-h-[92dvh] items-center relative z-10 pt-40 lg:pt-20">
+        {/* Left copy */}
+        <div className="lg:w-1/2 space-y-10 mt-8">
+          <div className="overflow-hidden">
+            <h1 className="hero-title text-6xl md:text-[4.8rem] font-display font-black leading-[0.88] tracking-[-0.05em] uppercase text-zinc-950 dark:text-white">
+              Protect your <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-zinc-400 via-zinc-950 to-zinc-950 dark:from-white/60 dark:via-white dark:to-white/20">
+                sports media.
+              </span>
+            </h1>
           </div>
-          <p className="hero-sub text-xl md:text-3xl text-brand-muted max-w-2xl font-sans leading-[1.4] font-medium">
-            DeepTrace deploys autonomous AI nodes to fingerprint, monitor, and classify sports media IP across the dark and open web in real-time.
+
+          <p className="hero-sub text-base md:text-lg text-zinc-500 dark:text-white/40 max-w-md font-medium leading-relaxed">
+            A specialized forensics platform for sports organizations to identify unauthorized use, watermark removal, and unlicensed distribution of official media.
           </p>
-          <div className="hero-cta flex flex-wrap gap-6 pt-4">
-            <Button size="lg" className="h-16 px-12 text-lg flex items-center gap-3">
-              Initiate Global Scan <ChevronRight className="w-5 h-5" />
+
+          <div className="hero-cta flex flex-wrap gap-4">
+            <Link href="/dashboard">
+              <Button
+                size="lg"
+                className="h-14 px-10 text-[11px] font-black uppercase tracking-[0.2em] flex items-center gap-3
+                  rounded-full bg-zinc-950 dark:bg-white text-white dark:text-black
+                  hover:bg-brand-accent hover:text-white transition-all shadow-lg"
+              >
+                Start Protecting <ArrowUpRight className="w-4 h-4" />
+              </Button>
+            </Link>
+            <Button
+              variant="secondary"
+              size="lg"
+              className="h-14 px-10 text-[11px] font-black uppercase tracking-[0.2em]
+                rounded-full border-zinc-200 dark:border-white/10 bg-transparent
+                text-zinc-500 dark:text-white/40
+                hover:text-zinc-950 dark:hover:text-white hover:border-zinc-400 dark:hover:border-white/20 transition-all"
+            >
+              See How It Works
             </Button>
-            <Button variant="secondary" size="lg" className="h-16 px-12 text-lg">
-              Live Violations
-            </Button>
+          </div>
+
+          {/* Trust micro-badges */}
+          <div className="hero-cta flex flex-wrap items-center gap-4 pt-2">
+            {['Visual Fingerprinting', 'Automated Takedowns', 'Rights Intelligence'].map((label) => (
+              <span
+                key={label}
+                className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-white/20"
+              >
+                <CheckCircle className="w-3.5 h-3.5 text-brand-accent shrink-0" />
+                {label}
+              </span>
+            ))}
           </div>
         </div>
 
-        <div className="lg:w-2/5 w-full relative">
-          <div className="aspect-[5/6] m-12 rounded-xl bg-brand-surface overflow-hidden relative grayscale hover:grayscale-0 transition-all duration-1000 shadow-soft-lg group border border-brand-border">
-            <img
-              src="https://picsum.photos/seed/trace/1200/1500"
-              alt="Digital Forensics"
-              className="object-cover w-full  h-full group-hover:scale-110 transition-transform duration-[4000ms] ease-out"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-brand-bg/80 via-transparent to-transparent" />
-            <div className="absolute bottom-12 left-8 right-8">
-              <Card className="p-6 backdrop-blur-2xl bg-brand-surface/40 border-brand-border/50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-2.5 h-2.5 rounded-full bg-brand-accent animate-pulse" />
-                    <p className="text-meta text-white">System Integrity: 99.9%</p>
-                  </div>
-                  <span className="text-[10px] font-bold text-white/50 tracking-widest">REAL-TIME</span>
-                </div>
-              </Card>
+        {/* Right: Minimal Forensic Viewport Stack */}
+        <div className="hero-visual lg:w-1/2 w-full relative flex justify-center lg:justify-end items-center overflow-visible">
+          <div className="relative w-full max-w-[320px] h-[450px] overflow-visible flex justify-center items-center">
+            {/* Background Card Left */}
+            <div className="absolute w-full -translate-x-24 -rotate-[12deg] z-0 opacity-100 transition-all duration-700">
+              <ForensicCard 
+                img="/images/sports-stadium.png"
+                confidence="94.1%"
+                id="#STD-142"
+                layer="03"
+                progress={82}
+              />
+            </div>
+            
+            {/* Background Card Right */}
+            <div className="absolute w-full translate-x-24 rotate-[10deg] z-10 opacity-100 transition-all duration-700">
+              <ForensicCard 
+                img="/images/sports-hero.png"
+                confidence="97.4%"
+                id="#BB-088"
+                layer="02"
+                progress={94}
+              />
+            </div>
+
+            {/* Main Card (Center) */}
+            <div className="relative z-20 w-full scale-105">
+              <ForensicCard 
+                img="/images/sports-basketball.png"
+                confidence="99.8%"
+                id="#SPT-772"
+                layer="01"
+                progress={88}
+                isMain
+              />
             </div>
           </div>
         </div>
       </section>
 
-      {/* Infinite Marquee: Live Infrastructure Feed */}
-      <section className="marquee-section border-y border-brand-border py-14 overflow-hidden bg-brand-surface/30 backdrop-blur-sm">
-        <Marquee speed={70}>
-          <div className="flex items-center gap-32 py-4">
-            <span className="text-meta whitespace-nowrap flex items-center gap-4 text-brand-muted">
-              <Fingerprint className="w-5 h-5 text-brand-text" /> Asset Fingerprinting Active
-            </span>
-            <span className="text-meta whitespace-nowrap flex items-center gap-4 text-brand-muted">
-              <Globe className="w-5 h-5 text-brand-text" /> Global Infrastructure: 12.8k Nodes
-            </span>
-            <span className="text-meta whitespace-nowrap flex items-center gap-4 text-brand-muted">
-              <Zap className="w-5 h-5 text-brand-text" /> Average Classification Latency: 140ms
-            </span>
-            <span className="text-meta whitespace-nowrap flex items-center gap-4 text-brand-muted">
-              <Shield className="w-5 h-5 text-brand-text" /> IP Protection Protocol Active
-            </span>
+      {/* ── Marquee ────────────────────────────────── */}
+      <section className="border-y border-zinc-100 dark:border-white/5 py-8 overflow-hidden bg-zinc-50/50 dark:bg-black/40 backdrop-blur-sm">
+        <Marquee speed={40}>
+          <div className="flex items-center gap-20 py-2">
+            {[
+              { icon: Fingerprint, label: 'Visual Fingerprinting Active' },
+              { icon: Globe, label: 'Global Protection Network' },
+              { icon: Zap, label: 'Active Search Threads' },
+              { icon: Shield, label: 'Licensed Sovereignty' },
+              { icon: Lock, label: 'Automated Takedowns' },
+              { icon: BarChart3, label: 'Real-Time Analytics' },
+            ].map((item, i) => (
+              <span
+                key={i}
+                className="text-[11px] font-black uppercase tracking-[0.35em] flex items-center gap-4 text-zinc-500 dark:text-white/40 shrink-0"
+              >
+                <item.icon className="w-4 h-4 opacity-70" /> {item.label}
+              </span>
+            ))}
           </div>
         </Marquee>
       </section>
 
-      {/* Bento Stats: High-Density Intelligence */}
-      <section className="macro-spacing px-6 md:px-12 max-w-[1500px] mx-auto space-y-16">
+      {/* ── Stats ──────────────────────────────────── */}
+      <section className="stats-section py-20 px-6">
+        <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-px bg-zinc-200 dark:bg-white/5 rounded-2xl overflow-hidden border border-zinc-200 dark:border-white/5">
+          {STATS.map((stat, i) => (
+            <div key={i} className="stat-item bg-white dark:bg-zinc-950 px-8 py-10 flex flex-col gap-2">
+              <p className="text-4xl md:text-5xl font-display font-black tracking-tight text-zinc-950 dark:text-white">
+                {stat.value}
+              </p>
+              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-400 dark:text-white/30">
+                {stat.label}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Features Bento ─────────────────────────── */}
+      <section id="features" className="macro-spacing px-6 max-w-6xl mx-auto space-y-12">
         <div className="flex flex-col md:flex-row justify-between items-end gap-10">
           <div className="space-y-4">
-            <h2 className="text-5xl md:text-7xl font-display font-black uppercase">Deep Intelligence <br /> <span className="text-brand-muted">at Scale.</span></h2>
-            <p className="text-brand-muted text-xl max-w-xl">A unified view of your digital sovereignty, powered by the industry&apos;s most advanced Gemini-Flash classification pipeline.</p>
+            <h2 className="text-4xl md:text-6xl font-display font-black uppercase leading-none tracking-[-0.05em] text-zinc-950 dark:text-white">
+              Full-Scale <br />
+              <span className="text-zinc-500 dark:text-white/50">Media Protection.</span>
+            </h2>
+            <p className="text-zinc-500 dark:text-white/40 text-sm md:text-base max-w-md font-medium leading-relaxed border-l-2 border-brand-accent pl-5">
+              Direct action tools to identify and resolve asset theft — from discovery to resolution.
+            </p>
           </div>
-          <Button variant="secondary" className="group">
-            Detailed Analytics <ArrowUpRight className="ml-2 w-4 h-4 transition-transform group-hover:-translate-y-1 group-hover:translate-x-1" />
+          <Button
+            variant="secondary"
+            className="group h-11 px-8 rounded-full text-[11px] font-black uppercase tracking-[0.15em]
+              border-zinc-200 dark:border-white/5 bg-zinc-50 dark:bg-white/5
+              text-zinc-500 dark:text-white/40
+              hover:bg-zinc-100 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white transition-all shrink-0"
+          >
+            View Docs <ArrowUpRight className="ml-2 w-3.5 h-3.5" />
           </Button>
         </div>
 
-        <div className="bento-grid grid grid-cols-12 grid-rows-2 gap-px bg-brand-border border border-brand-border overflow-hidden rounded-2xl shadow-soft">
-          {/* Main Growth Metric */}
-          <div className="bento-item col-span-12 md:col-span-8 row-span-1 bg-brand-surface p-12 lg:p-16 flex flex-col justify-between group cursor-default">
+        <div className="bento-grid grid grid-cols-12 gap-px bg-zinc-200 dark:bg-white/5 border border-zinc-200 dark:border-white/5 overflow-hidden rounded-[2rem] shadow-2xl">
+
+          {/* Discovery — large left */}
+          <div id="discovery" className="bento-item col-span-12 md:col-span-7 bg-white dark:bg-zinc-950 p-10 lg:p-14 flex flex-col justify-between group cursor-default min-h-[360px]">
             <div className="flex justify-between items-start">
-              <div className="p-4 rounded-xl bg-brand-bg border border-brand-border group-hover:border-brand-muted transition-colors">
-                <Shield className="w-10 h-10 text-brand-text transition-transform group-hover:scale-110" />
+              <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/5 text-zinc-400 dark:text-white/20 group-hover:text-brand-accent group-hover:border-brand-accent/30 transition-all duration-500">
+                <Search className="w-5 h-5" />
               </div>
-              <div className="text-right">
-                <p className="text-meta text-brand-accent">Live Inventory</p>
-                <p className="text-xs font-medium text-brand-muted mt-1">+12% this month</p>
-              </div>
+              <p className="text-[11px] font-black uppercase tracking-[0.25em] text-brand-accent">Discovery Layer</p>
             </div>
-            <div className="space-y-4">
-              <p className="text-7xl md:text-[10rem] font-display font-black tracking-tighter leading-none">
-                <span className="stat-assets">0</span>
+
+            {/* Deterministic bar chart */}
+            <div className="relative h-20 my-8 flex items-end gap-0.5 overflow-hidden">
+              {BAR_HEIGHTS.map((h, i) => (
+                <div
+                  key={i}
+                  className={`flex-1 rounded-sm ${i % 7 === 0 ? 'bg-brand-accent' : 'bg-zinc-100 dark:bg-white/8'}`}
+                  style={{ height: `${h}%` }}
+                />
+              ))}
+            </div>
+
+            <div className="space-y-3 mt-auto">
+              <h3 className="text-3xl md:text-5xl font-display font-black uppercase tracking-[-0.05em] text-zinc-950 dark:text-white leading-none">
+                Automated <br />Visual Search
+              </h3>
+              <p className="text-zinc-500 dark:text-white/40 text-sm font-medium leading-relaxed max-w-sm">
+                Our global crawler network scans millions of pages daily using advanced computer vision to find unauthorized media usage.
               </p>
-              <div className="flex items-center gap-4">
-                <p className="text-xl font-display font-bold uppercase tracking-tight text-brand-muted">Fingerprinted Assets Secured</p>
-                <div className="h-px flex-1 bg-brand-border" />
-              </div>
             </div>
           </div>
 
-          {/* Violations Monitoring */}
-          <div className="bento-item col-span-12 md:col-span-4 row-span-1 bg-brand-surface/40 p-12 lg:p-16 flex flex-col justify-between group">
-            <AlertCircle className="w-12 h-12 text-brand-muted/30 group-hover:text-brand-accent transition-colors" />
-            <div className="space-y-6">
-              <div className="space-y-1">
-                <h4 className="text-meta">Active Violations</h4>
-                <p className="text-8xl font-display font-black stat-violations text-brand-accent">0</p>
+          {/* Fingerprinting — right top */}
+          <div id="analysis" className="bento-item col-span-12 md:col-span-5 bg-zinc-50 dark:bg-black/40 p-10 lg:p-14 flex flex-col justify-between group min-h-[360px]">
+            <div className="flex items-center justify-between">
+              <Fingerprint className="w-10 h-10 text-zinc-300 dark:text-white/10 group-hover:text-brand-accent transition-all duration-500" />
+              {/* Waveform */}
+              <div className="flex gap-1 items-end h-8">
+                {WAVEFORM.map((h, i) => (
+                  <div
+                    key={i}
+                    className="w-1 bg-brand-accent/30 dark:bg-brand-accent/20 rounded-full animate-pulse"
+                    style={{ height: `${h * 4}px`, animationDelay: `${i * 0.1}s` }}
+                  />
+                ))}
               </div>
-              <div className="space-y-2">
-                <div className="h-2 w-full bg-brand-bg rounded-full overflow-hidden">
-                  <div className="h-full w-[42%] bg-brand-accent" />
+            </div>
+            <div className="space-y-5">
+              <div className="space-y-1.5">
+                <h4 className="text-[11px] font-black uppercase tracking-[0.25em] text-brand-accent">Forensic Analysis</h4>
+                <h3 className="text-3xl font-display font-black uppercase tracking-[-0.05em] text-zinc-950 dark:text-white leading-none">
+                  AI Violation <br />Classification
+                </h3>
+              </div>
+              <p className="text-zinc-500 dark:text-white/40 text-sm font-medium leading-relaxed max-w-xs">
+                Deep Intelligence audits matches by comparing page context and metadata against official rights tiers.
+              </p>
+            </div>
+          </div>
+
+          {/* Global Network — left bottom */}
+          <div className="bento-item col-span-12 md:col-span-5 bg-white dark:bg-zinc-950/60 p-10 lg:p-14 group min-h-[300px]">
+            <div className="flex flex-col h-full justify-between gap-8">
+              <div className="flex items-start justify-between">
+                <Shield className="w-10 h-10 text-zinc-300 dark:text-white/10 group-hover:text-brand-accent transition-all duration-500" />
+                {/* Concentric rings */}
+                <div className="relative w-16 h-16 opacity-20 dark:opacity-10 group-hover:opacity-40 transition-opacity duration-500 shrink-0">
+                  {[64, 48, 32, 16].map((sz) => (
+                    <div
+                      key={sz}
+                      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-brand-accent"
+                      style={{ width: sz, height: sz }}
+                    />
+                  ))}
                 </div>
-                <p className="text-[10px] font-bold text-brand-muted uppercase tracking-widest text-right">42% Critical Severity</p>
               </div>
-            </div>
-          </div>
-
-          {/* Global Nodes */}
-          <div className="bento-item col-span-12 md:col-span-4 row-span-1 bg-brand-surface p-12 lg:p-16 group">
-            <div className="flex flex-col h-full justify-between">
-              <Globe className="w-8 h-8 text-brand-muted/30 group-hover:text-brand-blue-text transition-colors" />
-              <div className="space-y-6">
+              <div className="space-y-3">
                 <div className="space-y-1">
-                  <p className="text-5xl font-display font-black stat-nodes">0</p>
-                  <p className="text-meta text-brand-muted">Tracking Nodes</p>
+                  <h4 className="text-[11px] font-black uppercase tracking-[0.25em] text-zinc-400 dark:text-white/30">Infrastructure</h4>
+                  <h3 className="text-3xl font-display font-black uppercase tracking-[-0.05em] text-zinc-950 dark:text-white leading-none">
+                    Global <br />Network
+                  </h3>
                 </div>
-                <p className="text-xl font-display font-semibold uppercase tracking-tight leading-tight text-brand-text">Global coverage spanning 148 CDN nodes for zero-day protection.</p>
+                <p className="text-sm font-medium leading-relaxed text-zinc-500 dark:text-white/40 max-w-xs">
+                  A robust, worldwide network ensuring your assets are protected 24/7 across 147 countries.
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Savings / Efficiency */}
-          <div className="bento-item col-span-12 md:col-span-8 row-span-1 bg-brand-surface p-12 lg:p-16 flex items-center gap-12 group hover:bg-brand-surface/40 transition-colors cursor-pointer border-l-0">
-            <div className="relative">
-              <BarChart3 className="w-20 h-20 text-brand-muted/10 group-hover:text-brand-muted/20 transition-colors" />
-              <Zap className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 text-brand-text opacity-0 group-hover:opacity-100 transition-all group-hover:scale-125" />
+          {/* Automated Resolution — right bottom, dark */}
+          <div id="resolution" className="bento-item col-span-12 md:col-span-7 bg-zinc-950 p-10 lg:p-14 flex items-center gap-10 group hover:bg-black transition-colors duration-700 cursor-pointer min-h-[300px]">
+            <div className="w-16 h-16 shrink-0 flex items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-white/20 group-hover:text-brand-accent group-hover:border-brand-accent/50 transition-all duration-500">
+              <Zap className="w-8 h-8" />
             </div>
             <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <p className="text-4xl font-display font-black uppercase text-brand-text">Savings Index</p>
-                <Badge variant="success">91.2% Efficient</Badge>
+              <div className="flex items-center gap-3 flex-wrap">
+                <p className="text-2xl font-display font-black uppercase text-white tracking-[-0.05em]">
+                  Automated Takedowns
+                </p>
+                <div className="px-3 py-1 rounded-full bg-brand-accent text-white text-[10px] font-black tracking-widest uppercase shrink-0">
+                  Resumable
+                </div>
               </div>
-              <p className="text-brand-muted text-xl font-sans max-w-[50ch] font-medium leading-[1.4]">
-                Our autonomous classification engine eliminates 91.2% of manual legal review, saving teams hundreds of hourly resources.
+              <p className="text-white/40 text-sm font-medium leading-relaxed max-w-sm">
+                Immediate resolution pathways triggered by detected violations — including automated takedowns and licensing negotiations.
               </p>
+              <div className="flex flex-wrap gap-2 pt-2">
+                {['Resolution', 'Forensics', 'Intelligence'].map((tag) => (
+                  <span
+                    key={tag}
+                    className="text-[11px] font-black uppercase tracking-widest text-white/30 border border-white/10 rounded-full px-3 py-1"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Flagship Footer */}
-      <footer className="py-32 px-6 md:px-12 bg-brand-bg border-t border-brand-border">
-        <div className="max-w-[1500px] mx-auto flex flex-col md:flex-row justify-between items-start gap-20">
-          <div className="space-y-8">
-            <h3 className="text-6xl md:text-8xl font-display font-black uppercase tracking-tighter">DeepTrace</h3>
-            <p className="text-brand-muted max-w-sm text-lg font-medium">Securing the next generation of digital media sovereignty through agentic intelligence.</p>
+      {/* ── How It Works ───────────────────────────── */}
+      <section id="how-it-works" className="how-section macro-spacing px-6 max-w-6xl mx-auto">
+        <div className="space-y-3 mb-16">
+          <h2 className="text-4xl md:text-5xl font-display font-black uppercase tracking-[-0.05em] leading-none text-zinc-950 dark:text-white">
+            Forensic Pipeline <br />
+            <span className="text-zinc-500 dark:text-white/50">in three steps.</span>
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-zinc-200 dark:bg-white/5 border border-zinc-200 dark:border-white/5 rounded-2xl overflow-hidden">
+          {HOW_IT_WORKS.map((step, i) => (
+            <div
+              key={i}
+              className={`how-step p-10 flex flex-col gap-8 ${i % 2 === 0 ? 'bg-white dark:bg-zinc-950' : 'bg-zinc-50/70 dark:bg-black/40'
+                }`}
+            >
+              <div className="flex items-start justify-between">
+                <div className="w-11 h-11 flex items-center justify-center rounded-2xl bg-zinc-100 dark:bg-white/5 border border-zinc-200 dark:border-white/5 text-zinc-400 dark:text-white/20">
+                  <step.icon className="w-5 h-5" />
+                </div>
+                <span className="text-5xl font-display font-black text-zinc-100 dark:text-white/[0.04] tracking-tighter select-none">
+                  {step.step}
+                </span>
+              </div>
+              <div className="space-y-3 mt-auto">
+                <h3 className="text-xl font-display font-black uppercase tracking-tight text-zinc-950 dark:text-white">
+                  {step.title}
+                </h3>
+                <p className="text-sm font-medium leading-relaxed text-zinc-500 dark:text-white/40">
+                  {step.description}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Testimonials ───────────────────────────── */}
+      <section id="trust" className="testimonials-section macro-spacing px-6 max-w-6xl mx-auto">
+        <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-12">
+          <h2 className="text-3xl md:text-4xl font-display font-black uppercase tracking-tight leading-none text-zinc-950 dark:text-white">
+            Trusted by <br />
+            <span className="text-zinc-500 dark:text-white/50">IP professionals.</span>
+          </h2>
+          <Badge className="text-[11px] font-black uppercase tracking-widest shrink-0">4.9 / 5 Rating</Badge>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {TESTIMONIALS.map((t, i) => (
+            <div
+              key={i}
+              className={`testimonial-card p-8 rounded-2xl border flex flex-col justify-between gap-8 ${t.dark
+                ? 'bg-zinc-950 dark:bg-zinc-900 border-zinc-800'
+                : 'bg-white dark:bg-zinc-950 border-zinc-200 dark:border-white/5'
+                }`}
+            >
+              <p className={`text-sm leading-relaxed font-medium ${t.dark ? 'text-white/60' : 'text-zinc-500 dark:text-white/40'}`}>
+                "{t.quote}"
+              </p>
+              <div className="space-y-0.5">
+                <p className={`text-sm font-black ${t.dark ? 'text-white' : 'text-zinc-950 dark:text-white'}`}>
+                  {t.author}
+                </p>
+                <p className={`text-[11px] font-bold uppercase tracking-widest ${t.dark ? 'text-white/30' : 'text-zinc-400 dark:text-white/30'}`}>
+                  {t.role}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── CTA ────────────────────────────────────── */}
+      <section className="macro-spacing px-6 max-w-6xl mx-auto pb-8">
+        <div className="bg-zinc-950 dark:bg-zinc-900 rounded-3xl p-14 md:p-20 flex flex-col md:flex-row items-center justify-between gap-10 relative overflow-hidden border border-zinc-800">
+          {/* Glows */}
+          <div className="absolute -top-24 -left-24 w-72 h-72 bg-brand-accent/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-24 -right-24 w-72 h-72 bg-brand-accent/5  rounded-full blur-3xl pointer-events-none" />
+
+          <div className="space-y-4 relative z-10">
+            <h2 className="text-4xl md:text-5xl font-display font-black uppercase tracking-[-0.05em] leading-none text-white">
+              Start protecting <br />
+              <span className="text-white/30">today.</span>
+            </h2>
+            <p className="text-white/40 text-base font-medium leading-relaxed max-w-sm">
+              Join 2,400+ creators and studios securing their digital assets with DeepTrace.
+            </p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-20 gap-y-12">
-            <div className="space-y-4">
-              <h4 className="text-meta">Platform</h4>
-              <ul className="space-y-3 text-sm font-bold text-brand-muted">
-                <li className="hover:text-brand-text cursor-pointer transition-colors">Asset Library</li>
-                <li className="hover:text-brand-text cursor-pointer transition-colors">Global Scan</li>
-                <li className="hover:text-brand-text cursor-pointer transition-colors">Legal Triage</li>
-              </ul>
-            </div>
-            <div className="space-y-4">
-              <h4 className="text-meta">Intelligence</h4>
-              <ul className="space-y-3 text-sm font-bold text-brand-muted">
-                <li className="hover:text-brand-text cursor-pointer transition-colors">Gemini Node</li>
-                <li className="hover:text-brand-text cursor-pointer transition-colors">Vision Grid</li>
-                <li className="hover:text-brand-text cursor-pointer transition-colors">API Docs</li>
-              </ul>
-            </div>
-            <div className="space-y-4">
-              <h4 className="text-meta">Connect</h4>
-              <ul className="space-y-3 text-sm font-bold text-brand-muted">
-                <li className="hover:text-brand-text cursor-pointer transition-colors">Twitter (X)</li>
-                <li className="hover:text-brand-text cursor-pointer transition-colors">LinkedIn</li>
-                <li className="hover:text-brand-text cursor-pointer transition-colors">Security</li>
-              </ul>
-            </div>
+
+          <div className="flex flex-col gap-3 shrink-0 relative z-10">
+            <Link href="/dashboard">
+              <Button
+                size="lg"
+                className="h-14 px-10 text-[11px] font-black uppercase tracking-[0.2em] flex items-center gap-3
+                  rounded-full bg-white text-black hover:bg-brand-accent hover:text-white transition-all shadow-2xl"
+              >
+                Start Free Trial <ArrowUpRight className="w-4 h-4" />
+              </Button>
+            </Link>
+            <p className="text-[11px] font-bold uppercase tracking-widest text-white/25 text-center">
+              No credit card required
+            </p>
           </div>
         </div>
-        <div className="max-w-[1500px] mx-auto mt-32 pt-12 border-t border-brand-border flex flex-col md:flex-row justify-between gap-6">
-          <p className="text-meta text-brand-muted/40">© 2026 DeepTrace Systems. All rights reserved.</p>
-          <p className="text-meta text-brand-muted/40">Sovereignty through Transparency.</p>
+      </section>
+
+      {/* ── Footer ─────────────────────────────────── */}
+      <footer className="py-20 px-6 border-t border-brand-border relative overflow-hidden mt-16">
+        <div className="absolute -bottom-20 -right-20 w-96 h-96 bg-brand-accent/[0.02] rounded-full blur-[120px] pointer-events-none" />
+
+        <div className="max-w-6xl mx-auto flex flex-col lg:flex-row justify-between items-start gap-16 relative z-10">
+          {/* Brand */}
+          <div className="space-y-6 max-w-xs">
+            <div className="flex items-center gap-2.5">
+              <div className="w-2 h-2 rounded-full bg-brand-accent" />
+              <h3 className="text-xl font-display font-black uppercase tracking-tighter text-brand-text">DeepTrace</h3>
+            </div>
+            <p className="text-brand-muted text-sm font-medium leading-relaxed">
+              Securing digital media sovereignty through autonomous intelligence.
+            </p>
+            <div className="flex gap-3">
+              {[ArrowUpRight, Globe].map((Icon, i) => (
+                <div
+                  key={i}
+                  className="w-9 h-9 rounded-full border border-brand-border flex items-center justify-center
+                    hover:bg-brand-text hover:text-white hover:border-brand-text transition-all cursor-pointer text-brand-muted"
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Links */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-16 gap-y-10">
+            {[
+              { title: 'Infrastructure', links: ['Forensic Network', 'Gemini Engine', 'CDN Layer'] },
+              { title: 'Intelligence', links: ['Forensics', 'Discovery', 'Pattern Engine'] },
+              { title: 'Legal', links: ['Rights Enforcement', 'Compliance', 'Licensing'] },
+            ].map((col) => (
+              <div key={col.title} className="space-y-4">
+                <h4 className="text-[11px] font-black uppercase tracking-widest text-brand-text">{col.title}</h4>
+                <ul className="space-y-2.5">
+                  {col.links.map((link) => (
+                    <li
+                      key={link}
+                      className="text-[11px] font-bold uppercase tracking-wider text-brand-muted hover:text-brand-text cursor-pointer transition-colors"
+                    >
+                      {link}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Bottom bar */}
+        <div className="max-w-6xl mx-auto mt-20 pt-8 border-t border-brand-border flex flex-col md:flex-row justify-between gap-4 opacity-40">
+          <p className="text-[11px] font-black uppercase tracking-widest text-brand-muted">© 2026 DeepTrace Systems.</p>
+          <p className="text-[11px] font-black uppercase tracking-widest text-brand-muted">Sovereignty through Intelligence.</p>
         </div>
       </footer>
-    </main>
+    </main >
   );
 }

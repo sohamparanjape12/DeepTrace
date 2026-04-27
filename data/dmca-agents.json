@@ -1,0 +1,56 @@
+[
+  {
+    "domain": "reddit.com",
+    "agent_name": "Reddit, Inc. Copyright Agent",
+    "agent_email": "copyright@reddit.com",
+    "agent_address": "1455 Market Street, Suite 1600, San Francisco, CA 94103"
+  },
+  {
+    "domain": "twitter.com",
+    "agent_name": "Twitter, Inc. Copyright Agent",
+    "agent_email": "copyright@twitter.com",
+    "agent_address": "1355 Market Street, Suite 900, San Francisco, CA 94103"
+  },
+  {
+    "domain": "x.com",
+    "agent_name": "X Corp. Copyright Agent",
+    "agent_email": "copyright@x.com",
+    "agent_address": "1355 Market Street, Suite 900, San Francisco, CA 94103"
+  },
+  {
+    "domain": "facebook.com",
+    "agent_name": "Meta Platforms, Inc. Copyright Agent",
+    "agent_email": "ip@fb.com",
+    "agent_address": "1601 Willow Road, Menlo Park, CA 94025"
+  },
+  {
+    "domain": "instagram.com",
+    "agent_name": "Instagram, LLC Copyright Agent",
+    "agent_email": "ip@instagram.com",
+    "agent_address": "1601 Willow Road, Menlo Park, CA 94025"
+  },
+  {
+    "domain": "youtube.com",
+    "agent_name": "YouTube Copyright Agent",
+    "agent_email": "copyright@youtube.com",
+    "agent_address": "901 Cherry Ave., San Bruno, CA 94066"
+  },
+  {
+    "domain": "tiktok.com",
+    "agent_name": "TikTok Copyright Agent",
+    "agent_email": "copyright@tiktok.com",
+    "agent_address": "5800 Bristol Parkway, Culver City, CA 90230"
+  },
+  {
+    "domain": "cloudflare.com",
+    "agent_name": "Cloudflare, Inc. Copyright Agent",
+    "agent_email": "abuse@cloudflare.com",
+    "agent_address": "101 Townsend St., San Francisco, CA 94107"
+  },
+  {
+    "domain": "discord.com",
+    "agent_name": "Discord Inc. Copyright Agent",
+    "agent_email": "copyright@discord.com",
+    "agent_address": "444 De Haro Street #200, San Francisco, CA 94107"
+  }
+]

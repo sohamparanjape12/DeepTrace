@@ -1,6 +1,6 @@
 import { clsx } from 'clsx';
 
-type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'PENDING';
 
 interface SeverityChipProps {
   severity: Severity;
@@ -12,6 +12,8 @@ const config: Record<Severity, { label: string; classes: string }> = {
   HIGH:     { label: 'High',     classes: 'bg-orange-500/10 text-orange-500 border-orange-500/20 ring-orange-500/10' },
   MEDIUM:   { label: 'Medium',   classes: 'bg-amber-500/10 text-amber-500 border-amber-500/20 ring-amber-500/10' },
   LOW:      { label: 'Low',      classes: 'bg-brand-bg text-brand-muted border-brand-border ring-brand-text/5' },
+  PENDING:  { label: 'Pending',  classes: 'bg-zinc-100 text-zinc-500 border-zinc-200 ring-zinc-500/5 animate-pulse' },
+
 };
 
 export function SeverityChip({ severity, className }: SeverityChipProps) {
