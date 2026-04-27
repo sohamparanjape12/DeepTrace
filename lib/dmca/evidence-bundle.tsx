@@ -247,7 +247,7 @@ const EvidenceBundleDocument = ({ violation, asset, eligibility, warc, generated
         <View style={s.coverHeader}>
           <Text style={s.coverTitle}>Forensic Evidence Bundle</Text>
           <Text style={s.coverSubtitle}>
-            DeepTrace Automated Content Audit — Case {violation.violation_id?.slice(0, 12)}
+            DeepTrace Forensic Content Audit — Case {violation.violation_id?.slice(0, 12)}
           </Text>
         </View>
 
@@ -305,7 +305,7 @@ const EvidenceBundleDocument = ({ violation, asset, eligibility, warc, generated
         )}
 
         <View style={s.footer}>
-          <Text style={s.footerText}>DeepTrace Forensic Content Auditor</Text>
+          <Text style={s.footerText}>DeepTrace Forensic Content Audit Report</Text>
           <Text style={s.footerText}>Page 1 of 3</Text>
         </View>
       </Page>
@@ -364,7 +364,7 @@ const EvidenceBundleDocument = ({ violation, asset, eligibility, warc, generated
         </View>
 
         <View style={s.footer}>
-          <Text style={s.footerText}>DeepTrace Forensic Content Auditor</Text>
+          <Text style={s.footerText}>DeepTrace Forensic Content Audit Report</Text>
           <Text style={s.footerText}>Page 2 of 3</Text>
         </View>
       </Page>
@@ -372,7 +372,7 @@ const EvidenceBundleDocument = ({ violation, asset, eligibility, warc, generated
       {/* ═══ PAGE 3: LEGAL ANALYSIS & REASONING ═══ */}
       <Page size="LETTER" style={s.page}>
         <View style={s.section}>
-          <Text style={s.sectionTitle}>AI Legal Analysis — Gemini Pro 1.5</Text>
+          <Text style={s.sectionTitle}>Forensic Analysis & Legal Reasoning</Text>
         </View>
 
         {violation.gemini_reasoning && (

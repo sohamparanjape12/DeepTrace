@@ -58,13 +58,17 @@ export async function POST(req: NextRequest) {
       ? (cDoc.data() as CustomerProfile)
       : { id: violation.owner_id, org_name: asset.owner_org || 'Unknown', dmca_attestation_signed: false };
 
-    // 5. Evaluate eligibility
+    // 5. Evaluate eligibility — exclude 'already_in_flight' since evidence generation
+    //    must be possible even when a DMCA draft is active (that's when it's needed).
     const eligibility = evaluateEligibility(violation, asset, customer);
-    if (!eligibility.eligible) {
-      console.log(`[Evidence] Violation ${violationId} not eligible:`, eligibility.blocked_by);
+    const hardBlockers = (eligibility.blocked_by || []).filter(
+      (b: string) => b !== 'already_in_flight'
+    );
+    if (hardBlockers.length > 0) {
+      console.log(`[Evidence] Violation ${violationId} not eligible:`, hardBlockers);
       return NextResponse.json({
         error: 'Violation does not meet DMCA eligibility criteria',
-        blocked_by: eligibility.blocked_by,
+        blocked_by: hardBlockers,
         reasons: eligibility.reasons,
       }, { status: 400 });
     }

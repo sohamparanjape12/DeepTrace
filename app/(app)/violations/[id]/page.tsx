@@ -232,6 +232,7 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
         evidenceStatus={violation.evidence_status}
         evidenceBundleUrl={violation.evidence_bundle_url}
         evidenceSha256={violation.evidence_sha256}
+        evidenceWarcUrl={violation.evidence_warc_url}
       />
 
       {/* ── Reliability and Scoring ── */}
