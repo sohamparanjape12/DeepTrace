@@ -360,7 +360,14 @@ export default function UploadPage() {
         })
       });
 
-      if (!res.ok) throw new Error('Finalize API failed');
+      if (!res.ok) {
+        let errMsg = 'Finalize API failed';
+        try {
+          const errData = await res.json();
+          errMsg = errData.error || errMsg;
+        } catch (_) {}
+        throw new Error(errMsg);
+      }
 
       // Hold the animation for at least 3s for "Forensic Theatre"
       await new Promise(resolve => setTimeout(resolve, 3000));

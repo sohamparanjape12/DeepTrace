@@ -8,11 +8,19 @@ import {
 import { scrapePage } from "./jina";
 import { RetryableError, PermanentError } from "./error-classes";
 
-// ── Types ──
+// ── Rate limiting ──
 let lastGeminiRequestAt = 0;
-const MIN_GEMINI_GAP = 4000; // 4 seconds
+const MIN_GEMINI_GAP = 4000; // ms
 
-export type Classification = 'AUTHORIZED' | 'UNAUTHORIZED' | 'EDITORIAL_FAIR_USE' | 'NEEDS_REVIEW' | 'INSUFFICIENT_EVIDENCE';
+// ── Types ──
+export type Classification =
+  | 'AUTHORIZED'
+  | 'UNAUTHORIZED'
+  | 'EDITORIAL_FAIR_USE'
+  | 'NEEDS_REVIEW'
+  | 'INSUFFICIENT_EVIDENCE'
+  | 'NOT_A_MATCH';
+
 export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 
 export interface EvidenceQuality {
@@ -63,19 +71,18 @@ export interface ClassificationResult {
   applied_weights: Record<string, number | boolean | string>;
   region: string;
   revenue_risk: number;
+  // Legacy compatibility
   commercial_signal: boolean;
   watermark_likely_removed: boolean;
   scores: Record<string, number>;
   signals: Record<string, boolean | string>;
 }
 
-// ── FIX 1: Centralized rights tier config ──────────────────────────────────
-// Single source of truth for all restricted tiers and their scoring impact.
-// Previously isStrictlyRestricted only checked 'no_reuse' | 'internal_use_only'
-// but the multiplier table in prompts.v2.ts also had 'internal' | 'All Rights'.
-// This unifies them and adds severityFloor so severity and classification
-// can never disagree.
-
+// ─────────────────────────────────────────────────────────────────────────────
+// RIGHTS TIER CONFIG
+// Single source of truth for all rights tier strings, their severity impact,
+// and piracy prior multipliers. Keep RESTRICTED_TIERS in prompts.v2.ts in sync.
+// ─────────────────────────────────────────────────────────────────────────────
 const RIGHTS_TIER_CONFIG: Record<string, {
   isRestricted: boolean;
   piracyMultiplier: number;
@@ -97,12 +104,48 @@ function getRightsTierConfig(rightsTier: string) {
   };
 }
 
-// ── FIX 2: Domain prior lookup by URL, not by DomainClass ─────────────────
-// The old getPiracyPrior(domainClass) iterated Object.values() and returned
-// the FIRST domain it found with that class — so ebay.com (0.50) could
-// shadow amazon.com (0.45), and any class lookup was non-deterministic.
-// Now we match the actual hostname directly.
+// ─────────────────────────────────────────────────────────────────────────────
+// EDITORIAL DOMAIN GATE
+// Editorial fair use is only legally defensible on recognized news/media
+// domains. A biography sold on Amazon is commercial, not editorial —
+// regardless of what Gemini returns in context_type.
+// Social is intentionally excluded: ambiguous enough to need human review.
+// ─────────────────────────────────────────────────────────────────────────────
+const EDITORIAL_ELIGIBLE_DOMAIN_CLASSES = new Set<DomainClass>([
+  'wire_service',
+  'major_news',
+]);
 
+function isEditorialEligible(domainClass: DomainClass): boolean {
+  return EDITORIAL_ELIGIBLE_DOMAIN_CLASSES.has(domainClass);
+}
+
+function isLicenseScopeViolation(
+  rightsTier: string,
+  commercialExploitation: boolean,
+  domainClass: DomainClass,
+  visualMatchScore: number,
+): boolean {
+  if (visualMatchScore < 0.5) return false;
+
+  const { isRestricted } = getRightsTierConfig(rightsTier);
+
+  const isCommercialDomain =
+    domainClass === 'ecommerce' || domainClass === 'betting';
+
+  return (
+    !isRestricted &&
+    commercialExploitation &&
+    (isCommercialDomain || !isEditorialEligible(domainClass))
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DOMAIN PRIOR LOOKUP
+// Looks up by actual URL hostname, not by DomainClass enum.
+// The old getPiracyPrior(domainClass) iterated Object.values() and returned
+// the first domain found with that class — non-deterministic and wrong.
+// ─────────────────────────────────────────────────────────────────────────────
 function getPiracyPriorForUrl(url: string): number {
   try {
     const hostname = new URL(url).hostname.replace(/^www\./, '');
@@ -113,7 +156,7 @@ function getPiracyPriorForUrl(url: string): number {
     }
   } catch (_) { }
 
-  // Fallback by class if domain isn't in the table
+  // Fallback by class when domain isn't in the table
   const domainClass = classifyDomain(url);
   switch (domainClass) {
     case 'wire_service': return 0.01;
@@ -126,22 +169,18 @@ function getPiracyPriorForUrl(url: string): number {
   }
 }
 
-// ── FIX 3: getAdjustedPiracyPrior is now ACTUALLY CALLED in scoring ────────
-// In the previous version this function was defined but never invoked —
-// severity was computed from the raw piracy prior with no tier multiplier.
-
 function getAdjustedPiracyPrior(url: string, rightsTier: string): number {
   const basePrior = getPiracyPriorForUrl(url);
   const { piracyMultiplier } = getRightsTierConfig(rightsTier);
   return Math.min(basePrior * piracyMultiplier, 0.95);
 }
 
-// ── FIX 4: computeSeverity applies the hard severityFloor ─────────────────
-// The old logic had no floor, so a restricted-tier UNAUTHORIZED result on
-// amazon.com would still land at MEDIUM because severityRaw ≈ 0.43.
-// Now: if classification === UNAUTHORIZED, severity can never fall below
-// the tier's defined floor (CRITICAL for no_reuse, HIGH for All Rights).
-
+// ─────────────────────────────────────────────────────────────────────────────
+// SEVERITY COMPUTATION
+// Applies rights tier severity floor AFTER the raw score calculation.
+// This ensures that UNAUTHORIZED + restricted tier can never return MEDIUM,
+// regardless of how Gemini scored context_authenticity.
+// ─────────────────────────────────────────────────────────────────────────────
 const SEVERITY_ORDER: Severity[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 
 function computeSeverity(
@@ -150,6 +189,7 @@ function computeSeverity(
   commercialExploitation: boolean,
   classification: Classification,
   rightsTier: string,
+  licenseScopeViolation: boolean = false,
 ): Severity {
   const commercialMultiplier = commercialExploitation ? 1.2 : 0.8;
   const severityRaw = Math.min(
@@ -162,8 +202,10 @@ function computeSeverity(
       severityRaw >= 0.50 ? 'HIGH' :
         severityRaw >= 0.30 ? 'MEDIUM' : 'LOW';
 
-  // Hard floor: UNAUTHORIZED + restricted tier → severity can never go below floor
-  if (classification === 'UNAUTHORIZED') {
+  if (classification === 'NOT_A_MATCH') return 'LOW';
+
+  // Hard floor: UNAUTHORIZED on a restricted tier can never fall below floor.
+  if (classification === 'UNAUTHORIZED' || licenseScopeViolation) {
     const { severityFloor } = getRightsTierConfig(rightsTier);
     if (SEVERITY_ORDER.indexOf(severity) < SEVERITY_ORDER.indexOf(severityFloor)) {
       severity = severityFloor;
@@ -173,8 +215,9 @@ function computeSeverity(
   return severity;
 }
 
-// ── Helpers ──
-
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
 export function classifyDomain(url: string): DomainClass {
   try {
     const hostname = new URL(url).hostname.replace(/^www\./, '');
@@ -195,8 +238,9 @@ function estimateRegion(url: string, domainClass: DomainClass): string {
       'com': 'North America', 'net': 'Global', 'org': 'Global',
       'io': 'North America', 'uk': 'Western Europe', 'de': 'Western Europe',
       'fr': 'Western Europe', 'it': 'Western Europe', 'es': 'Western Europe',
-      'nl': 'Western Europe', 'cn': 'APAC', 'jp': 'APAC', 'in': 'APAC',
-      'br': 'LATAM', 'mx': 'LATAM', 'ru': 'Eastern Europe',
+      'nl': 'Western Europe', 'cn': 'APAC', 'jp': 'APAC',
+      'in': 'APAC', 'br': 'LATAM', 'mx': 'LATAM',
+      'ru': 'Eastern Europe',
     };
     if (tld && regions[tld]) return regions[tld];
     if (domainClass === 'major_news' || domainClass === 'social') return 'Global';
@@ -214,15 +258,16 @@ function calculateRevenueRisk(severity: Severity, domainClass: DomainClass): num
     'wire_service': 0.8, 'ecommerce': 3.0, 'unknown': 1.0,
     'stock_photo': 0.5, 'portfolio': 0.3
   };
-  return Math.round(baseRates[severity] * (multipliers[domainClass] || 1));
+  return Math.round(baseRates[severity] * (multipliers[domainClass] ?? 1));
 }
 
 function bufferToGenerativePart(buf: Buffer, mime = 'image/jpeg') {
   return { inlineData: { data: buf.toString('base64'), mimeType: mime } };
 }
 
-// ── Main Classifier ──
-
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN CLASSIFIER
+// ─────────────────────────────────────────────────────────────────────────────
 export async function classifyViolation(params: ClassifyParams): Promise<ClassificationResult> {
   const genAI = new GoogleGenerativeAI(
     process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY || ""
@@ -233,7 +278,7 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
     generationConfig: { responseMimeType: "application/json" } as any
   });
 
-  // 1. Scrape Page Context
+  // 1. Scrape page context if not provided
   let scraped = { title: '', description: '', bodyText: '' };
   if (!params.pageTitle || !params.pageDescription) {
     scraped = await scrapePage(params.matchUrl);
@@ -242,21 +287,22 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
     ...params,
     pageTitle: params.pageTitle || scraped.title,
     pageDescription: params.pageDescription || scraped.description,
-    pageBody: params.pageBody || scraped.bodyText
+    pageBody: params.pageBody || scraped.bodyText,
   };
 
-  // 2. Evidence Quality
+  // 2. Evidence quality
   const evidenceQuality: EvidenceQuality = {
     original_image_loaded: !!params.originalAssetUrl,
     suspect_image_loaded: !!params.violationImageUrl,
     both_images_available: !!(params.originalAssetUrl && params.violationImageUrl),
-    match_type_strength: params.matchType === 'full_match' ? 1.0
-      : params.matchType === 'partial_match' ? 0.7 : 0.4
+    match_type_strength:
+      params.matchType === 'full_match' ? 1.0 :
+        params.matchType === 'partial_match' ? 0.7 : 0.4,
   };
 
   const domainClass = classifyDomain(enrichedParams.matchUrl);
 
-  // 3. Build prompt and image parts
+  // 3. Build prompt + image parts
   const textPrompt = buildMasterPrompt(enrichedParams);
   const promptParts: any[] = [{ text: textPrompt }];
 
@@ -271,8 +317,8 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
       const buffer = await resp.arrayBuffer();
       return {
         inlineData: {
-          data: Buffer.from(buffer).toString("base64"),
-          mimeType: resp.headers.get("content-type") || "image/jpeg"
+          data: Buffer.from(buffer).toString('base64'),
+          mimeType: resp.headers.get('content-type') || 'image/jpeg',
         }
       };
     } catch (err) {
@@ -306,9 +352,9 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
   let jsonResp: any;
   try {
     const now = Date.now();
-    const timeSinceLast = now - lastGeminiRequestAt;
-    if (timeSinceLast < MIN_GEMINI_GAP) {
-      await new Promise(resolve => setTimeout(resolve, MIN_GEMINI_GAP - timeSinceLast));
+    const gap = now - lastGeminiRequestAt;
+    if (gap < MIN_GEMINI_GAP) {
+      await new Promise(r => setTimeout(r, MIN_GEMINI_GAP - gap));
     }
     lastGeminiRequestAt = Date.now();
 
@@ -321,7 +367,7 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
     const msg = error.message?.toLowerCase() || '';
     const code = error.code || (error.status === 'RESOURCE_EXHAUSTED' ? 8 : 0);
     if (code === 8 || msg.includes('429') || msg.includes('quota') || msg.includes('rate limit')) {
-      throw new RetryableError('Gemini rate limit exceeded (Quota Exhausted)');
+      throw new RetryableError('Gemini rate limit exceeded');
     }
     if (msg.includes('safety') || msg.includes('blocked')) {
       throw new RetryableError('Gemini safety block');
@@ -329,7 +375,7 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
     throw new RetryableError(`Gemini Error: ${error.message || 'Unknown failure'}`);
   }
 
-  // 5. Adaptive Weights
+  // 5. Adaptive weights
   let wVisual = 0.60, wContext = 0.30, wAttribution = 0.10;
   if (!evidenceQuality.both_images_available) {
     wVisual = 0.10; wContext = 0.70; wAttribution = 0.20;
@@ -337,7 +383,7 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
     wVisual = 0.40; wContext = 0.50; wAttribution = 0.10;
   }
 
-  // 6. Three-Axis Scoring
+  // 6. Three-axis scoring
   const gateSim = typeof params.gateSimilarity === 'number'
     ? Math.max(0, Math.min(1, params.gateSimilarity)) : null;
 
@@ -345,6 +391,7 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
     ? (jsonResp.visual_match_score * 0.7) + (evidenceQuality.match_type_strength * 0.2) + (gateSim * 0.1)
     : (jsonResp.visual_match_score * 0.8) + (evidenceQuality.match_type_strength * 0.2);
 
+  // Penalise if Gemini and pHash gate strongly disagree
   const relevancyAdjusted = (
     gateSim !== null && jsonResp.visual_match_score >= 0.9 && gateSim <= 0.4
   ) ? relevancy * 0.6 : relevancy;
@@ -358,48 +405,103 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
   const confidence = Math.max(0.1, baseConfidence - (jsonResp.contradictions?.length ? 0.2 : 0));
 
   const reliability_score = Math.round(((relevancyAdjusted * 0.5) + (confidence * 0.5)) * 100);
-  const reliability_tier = reliability_score >= 80 ? 'HIGH' : reliability_score >= 50 ? 'MEDIUM' : 'LOW';
+  const reliability_tier: 'HIGH' | 'MEDIUM' | 'LOW' =
+    reliability_score >= 80 ? 'HIGH' : reliability_score >= 50 ? 'MEDIUM' : 'LOW';
 
-  // 7. Classification
+  // ── 7. CLASSIFICATION ────────────────────────────────────────────────────
   const { isRestricted } = getRightsTierConfig(params.rightsTier);
+
   const abstain = !evidenceQuality.both_images_available && jsonResp.context_authenticity_score < 0.4;
-  const contradiction_flag = (jsonResp.visual_match_score >= 0.8 && jsonResp.context_authenticity_score <= 0.3)
-    || (jsonResp.contradictions?.length > 0);
 
-  let classification: Classification = jsonResp.visual_match_score >= 0.7 ? 'UNAUTHORIZED' : 'NEEDS_REVIEW';
+  const contradiction_flag =
+    (jsonResp.visual_match_score >= 0.8 && jsonResp.context_authenticity_score <= 0.3) ||
+    (jsonResp.contradictions?.length > 0);
 
-  if (abstain) {
+  const geminiSaysEditorial =
+    jsonResp.context_type === 'editorial' || jsonResp.context_type === 'meme_parody';
+
+  const editorialOverriddenByDomain =
+    geminiSaysEditorial && !isEditorialEligible(domainClass);
+
+  const licenseScopeViolation = isLicenseScopeViolation(
+    params.rightsTier,
+    jsonResp.commercial_exploitation,
+    domainClass,
+    jsonResp.visual_match_score,
+  );
+
+  const fundamentallyDifferent = 
+    jsonResp.visual_match_score < 0.35 || 
+    (jsonResp.visual_match_score < 0.50 && !jsonResp.is_derivative_work);
+
+  let classification: Classification;
+
+  // ── HARD ORDER (NO DOWNGRADE PATHS) ──
+  if (fundamentallyDifferent) {
+    classification = 'NOT_A_MATCH';
+    
+  } else if (abstain) {
     classification = 'INSUFFICIENT_EVIDENCE';
+
   } else if (isRestricted) {
-    classification = jsonResp.visual_match_score >= 0.5 ? 'UNAUTHORIZED' : 'NEEDS_REVIEW';
+    classification = jsonResp.visual_match_score >= 0.5
+      ? 'UNAUTHORIZED'
+      : 'NEEDS_REVIEW';
+
+  } else if (licenseScopeViolation) {
+    // 🔴 CRITICAL FIX
+    classification = 'UNAUTHORIZED';
+
   } else if (domainClass === 'wire_service' && jsonResp.credit_present) {
     classification = 'AUTHORIZED';
-  } else if (jsonResp.context_type === 'editorial' || jsonResp.context_type === 'meme_parody') {
+
+  } else if (geminiSaysEditorial && isEditorialEligible(domainClass)) {
     classification = 'EDITORIAL_FAIR_USE';
+
+  } else if (editorialOverriddenByDomain) {
+    classification = 'NEEDS_REVIEW';
+
   } else if (contradiction_flag) {
     classification = 'NEEDS_REVIEW';
+
+  } else {
+    classification =
+      jsonResp.visual_match_score >= 0.7
+        ? 'UNAUTHORIZED'
+        : 'NEEDS_REVIEW';
   }
 
-  // Temporal impossibility
+  // Temporal impossibility: page predates the asset — can't be a violation
   if (params.pagePublishedAt && params.assetCaptureDate) {
     const pub = new Date(params.pagePublishedAt);
     const cap = new Date(params.assetCaptureDate);
     if (pub < cap) classification = 'AUTHORIZED';
   }
 
-  // 8. Severity — FIX 3+4 applied here
+  // 8. Severity — adjusted prior + hard floor for restricted tiers
   const adjustedPrior = getAdjustedPiracyPrior(enrichedParams.matchUrl, params.rightsTier);
-  const severity = computeSeverity(
+  let severity = computeSeverity(
     adjustedPrior,
     relevancyAdjusted,
     jsonResp.commercial_exploitation,
     classification,
     params.rightsTier,
+    licenseScopeViolation,
   );
 
-  // 9. Recommended Action
+  // 🔴 ABSOLUTE SAFETY NET
+  if (licenseScopeViolation && severity !== 'CRITICAL') {
+    severity = 'CRITICAL';
+  }
+
+  // 9. Recommended action
   let recommended_action: ClassificationResult['recommended_action'] = 'monitor';
-  if (classification === 'UNAUTHORIZED' && (severity === 'CRITICAL' && reliability_score >= 80 || isRestricted)) {
+  if (classification === 'NOT_A_MATCH') {
+    recommended_action = 'no_action';
+  } else if (
+    classification === 'UNAUTHORIZED' &&
+    ((severity === 'CRITICAL' && reliability_score >= 80) || isRestricted)
+  ) {
     recommended_action = 'escalate';
   } else if (classification === 'UNAUTHORIZED' || classification === 'NEEDS_REVIEW') {
     recommended_action = 'human_review';
@@ -407,27 +509,49 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
     recommended_action = 'no_action';
   }
 
-  // 10. Explainability Bullets
+  // 10. Explainability bullets
   const explainability_bullets: string[] = [];
+
+  if (licenseScopeViolation) {
+    explainability_bullets.push(
+      `⛔ License scope violation: "${params.rightsTier}" license used in commercial context — forced UNAUTHORIZED + CRITICAL`
+    );
+  }
+
   if (jsonResp.visual_match_score >= 0.8)
-    explainability_bullets.push(`✔ High visual match detected (${Math.round(jsonResp.visual_match_score * 100)}%)`);
+    explainability_bullets.push(`✔ High visual match (${Math.round(jsonResp.visual_match_score * 100)}%)`);
   else if (jsonResp.visual_match_score >= 0.4)
     explainability_bullets.push(`⚠ Moderate visual similarity`);
   else
     explainability_bullets.push(`✖ Low visual match`);
 
-  if (jsonResp.commercial_exploitation) explainability_bullets.push(`→ Commercial context identified`);
-  if (jsonResp.credit_present) explainability_bullets.push(`ℹ Creator attribution found on page`);
-  if (domainClass === 'wire_service') explainability_bullets.push(`ℹ Hosted on known wire-service domain`);
-  if (contradiction_flag) explainability_bullets.push(`⚠ Conflicting signals detected`);
-  if (jsonResp.is_derivative_work) explainability_bullets.push(`→ Transformation: ${jsonResp.transformation_type}`);
+  if (jsonResp.commercial_exploitation)
+    explainability_bullets.push(`→ Commercial context identified`);
+  if (jsonResp.credit_present)
+    explainability_bullets.push(`ℹ Creator attribution found on page`);
+  if (domainClass === 'wire_service')
+    explainability_bullets.push(`ℹ Hosted on known wire-service domain`);
+  if (contradiction_flag)
+    explainability_bullets.push(`⚠ Conflicting signals detected`);
+  if (jsonResp.is_derivative_work)
+    explainability_bullets.push(`→ Transformation: ${jsonResp.transformation_type}`);
 
+  // Rights tier override audit trail
   if (isRestricted) {
-    explainability_bullets.push(`⛔ Rights tier override: "${params.rightsTier}" prohibits all external reuse`);
+    explainability_bullets.push(`⛔ Rights tier "${params.rightsTier}" prohibits all external reuse`);
     explainability_bullets.push(`⛔ Severity floor applied: minimum ${getRightsTierConfig(params.rightsTier).severityFloor}`);
-    if (jsonResp.context_type === 'editorial' || jsonResp.context_type === 'meme_parody') {
-      explainability_bullets.push(`⚠ Gemini detected editorial context — overridden by rights tier restriction`);
-    }
+  }
+
+  // Editorial domain gate audit trail
+  if (editorialOverriddenByDomain) {
+    explainability_bullets.push(
+      `⚠ Gemini returned context_type "editorial" but domain class "${domainClass}" is ineligible for editorial fair use — overridden to NEEDS_REVIEW`
+    );
+  }
+  if (geminiSaysEditorial && isRestricted) {
+    explainability_bullets.push(
+      `⚠ Gemini detected editorial context — overridden by rights tier restriction`
+    );
   }
 
   if (gateSim !== null) {
@@ -436,7 +560,7 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
     );
   }
   if (gateSim !== null && jsonResp.visual_match_score >= 0.9 && gateSim <= 0.4) {
-    explainability_bullets.push('⚠ Gemini and pre-filter disagree — relevancy dampened');
+    explainability_bullets.push(`⚠ Gemini and pre-filter disagree — relevancy dampened`);
   }
 
   return {
@@ -474,9 +598,11 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
       gate_similarity_value: gateSim ?? 0,
       adjusted_piracy_prior: adjustedPrior,
       rights_tier_floor: getRightsTierConfig(params.rightsTier).severityFloor,
+      editorial_domain_eligible: isEditorialEligible(domainClass),
     },
     region: estimateRegion(enrichedParams.matchUrl, domainClass),
     revenue_risk: calculateRevenueRisk(severity, domainClass),
+    // Legacy
     commercial_signal: jsonResp.commercial_exploitation,
     watermark_likely_removed: jsonResp.is_derivative_work && !jsonResp.watermark_intact,
     scores: {
@@ -490,6 +616,6 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
       derivative: jsonResp.is_derivative_work,
       watermark_intact: jsonResp.watermark_intact,
       credit: jsonResp.credit_present,
-    }
+    },
   };
 }

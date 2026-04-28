@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import Link from 'next/link';
 import { DMCANotice, NoticeDraft } from '@/lib/dmca/types';
-import { ArrowLeft, ArrowRight, CheckCircle, Shield, FileText, Download, Send, Loader2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle, Shield, FileText, Download, Send, Loader2, AlertTriangle, ExternalLink } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useRouter } from 'next/navigation';
 
@@ -197,11 +197,25 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
                 </a>
               </>
             )}
+            {violation?.evidence_wayback_url && (
+              <>
+                <div className="h-px bg-brand-border w-full" />
+                <a href={violation.evidence_wayback_url} target="_blank" rel="noopener noreferrer" className="group/link flex items-center justify-between text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                  <span className="flex items-center gap-3"><ExternalLink className="w-4 h-4 text-emerald-400 group-hover/link:text-emerald-600 transition-colors" /> Archive.org Snapshot</span>
+                  <ArrowRight className="w-3.5 h-3.5 -rotate-45 group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5 transition-transform text-emerald-400" />
+                </a>
+              </>
+            )}
             {violation?.evidence_warc_url && (
               <>
                 <div className="h-px bg-brand-border w-full" />
-                <a href={violation.evidence_warc_url} target="_blank" rel="noopener noreferrer" className="group/link flex items-center justify-between text-sm font-bold text-brand-text">
-                  <span className="flex items-center gap-3"><Download className="w-4 h-4 text-brand-muted group-hover/link:text-brand-text transition-colors" /> WARC Capture</span>
+                <a href={`https://replayweb.page/?source=${encodeURIComponent(violation.evidence_warc_url)}`} target="_blank" rel="noopener noreferrer" className="group/link flex items-center justify-between text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                  <span className="flex items-center gap-3"><ExternalLink className="w-4 h-4 text-indigo-400 group-hover/link:text-indigo-600 transition-colors" /> View Raw WARC</span>
+                  <ArrowRight className="w-3.5 h-3.5 -rotate-45 group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5 transition-transform text-indigo-400" />
+                </a>
+                <div className="h-px bg-brand-border w-full" />
+                <a href={violation.evidence_warc_url} target="_blank" rel="noopener noreferrer" className="group/link flex items-center justify-between text-sm font-bold text-brand-text" download>
+                  <span className="flex items-center gap-3"><Download className="w-4 h-4 text-brand-muted group-hover/link:text-brand-text transition-colors" /> Download WARC</span>
                   <ArrowRight className="w-3.5 h-3.5 -rotate-45 group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5 transition-transform text-brand-muted" />
                 </a>
               </>

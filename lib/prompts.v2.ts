@@ -93,35 +93,47 @@ export interface MasterPromptParams {
   pageBody?: string;
 }
 
-// ---------------------------------------------------------------------------
-// FIX 3: buildMasterPrompt — three structural changes:
-//   (a) Rights enforcement DIRECTIVE injected at the top of the SYSTEM block,
-//       before any other instruction.
-//   (b) Instruction #6 added to explicitly cap context_authenticity_score
-//       for restricted tiers in commercial contexts.
-//   (c) Two new JSON output fields: rights_tier_override (bool) and
-//       rights_tier_reasoning (string) so the server-side engine can apply
-//       a hard severity floor without re-parsing all signals.
-// ---------------------------------------------------------------------------
+// Rights tiers that prohibit ALL third-party use with no exceptions.
+// Keep in sync with RIGHTS_TIER_CONFIG in classify.v2.ts.
+const RESTRICTED_TIERS = new Set([
+  'no_reuse',
+  'internal_use_only',
+  'internal',
+  'All Rights',
+]);
+
+export function isRestrictedTier(rightsTier: string): boolean {
+  return RESTRICTED_TIERS.has(rightsTier);
+}
+
 export function buildMasterPrompt(params: MasterPromptParams): string {
-  // (a) Hard enforcement directive — only injected for restricted tiers.
-  const rightsEnforcementDirective = isRestrictedTier(params.rightsTier)
+  const restricted = isRestrictedTier(params.rightsTier);
+
+  // Injected at the very top of the SYSTEM block for restricted tiers so
+  // Gemini reads it before any other instruction. LLMs weight early context
+  // more heavily — placement here is intentional.
+  const rightsEnforcementDirective = restricted
     ? `
 ⚠️  RIGHTS ENFORCEMENT DIRECTIVE — READ BEFORE ALL OTHER INSTRUCTIONS:
 The rights tier for this asset is: "${params.rightsTier}".
-This means the asset is NOT licensed for ANY third-party use under ANY circumstances.
-The following framing does NOT constitute a license and must NOT reduce severity:
-  - "Tribute" or "fan" works
+This asset is NOT licensed for ANY third-party use under ANY circumstances.
+
+The following framing does NOT constitute a license and MUST NOT reduce severity:
+  - "Tribute", "fan", or "homage" works
   - "Biography" or "commemorative" publications
   - "Educational" or "journalistic" claims
   - Positive sentiment or praise of the subject
   - Small-scale or individual sellers
-ANY commercial exploitation (storefront listing, product sale, merchandise, stock site)
-on ANY platform is a CRITICAL violation when rights_tier is "${params.rightsTier}".
+
+ANY commercial exploitation (storefront listing, product sale, merchandise,
+stock site) on ANY platform is a CRITICAL violation when rights_tier is
+"${params.rightsTier}".
+
 SCORE CEILINGS YOU MUST RESPECT:
   - context_authenticity_score MUST be ≤ 0.20 for any commercial context.
   - commercial_exploitation MUST be true for any storefront/retail/product listing.
   - rights_tier_override MUST be true.
+
 Failure to apply these ceilings is a scoring error.
 `
     : '';
@@ -134,20 +146,33 @@ You are an evidence gatherer, NOT the final decision maker. Provide precise scor
 
 <instructions>
 1. VISUAL AUDIT: Compare Image A (original) and Image B (match). Score visual similarity (0.0–1.0). Be robust to crops, filters, and overlays.
-2. CONTEXTUAL AUDIT: Analyze the page title, description, URL, and the visible page content provided. Determine if the usage is likely commercial (e-commerce, stock site), editorial/news (article, press release), social share, or meme/parody.
-3. SENTIMENT & BRAND SAFETY AUDIT: Analyze the tone of the page content. Is it positive, neutral, or negative towards the asset or owner? Flag any brand safety risks (e.g., adult content, gambling, hate speech).
+   CRITICAL: If the visual match is less than 0.50, and Image B does NOT appear to be a heavily transformed/edited version of Image A (i.e., they are fundamentally different images, even if they share the same subject), you MUST evaluate the context with a grain of salt. Do not let matching context (like title or description) artificially inflate the visual_match_score.
+   IMPORTANT RULE: Two distinct images of the same subject (e.g., two different book covers, two different photos of the same person) are NOT derivative works of each other. Set "is_derivative_work" to true ONLY if Image B is clearly a modified (cropped, filtered, zoomed, edited) version of Image A itself.
+
+2. CONTEXTUAL AUDIT: Analyze the page title, description, URL, and visible page content. Determine if the usage is:
+   - commercial: product listing, storefront, merchandise, stock site
+   - editorial: news article, press release on a recognized news domain
+   - meme_parody: transformative, commentary-based
+   - unknown: insufficient context
+   IMPORTANT: A biography or tribute book sold on a retail platform (Amazon, eBay, Etsy) is COMMERCIAL, not editorial.
+   Editorial context is only valid for recognized news/media domains (e.g. bbc.com, reuters.com, nytimes.com).
+   A retail storefront cannot be editorial regardless of the content being sold.
+
+3. SENTIMENT & BRAND SAFETY AUDIT: Analyze tone. Flag brand safety risks (adult content, gambling, hate speech, etc).
+
 4. ATTRIBUTION AUDIT: Check for creator credits or watermarks.
-5. CONTRADICTION DETECTION: Flag if signals conflict (e.g., identical pixels but clearly used in a parody context).
+
+5. CONTRADICTION DETECTION: Flag if signals conflict (e.g. identical pixels but used in a parody context).
+
 6. RIGHTS TIER ENFORCEMENT: The rights tier "${params.rightsTier}" is a hard legal constraint, not a scoring input.
-   ${isRestrictedTier(params.rightsTier)
-      ? `Because this asset is "${params.rightsTier}", apply the following mandatory score ceilings:
+${restricted
+      ? `   Because this asset is "${params.rightsTier}", apply the following mandatory score ceilings:
    - context_authenticity_score MUST be ≤ 0.20 for commercial, ecommerce, or storefront contexts.
    - commercial_exploitation MUST be true if the page is a product listing, storefront, or retail page.
    - rights_tier_override MUST be set to true.
-   - Do NOT allow positive sentiment, tribute framing, or biography framing to increase context_authenticity_score above 0.20.
-   - "Tribute", "biography", "fan work", or "educational" labels are not licenses. Treat them as irrelevant to rights status.`
-      : `Apply standard scoring. The rights tier "${params.rightsTier}" permits some third-party uses; evaluate context carefully.`
-    }
+   - Positive sentiment, tribute framing, or biography framing MUST NOT increase context_authenticity_score above 0.20.
+   - "Tribute", "biography", "fan work", and "educational" are NOT licenses. Treat them as irrelevant to rights status.`
+      : `   Apply standard scoring. The rights tier "${params.rightsTier}" permits some third-party uses; evaluate context carefully.`}
 </instructions>`;
 
   const visibleContent = params.pageBody
@@ -184,102 +209,14 @@ Respond in this exact JSON format:
   "brand_safety_risk": "safe | low | medium | high | critical",
   "risk_factors": ["list specific risks like gambling, adult, hate_speech, etc, or empty array"],
   "rights_tier_override": true|false,
-  "rights_tier_reasoning": "Explain how the rights tier of '${params.rightsTier}' affects the classification of this usage. If override is true, state which ceiling rules were applied.",
+  "rights_tier_reasoning": "Explain how the rights tier of '${params.rightsTier}' affects classification. If override is true, state which ceiling rules were applied and why.",
   "reasoning_steps": [
-    "Step 1: Visual similarity...",
-    "Step 2: Contextual analysis...",
-    "Step 3: Sentiment and brand safety...",
-    "Step 4: Rights tier enforcement — state which rules were applied and what ceilings were enforced.",
-    "Step 5: Signal cross-validation..."
+    "Step 1: Visual similarity — describe what you see",
+    "Step 2: Contextual analysis — describe the page type and domain",
+    "Step 3: Sentiment and brand safety — tone and risk flags",
+    "Step 4: Rights tier enforcement — state which rules were applied and what ceilings were enforced",
+    "Step 5: Signal cross-validation — confirm or flag contradictions"
   ],
   "contradictions": ["list any conflicting signals, or empty array"]
 }`;
-}
-
-// ---------------------------------------------------------------------------
-// FIX 4: Server-side severity floor.
-// Call this AFTER receiving Gemini's response. If rights_tier_override is
-// true OR the adjusted prior is ≥ 0.85, severity is forced to "high"
-// regardless of the composite score Gemini returns.
-// ---------------------------------------------------------------------------
-export type Severity = 'low' | 'medium' | 'high' | 'critical';
-
-export interface GeminiClassificationResult {
-  visual_match_score: number;
-  context_authenticity_score: number;
-  attribution_licensing_score: number;
-  commercial_exploitation: boolean;
-  is_derivative_work: boolean;
-  watermark_intact: boolean;
-  credit_present: boolean;
-  context_type: string;
-  transformation_type: string;
-  sentiment: string;
-  brand_safety_risk: string;
-  risk_factors: string[];
-  rights_tier_override: boolean;
-  rights_tier_reasoning: string;
-  reasoning_steps: string[];
-  contradictions: string[];
-}
-
-export interface ScoringEngineOutput {
-  severity: Severity;
-  adjustedPiracyPrior: number;
-  rightsTierOverrideApplied: boolean;
-  compositeScore: number;
-  classification: 'Unauthorized' | 'Likely Unauthorized' | 'Needs Review' | 'Likely Authorized';
-}
-
-export function applySeverityFloor(
-  gemini: GeminiClassificationResult,
-  domain: string,
-  rightsTier: string
-): ScoringEngineOutput {
-  const adjustedPiracyPrior = getAdjustedPiracyPrior(domain, rightsTier);
-  const rightsTierOverrideApplied =
-    gemini.rights_tier_override || adjustedPiracyPrior >= 0.85;
-
-  // Composite score: weighted blend of Gemini signals.
-  // visual_match_score is weighted highest; context_authenticity lowest for
-  // restricted tiers since Gemini may still drift upward on "tribute" framing.
-  const contextWeight = isRestrictedTier(rightsTier) ? 0.10 : 0.30;
-  const visualWeight = 0.50;
-  const priorWeight = 1 - visualWeight - contextWeight;
-
-  const compositeScore =
-    gemini.visual_match_score * visualWeight +
-    (1 - gemini.context_authenticity_score) * contextWeight +
-    adjustedPiracyPrior * priorWeight;
-
-  // Hard floor: rights tier override always produces at least "high".
-  let severity: Severity;
-  if (rightsTierOverrideApplied && gemini.commercial_exploitation) {
-    severity = 'critical';
-  } else if (rightsTierOverrideApplied || compositeScore >= 0.80) {
-    severity = 'high';
-  } else if (compositeScore >= 0.55) {
-    severity = 'medium';
-  } else {
-    severity = 'low';
-  }
-
-  let classification: ScoringEngineOutput['classification'];
-  if (severity === 'critical' || severity === 'high') {
-    classification = 'Unauthorized';
-  } else if (severity === 'medium') {
-    classification = 'Likely Unauthorized';
-  } else if (compositeScore >= 0.35) {
-    classification = 'Needs Review';
-  } else {
-    classification = 'Likely Authorized';
-  }
-
-  return {
-    severity,
-    adjustedPiracyPrior,
-    rightsTierOverrideApplied,
-    compositeScore,
-    classification,
-  };
 }

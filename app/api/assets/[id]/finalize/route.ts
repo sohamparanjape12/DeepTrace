@@ -22,6 +22,13 @@ export async function POST(
     if (!assetId) return NextResponse.json({ error: 'Missing assetId' }, { status: 400 });
 
     const assetRef = db.collection('assets').doc(assetId);
+    const assetSnap = await assetRef.get();
+    
+    if (!assetSnap.exists) {
+      return NextResponse.json({ 
+        error: 'Asset session expired or deleted. Please restart the upload.' 
+      }, { status: 404 });
+    }
     
     // 1. Update Asset Metadata & Reset Totals for Selected Sub-set
     await assetRef.update({
@@ -74,6 +81,7 @@ export async function POST(
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('[Finalize API] Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    require('fs').writeFileSync('finalize_error.log', String(error.stack || error.message));
+    return NextResponse.json({ error: error.message, stack: error.stack }, { status: 500 });
   }
 }
