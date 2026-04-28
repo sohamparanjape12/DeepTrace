@@ -33,6 +33,7 @@ export function GlobalProgressBanner() {
   const { user, loading: authLoading } = useAuth();
   const [completedAssets, setCompletedAssets] = useState<Set<string>>(new Set());
   const [activeAsset, setActiveAsset] = useState<Asset | null>(null);
+  const isFirstLoadRef = useRef(true);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [retrying, setRetrying] = useState(false);
 
@@ -56,6 +57,17 @@ export function GlobalProgressBanner() {
           return tB - tA;
         });
       
+      // On mount, initialize completedAssets so we don't cycle through history
+      if (isFirstLoadRef.current) {
+        const initialCompleted = new Set(
+          assets
+            .filter(a => a.asset_id && (a.stage === 'complete' || a.stage === 'failed'))
+            .map(a => a.asset_id!)
+        );
+        setCompletedAssets(initialCompleted);
+        isFirstLoadRef.current = false;
+      }
+
       const active = assets.find(a => a.stage && ['uploaded', 'reverse_searched', 'gated', 'analyzing'].includes(a.stage));
       
       if (active) {

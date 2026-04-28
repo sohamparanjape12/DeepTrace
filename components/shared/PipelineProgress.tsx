@@ -11,11 +11,11 @@ interface PipelineProgressProps {
 }
 
 const STAGES: { key: AssetStage; label: string }[] = [
-  { key: 'uploaded',         label: 'Ingestion'       },
-  { key: 'reverse_searched', label: 'Discovery'       },
-  { key: 'gated',            label: 'Filtering'       },
-  { key: 'analyzing',        label: 'Forensic Review' },
-  { key: 'complete',         label: 'Complete'        },
+  { key: 'uploaded', label: 'Ingestion' },
+  { key: 'reverse_searched', label: 'Discovery' },
+  { key: 'gated', label: 'Filtering' },
+  { key: 'analyzing', label: 'Forensic Review' },
+  { key: 'complete', label: 'Complete' },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -29,12 +29,12 @@ function computePercent(asset: Asset): number {
   if (asset.stage === 'complete') return 100;
   if (total === 0) return 0;
   const weighted =
-    (totals.classified     * 1.0) +
-    (totals.gate_dropped   * 1.0) +
+    (totals.classified * 1.0) +
+    (totals.gate_dropped * 1.0) +
     (totals.failed_permanent * 1.0) +
-    (totals.scraped        * 0.7) +
-    (totals.gate_passed    * 0.4) +
-    (totals.gated_pending  * 0.1);
+    (totals.scraped * 0.7) +
+    (totals.gate_passed * 0.4) +
+    (totals.gated_pending * 0.1);
   return Math.min(99, Math.round((weighted / total) * 100));
 }
 
@@ -87,7 +87,7 @@ function PulseDot({ active, stalled }: { active: boolean; stalled: boolean }) {
 // ── Main Component ────────────────────────────────────────────────────────────
 export function PipelineProgress({ asset }: PipelineProgressProps) {
   const [isCollapsed, setIsCollapsed] = useState(asset.stage === 'complete');
-  
+
   const totals: NonNullable<Asset['totals']> = asset.totals || {
     reverse_hits: 0, gated_pending: 0, gate_dropped: 0,
     gate_passed: 0, scraped: 0, classified: 0,
@@ -124,9 +124,9 @@ export function PipelineProgress({ asset }: PipelineProgressProps) {
             </p>
           </div>
         </div>
-        <Button 
-          variant="secondary" 
-          size="sm" 
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={() => setIsCollapsed(false)}
           className="bg-brand-surface border-brand-border text-[9px] font-black uppercase tracking-widest h-8"
         >
@@ -175,9 +175,9 @@ export function PipelineProgress({ asset }: PipelineProgressProps) {
             <span className="text-sm font-bold text-brand-muted ml-0.5">%</span>
           </span>
           {asset.stage === 'complete' && (
-            <Button 
-              variant="secondary" 
-              size="sm" 
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => setIsCollapsed(true)}
               className="text-[9px] font-black uppercase tracking-widest h-8 px-4"
             >
@@ -200,9 +200,8 @@ export function PipelineProgress({ asset }: PipelineProgressProps) {
                     <div className="h-full w-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-[shimmer_2s_ease-in-out_infinite]" />
                   )}
                 </div>
-                <p className={`text-[9px] font-black uppercase tracking-tight text-center leading-tight transition-colors ${
-                  isActive ? 'text-brand-text' : 'text-brand-muted opacity-30'
-                } ${isCurrent ? 'animate-pulse' : ''}`}>
+                <p className={`text-[9px] font-black uppercase tracking-tight text-center leading-tight transition-colors ${isActive ? 'text-brand-text' : 'text-brand-muted opacity-30'
+                  } ${isCurrent ? 'animate-pulse' : ''}`}>
                   {stage.label}
                 </p>
                 {stage.key === 'analyzing' && totalViolations > 0 && (
@@ -228,10 +227,10 @@ export function PipelineProgress({ asset }: PipelineProgressProps) {
       {totalViolations > 0 && (
         <div className="grid grid-cols-4 divide-x divide-brand-border border border-brand-border rounded-lg overflow-hidden">
           {[
-            { label: 'Suspects',   value: totalViolations         },
-            { label: 'Cleared',    value: totals.gate_dropped     },
-            { label: 'Classified', value: totals.classified       },
-            { label: 'Queued',     value: totals.failed_retryable },
+            { label: 'Suspects', value: totalViolations },
+            { label: 'Cleared', value: totals.gate_dropped },
+            { label: 'Classified', value: totals.classified },
+            { label: 'Queued', value: totals.failed_retryable },
           ].map(({ label, value }) => (
             <div key={label} className="py-2.5 px-3 text-center">
               <p className="text-base font-black text-brand-text tabular-nums leading-none">{value}</p>
@@ -248,7 +247,7 @@ export function PipelineProgress({ asset }: PipelineProgressProps) {
           <p className="text-[10px] font-bold text-amber-800 flex-1">
             {retrying
               ? `Resuming analysis for ${totals.failed_retryable} suspect${totals.failed_retryable !== 1 ? 's' : ''}…`
-              : `${totals.failed_retryable} suspect${totals.failed_retryable !== 1 ? 's' : ''} scheduled for re-analysis.`}
+              : `Analysis for ${totals.failed_retryable} suspect${totals.failed_retryable !== 1 ? 's' : ''} paused. Pipeline will auto-retry shortly.`}
           </p>
           {retrying && (
             <svg className="w-3.5 h-3.5 text-amber-600 animate-spin shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

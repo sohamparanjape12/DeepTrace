@@ -160,7 +160,7 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
               value={hostEdits?.domain || ''}
               onChange={e => setHostEdits(prev => prev ? { ...prev, domain: e.target.value } : null)}
               disabled={!isActiveDraft}
-              placeholder="example.com"
+              placeholder="Domain (Required) e.g. example.com"
               className="w-full bg-transparent border-0 p-0 text-3xl md:text-4xl font-display font-black tracking-tight text-brand-text mb-1 focus:ring-0 placeholder:text-brand-muted/30"
             />
             <input
@@ -174,7 +174,7 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
               value={hostEdits?.agent_email || ''}
               onChange={e => setHostEdits(prev => prev ? { ...prev, agent_email: e.target.value } : null)}
               disabled={!isActiveDraft}
-              placeholder="abuse@example.com"
+              placeholder="Abuse Email (Required) e.g. abuse@example.com"
               className="w-full bg-transparent border-0 p-0 text-sm font-mono text-brand-muted/70 focus:text-brand-text focus:ring-0 placeholder:text-brand-muted/30 transition-colors"
             />
           </div>
@@ -310,7 +310,7 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
             <div className="shrink-0 flex flex-col items-center gap-3">
               <Button
                 onClick={handleApprove}
-                disabled={isApproving || !violation?.evidence_bundle_url}
+                disabled={isApproving || !violation?.evidence_bundle_url || !hostEdits?.domain || !hostEdits?.agent_email}
                 size="lg"
                 className="w-full md:w-auto font-display font-black uppercase tracking-widest text-[10px] px-12 h-14 shadow-lg shadow-blue-500/10"
               >
@@ -322,6 +322,9 @@ export default function DMCANoticeDetail({ params }: { params: Promise<{ noticeI
               </Button>
               {!violation?.evidence_bundle_url && (
                 <p className="text-[9px] font-black uppercase tracking-widest text-red-500 animate-pulse">Missing Forensic Evidence</p>
+              )}
+              {(!hostEdits?.domain || !hostEdits?.agent_email) && (
+                <p className="text-[9px] font-black uppercase tracking-widest text-amber-500">Host Contact Info Required</p>
               )}
             </div>
           </div>

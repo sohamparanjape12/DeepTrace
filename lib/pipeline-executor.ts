@@ -12,6 +12,28 @@ import { severityToEventType } from './notifications/taxonomy';
 import { getBaseUrl } from './utils/url';
 
 
+function selectImageUrl(vData: Violation): string {
+  const isDefinitelyNotImage = (url: string) => /\.(html|php|aspx|jsp|htm)$/i.test(url.split('?')[0]);
+  
+  // 1. Try scraped image URL (highest quality)
+  if (vData.scraped_image_url && !isDefinitelyNotImage(vData.scraped_image_url)) {
+    return vData.scraped_image_url;
+  }
+  
+  // 2. Try asset thumbnail URL (SerpAPI snippet)
+  if (vData.assetThumbnailUrl && !isDefinitelyNotImage(vData.assetThumbnailUrl)) {
+    return vData.assetThumbnailUrl;
+  }
+  
+  // 3. Last resort: match_url, but ONLY if it looks like an image
+  const looksLikeImage = (url: string) => /\.(jpg|jpeg|png|webp|gif|svg|avif|bmp|tiff)(\?.*)?$/i.test(url);
+  if (vData.match_url && looksLikeImage(vData.match_url)) {
+    return vData.match_url;
+  }
+  
+  return '';
+}
+
 export async function processViolationStage(violationId: string) {
   const vRef = db.collection('violations').doc(violationId);
   const vSnap = await vRef.get();
@@ -36,7 +58,7 @@ export async function processViolationStage(violationId: string) {
     console.log(`[Pipeline] Gating violation ${violationId}`);
     const candidate = {
       id: violationId,
-      imageUrl: vData.assetThumbnailUrl || vData.match_url,
+      imageUrl: selectImageUrl(vData) || vData.match_url,
       matchUrl: vData.match_url,
       pageTitle: vData.page_context || '',
       matchType: 'visually_similar'
@@ -128,7 +150,7 @@ export async function processViolationStage(violationId: string) {
           pageDescription: vData.scraped_cache?.description || '',
           matchType: 'visually_similar',
           originalAssetUrl: assetData.storageUrl || assetData.url,
-          violationImageUrl: vData.assetThumbnailUrl || vData.match_url,
+          violationImageUrl: selectImageUrl(vData) || vData.match_url,
           gateSimilarity: vData.gate_similarity,
           gateTier: vData.gate_tier,
           assetDescription: assetData.name || '',

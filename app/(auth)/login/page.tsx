@@ -72,9 +72,7 @@ export default function LoginPage() {
         <div className="w-full max-w-sm space-y-10">
           {/* Mobile logo */}
           <div className="flex lg:hidden items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-lg bg-brand-text flex items-center justify-center">
-              <Shield className="w-4 h-4 text-brand-bg" />
-            </div>
+            <Image src="/icon.svg" alt="Logo" width={20} height={20} />
             <span className="font-display font-black text-lg uppercase tracking-tight">DeepTrace</span>
           </div>
 

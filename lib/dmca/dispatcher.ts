@@ -1,5 +1,4 @@
 import { db } from '../firebase-admin';
-import nodemailer from 'nodemailer';
 import { DMCANotice, NoticeInput } from './types';
 import { evaluateEligibility } from './eligibility';
 import { Asset, Violation } from '../../types';
@@ -8,15 +7,9 @@ import { renderNotice } from './template';
 import crypto from 'crypto';
 import { emitNotification } from '../notifications/emit';
 import { getBaseUrl } from '../utils/url';
+import { Resend } from 'resend';
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT || '587', 10),
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 const qstash = new Client({ token: process.env.QSTASH_TOKEN || '' });
 
 export interface DispatchResult {
@@ -47,11 +40,8 @@ export async function dispatch(noticeId: string, approverId: string, pdfBuffer?:
   const asset = aDoc.data() as Asset;
   const customer = cDoc.data() as any;
 
-  const eligibility = evaluateEligibility(violation, asset, customer);
-  // Bypass 'already_in_flight' since we're dispatching THIS notice
-  const isEligible = eligibility.blocked_by.filter(b => b !== 'already_in_flight').length === 0;
-
-  if (!isEligible) {
+  const eligibility = evaluateEligibility(violation, asset, customer, { allowInFlight: true });
+  if (!eligibility.eligible) {
     return { success: false, message: 'Violation failed eligibility re-check' };
   }
 
@@ -75,23 +65,32 @@ export async function dispatch(noticeId: string, approverId: string, pdfBuffer?:
   const bccEmails = [process.env.DMCA_ARCHIVE_EMAIL || 'dmca-archive@deeptrace.app'];
 
   try {
-    await transporter.sendMail({
+    let finalPdfBuffer = pdfBuffer;
+    
+    // If buffer missing (e.g. re-dispatching), fetch from Cloudinary
+    if (!finalPdfBuffer && notice.pdf_url) {
+      const response = await fetch(notice.pdf_url);
+      const arrayBuffer = await response.arrayBuffer();
+      finalPdfBuffer = Buffer.from(arrayBuffer);
+    }
+
+    await resend.emails.send({
       from: 'DMCA Takedowns <dmca@deeptrace.app>',
-      to: notice.host.agent_email || 'abuse@example.com',
+      to: [notice.host.agent_email || 'abuse@example.com'],
       cc: ccEmails,
       bcc: bccEmails,
       subject,
       text: body,
-      attachments: [
+      attachments: finalPdfBuffer ? [
         {
           filename: `DMCA_Notice_${noticeId}.pdf`,
-          ...(pdfBuffer ? { content: pdfBuffer } : { href: notice.pdf_url })
+          content: finalPdfBuffer
         }
-      ]
+      ] : []
     });
   } catch (error) {
-    console.error('Failed to send SMTP email:', error);
-    return { success: false, message: 'Failed to send email via SMTP' };
+    console.error('Failed to send email via Resend:', error);
+    return { success: false, message: 'Failed to send email via Resend' };
   }
 
   const now = new Date().toISOString();

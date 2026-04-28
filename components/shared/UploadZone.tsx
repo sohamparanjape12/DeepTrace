@@ -1,25 +1,34 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Upload, ImageIcon, X } from 'lucide-react';
 import { clsx } from 'clsx';
 
 interface UploadZoneProps {
-  onFileSelect: (file: File) => void;
+  onFileSelect: (file: File | null) => void;
   isUploading?: boolean;
   uploadProgress?: number;
   className?: string;
+  file?: File | null;
 }
 
-export function UploadZone({ onFileSelect, isUploading, uploadProgress = 0, className }: UploadZoneProps) {
+export function UploadZone({ onFileSelect, isUploading, uploadProgress = 0, className, file }: UploadZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setPreview(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setPreview(null);
+    }
+  }, [file]);
+
   const handleFile = (file: File) => {
     if (!file.type.startsWith('image/')) return;
-    const url = URL.createObjectURL(file);
-    setPreview(url);
     onFileSelect(file);
   };
 
@@ -31,7 +40,7 @@ export function UploadZone({ onFileSelect, isUploading, uploadProgress = 0, clas
   };
 
   const reset = () => {
-    setPreview(null);
+    onFileSelect(null);
     if (inputRef.current) inputRef.current.value = '';
   };
 

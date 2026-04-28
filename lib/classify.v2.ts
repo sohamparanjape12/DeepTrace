@@ -92,7 +92,7 @@ const RIGHTS_TIER_CONFIG: Record<string, {
   'no_reuse': { isRestricted: true, piracyMultiplier: 2.5, severityFloor: 'CRITICAL' },
   'internal_use_only': { isRestricted: true, piracyMultiplier: 2.5, severityFloor: 'CRITICAL' },
   'internal': { isRestricted: true, piracyMultiplier: 2.5, severityFloor: 'CRITICAL' },
-  'all_rights': { isRestricted: true, piracyMultiplier: 2.0, severityFloor: 'HIGH' },
+  'all_rights': { isRestricted: true, piracyMultiplier: 2.0, severityFloor: 'MEDIUM' },
   'commercial': { isRestricted: false, piracyMultiplier: 1.0, severityFloor: 'MEDIUM' },
   'editorial': { isRestricted: false, piracyMultiplier: 0.8, severityFloor: 'LOW' },
 };
@@ -127,7 +127,7 @@ function isLicenseScopeViolation(
   domainClass: DomainClass,
   visualMatchScore: number,
 ): boolean {
-  if (visualMatchScore < 0.5) return false;
+  if (visualMatchScore < 0.75) return false;
 
   const { isRestricted } = getRightsTierConfig(rightsTier);
 
@@ -166,7 +166,7 @@ function getPiracyPriorForUrl(url: string): number {
     case 'betting': return 0.85;
     case 'piracy': return 0.95;
     case 'ecommerce': return 0.45;
-    default: return 0.50;
+    default: return 0.30;
   }
 }
 
@@ -318,9 +318,13 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
   };
 
   if (params.originalAssetUrl) {
-    const part = await fetchToGenerativePart(params.originalAssetUrl);
-    if (part) promptParts.push(part);
-    else evidenceQuality.original_image_loaded = false;
+    try {
+      const part = await fetchToGenerativePart(params.originalAssetUrl);
+      if (part) promptParts.push(part);
+      else evidenceQuality.original_image_loaded = false;
+    } catch {
+      evidenceQuality.original_image_loaded = false;
+    }
   }
 
   if (params.violationImageBuffer) {
@@ -330,9 +334,13 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
     ));
     evidenceQuality.suspect_image_loaded = true;
   } else if (params.violationImageUrl) {
-    const part = await fetchToGenerativePart(params.violationImageUrl);
-    if (part) promptParts.push(part);
-    else evidenceQuality.suspect_image_loaded = false;
+    try {
+      const part = await fetchToGenerativePart(params.violationImageUrl);
+      if (part) promptParts.push(part);
+      else evidenceQuality.suspect_image_loaded = false;
+    } catch {
+      evidenceQuality.suspect_image_loaded = false;
+    }
   }
 
   evidenceQuality.both_images_available =
@@ -377,19 +385,25 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
   const gateSim = typeof params.gateSimilarity === 'number'
     ? Math.max(0, Math.min(1, params.gateSimilarity)) : null;
 
-  const relevancy = gateSim !== null
-    ? (jsonResp.visual_match_score * 0.7) + (evidenceQuality.match_type_strength * 0.2) + (gateSim * 0.1)
-    : (jsonResp.visual_match_score * 0.8) + (evidenceQuality.match_type_strength * 0.2);
+  let relevancy = gateSim !== null
+    ? (jsonResp.visual_match_score * wVisual) + (jsonResp.context_authenticity_score * wContext) + (gateSim * wAttribution)
+    : (jsonResp.visual_match_score * wVisual) + (jsonResp.context_authenticity_score * wContext) + (evidenceQuality.match_type_strength * wAttribution);
 
-  // Penalise if Gemini and pHash gate strongly disagree
+  // 🔴 HARD CAP: If images failed to load, relevancy cannot exceed 0.40 (NEEDS_REVIEW floor)
+  // This prevents hallucinated text context from ever triggering a CRITICAL alert.
+  if (!evidenceQuality.both_images_available && relevancy > 0.40) {
+    relevancy = 0.40;
+  }
+
+  // Penalise if Gemini and pHash gate strongly disagree (only if both images were loaded)
   const relevancyAdjusted = (
-    gateSim !== null && jsonResp.visual_match_score >= 0.9 && gateSim <= 0.4
+    gateSim !== null && evidenceQuality.both_images_available && jsonResp.visual_match_score >= 0.9 && gateSim <= 0.4
   ) ? relevancy * 0.6 : relevancy;
 
   let signalsCount = 0;
-  if (jsonResp.visual_match_score > 0) signalsCount++;
-  if (jsonResp.context_authenticity_score > 0) signalsCount++;
-  if (jsonResp.attribution_licensing_score > 0) signalsCount++;
+  if (jsonResp.visual_match_score >= 0.1) signalsCount++;
+  if (jsonResp.context_authenticity_score >= 0.1) signalsCount++;
+  if (jsonResp.attribution_licensing_score >= 0.1) signalsCount++;
 
   const baseConfidence = (signalsCount / 3) * (evidenceQuality.both_images_available ? 1.0 : 0.6);
   const confidence = Math.max(0.1, baseConfidence - (jsonResp.contradictions?.length ? 0.2 : 0));
@@ -420,21 +434,21 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
     jsonResp.visual_match_score,
   );
 
-  const fundamentallyDifferent = 
-    jsonResp.visual_match_score < 0.35 || 
-    (jsonResp.visual_match_score < 0.50 && !jsonResp.is_derivative_work);
+  const fundamentallyDifferent = evidenceQuality.both_images_available
+    ? (jsonResp.visual_match_score < 0.40 || (jsonResp.visual_match_score < 0.65 && !jsonResp.is_derivative_work))
+    : (gateSim !== null && gateSim < 0.40);
 
   let classification: Classification;
 
   // ── HARD ORDER (NO DOWNGRADE PATHS) ──
   if (fundamentallyDifferent) {
     classification = 'NOT_A_MATCH';
-    
+
   } else if (abstain) {
     classification = 'INSUFFICIENT_EVIDENCE';
 
   } else if (isRestricted) {
-    classification = jsonResp.visual_match_score >= 0.5
+    classification = jsonResp.visual_match_score >= 0.7
       ? 'UNAUTHORIZED'
       : 'NEEDS_REVIEW';
 
@@ -479,10 +493,7 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
     licenseScopeViolation,
   );
 
-  // 🔴 ABSOLUTE SAFETY NET
-  if (licenseScopeViolation && severity !== 'CRITICAL') {
-    severity = 'CRITICAL';
-  }
+
 
   // 9. Recommended action
   let recommended_action: ClassificationResult['recommended_action'] = 'monitor';
@@ -502,9 +513,16 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
   // 10. Explainability bullets
   const explainability_bullets: string[] = [];
 
+  if (!evidenceQuality.original_image_loaded) {
+    explainability_bullets.push(`⚠ Could not load original asset image for visual comparison`);
+  }
+  if (!evidenceQuality.suspect_image_loaded) {
+    explainability_bullets.push(`⚠ Could not load suspect image from the infringing page`);
+  }
+
   if (licenseScopeViolation) {
     explainability_bullets.push(
-      `⛔ License scope violation: "${params.rightsTier}" license used in commercial context — forced UNAUTHORIZED + CRITICAL`
+      `⛔ License scope violation: "${params.rightsTier}" license used in commercial context — classified as UNAUTHORIZED`
     );
   }
 
@@ -546,8 +564,10 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
 
   if (gateSim !== null) {
     explainability_bullets.push(
-      `ℹ Pre-filter similarity ${Math.round(gateSim * 100)}%${params.gateTier ? ` (${params.gateTier})` : ''}`
+      `ℹ Perceptual similarity: ${Math.round(gateSim * 100)}%${params.gateTier ? ` (${params.gateTier})` : ''}`
     );
+  } else {
+    explainability_bullets.push(`⚠ No perceptual hash data available for pre-filtering`);
   }
   if (gateSim !== null && jsonResp.visual_match_score >= 0.9 && gateSim <= 0.4) {
     explainability_bullets.push(`⚠ Gemini and pre-filter disagree — relevancy dampened`);
@@ -584,11 +604,10 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
       visual: wVisual,
       context: wContext,
       attribution: wAttribution,
-      gate_similarity_used: gateSim !== null,
+      gate_similarity_used: gateSim !== null ? 1 : 0,
       gate_similarity_value: gateSim ?? 0,
       adjusted_piracy_prior: adjustedPrior,
-      rights_tier_floor: getRightsTierConfig(params.rightsTier).severityFloor,
-      editorial_domain_eligible: isEditorialEligible(domainClass),
+      editorial_domain_eligible: isEditorialEligible(domainClass) ? 1 : 0,
     },
     region: estimateRegion(enrichedParams.matchUrl, domainClass),
     revenue_risk: getRevenueRisk({

@@ -143,15 +143,15 @@ export interface GateThresholds {
 }
 
 export const DEFAULT_THRESHOLDS: GateThresholds = {
-  near_identical: 0.78,
-  transformed: 0.55,
-  high_risk_override: 0.45,
+  near_identical: 0.82,
+  transformed: 0.62,
+  high_risk_override: 0.52,
 };
 
 const HIGH_RISK_DOMAINS: DomainClass[] = ['betting', 'piracy', 'ecommerce'];
 // If your DomainClass union also has meme / social, add them here:
 const HIGH_RISK_DOMAINS_EXT = new Set<string>([
-  'betting', 'piracy', 'ecommerce', 'meme_site', 'social', 'social_network',
+  'betting', 'piracy', 'ecommerce', 'meme_site',
 ]);
 
 /**
@@ -214,8 +214,9 @@ export async function runGate(
   originalUrl: string,
   candidates: Array<{ id: string; imageUrl: string }>,
   thresholds?: Partial<GateThresholds>,
+  precomputedOriginalHash?: { phash: bigint, dhash: bigint } | null
 ): Promise<Array<{ id: string; imageUrl: string; decision: GateDecision; hashed: HashedImage | null }>> {
-  const originalHash = await hashImage(originalUrl);
+  const originalHash = precomputedOriginalHash || await hashImage(originalUrl);
   if (!originalHash) {
     // If we can't hash the original, forward EVERYTHING to Gemini —
     // better a false positive than silently losing the whole batch.
@@ -223,13 +224,13 @@ export async function runGate(
       id: c.id,
       imageUrl: c.imageUrl,
       decision: {
-        forward: true,
-        tier: 'HIGH_RISK_OVERRIDE',
+        forward: false, // Fail CLOSED
+        tier: 'DROPPED_NO_HASH',
         similarity: 0,
         phash_distance: 64,
         dhash_distance: 64,
         domain_class: classifyDomain(c.imageUrl),
-        reason: 'Original asset failed to hash — forwarding all to Gemini',
+        reason: 'Original asset failed to hash — dropping to prevent hallucination inflation',
       },
       hashed: null,
     }));

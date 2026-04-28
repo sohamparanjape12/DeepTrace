@@ -267,6 +267,18 @@ export default function UploadPage() {
     });
   };
 
+  const handleTryAsset = async (url: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const filename = url.split('/').pop() || 'sample-asset.jpg';
+      const sampleFile = new File([blob], filename, { type: blob.type });
+      setFile(sampleFile);
+    } catch (error) {
+      console.error('Error loading sample asset:', error);
+    }
+  };
+
   const selectAllMatches = () => {
     if (selectedMatches.size === serpResults.length) {
       setSelectedMatches(new Set());
@@ -519,13 +531,39 @@ export default function UploadPage() {
         {currentStep === 1 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
 
-            <div className="space-y-3">
-              <label className="text-meta">Asset Image *</label>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="text-meta">Asset Image *</label>
+              </div>
               <UploadZone
+                file={file}
                 onFileSelect={setFile}
                 isUploading={isUploading}
                 uploadProgress={uploadProgress}
               />
+              
+              <div className="space-y-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-brand-muted/60">Try these assets</p>
+                <div className="grid grid-cols-3 gap-4">
+                  {[
+                    'https://res.cloudinary.com/dqpt61klr/image/upload/v1777384866/deeptrace_assets/l47vtohi3gw5siloa9st.webp',
+                    'https://res.cloudinary.com/dqpt61klr/image/upload/v1777361891/deeptrace_assets/lkhxuduljjowvovcodca.jpg',
+                    'https://res.cloudinary.com/dqpt61klr/image/upload/v1777350056/deeptrace_assets/hx1bbk63bh8ghdtuq8ax.jpg'
+                  ].map((url, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => handleTryAsset(url)}
+                      className="group relative aspect-video rounded-xl overflow-hidden border border-brand-border hover:border-brand-text/30 transition-all bg-brand-bg"
+                    >
+                      <img src={url} alt={`Sample ${i + 1}`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                      <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="text-[8px] font-black uppercase tracking-widest text-white bg-black/40 px-2 py-1 rounded backdrop-blur-sm">Try this</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="flex items-center gap-4 pt-4 border-t border-brand-border">
@@ -686,16 +724,28 @@ export default function UploadPage() {
         {currentStep === 3 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="bento-card p-8 space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-amber-50">
-                  <FileText className="w-5 h-5 text-amber-600" />
+              <div className="flex items-start justify-between gap-6">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-amber-50 shrink-0">
+                    <FileText className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-display font-black uppercase text-sm tracking-wide text-brand-text">Provide Asset Context</h3>
+                    <p className="text-sm text-brand-muted mt-1 leading-relaxed max-w-2xl">
+                      Describe your asset origin and intent. This contextual metadata contributes <strong>20%</strong> to the final forensic evidence score.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-display font-black uppercase text-sm tracking-wide text-brand-text">Provide Asset Context</h3>
-                  <p className="text-sm text-brand-muted mt-1 leading-relaxed max-w-2xl">
-                    Describe your asset origin and intent. This contextual metadata contributes <strong>20%</strong> to the final forensic evidence score.
-                  </p>
-                </div>
+                {uploadedUrl && (
+                  <div className="hidden sm:block shrink-0">
+                    <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-brand-border shadow-soft bg-brand-bg relative group">
+                      <img src={uploadedUrl} alt="Source Asset" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent flex items-end p-1.5">
+                        <span className="text-[6px] font-black uppercase tracking-widest text-white/90">Source</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

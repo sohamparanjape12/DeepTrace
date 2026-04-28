@@ -151,7 +151,6 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
   const humanizeWeightKey = (key: string) => {
     const map: Record<string, string> = {
       'Gate_similarity_value': 'Perceptual Similarity',
-      'Gate_similarity_used': 'Gate Validation',
       'visual_match_score': 'Visual Match',
       'contextual_match_score': 'Context Alignment',
       'relevancy': 'Relevancy',
@@ -170,16 +169,19 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
               <ArrowLeft className="w-3.5 h-3.5" /> {fromAsset ? "Back to Asset" : "Violations"}
             </Button>
           </Link>
-          <div className="flex items-center gap-3 flex-wrap">
-            <SeverityChip severity={violation.severity} />
-            <span className={clsx('text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border', cls.classes)}>
-              {cls.label}
-            </span>
-            {violation.status !== 'open' && (
-              <span className="text-[10px] font-black uppercase tracking-widest text-brand-muted border border-brand-border px-2.5 py-1 rounded-full capitalize">
-                {violation.status.replace('_', ' ')}
+          <div className="flex flex-col gap-1">
+            <p className="text-[9px] font-bold text-brand-muted uppercase tracking-[0.2em] mb-1">Violation Risk Impact</p>
+            <div className="flex items-center gap-3 flex-wrap">
+              <SeverityChip severity={violation.severity} />
+              <span className={clsx('text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border', cls.classes)}>
+                {cls.label}
               </span>
-            )}
+              {violation.status !== 'open' && (
+                <span className="text-[10px] font-black uppercase tracking-widest text-brand-muted border border-brand-border px-2.5 py-1 rounded-full capitalize">
+                  {violation.status.replace('_', ' ')}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -359,11 +361,12 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
           <ReliabilityRing score={violation.reliability_score || 0} tier={violation.reliability_tier || 'LOW'} />
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <h3 className="font-display font-black uppercase text-xl tracking-tighter">Evidence Reliability</h3>
+              <h3 className="font-display font-black uppercase text-xl tracking-tighter">System Accuracy</h3>
+              <span className="text-[10px] font-bold text-brand-muted opacity-50 uppercase tracking-widest">— Reliability Metric</span>
             </div>
             <p className="text-xs text-brand-muted leading-relaxed max-w-xl">
-              The Reliability Scoring Engine (RSE) calculates the statistical likelihood of infringement using
-              an adaptive weighted model of visual similarity, context, and domain source.
+              This score represents the engine's scientific confidence in the match.
+              It combines visual evidence and contextual signals to measure detection certainty.
             </p>
           </div>
         </div>
@@ -427,12 +430,14 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
             <div className="p-4 bg-brand-bg border border-brand-border rounded-xl space-y-3">
               <p className="text-meta">Adaptive Weights Applied</p>
               <div className="space-y-2">
-                {Object.entries(violation.applied_weights || {}).map(([factor, weight]) => (
-                  <div key={factor} className="flex justify-between text-[10px] font-bold">
-                    <span className="text-brand-muted">{humanizeWeightKey(factor)}</span>
-                    <span className="text-brand-text">{(weight * 100).toFixed(0)}%</span>
-                  </div>
-                ))}
+                {Object.entries(violation.applied_weights || {})
+                  .filter(([_, v]) => typeof v === 'number')
+                  .map(([factor, weight]) => (
+                    <div key={factor} className="flex justify-between text-[10px] font-bold">
+                      <span className="text-brand-muted">{humanizeWeightKey(factor)}</span>
+                      <span className="text-brand-text">{((weight as number) * 100).toFixed(0)}%</span>
+                    </div>
+                  ))}
               </div>
             </div>
           </div>
