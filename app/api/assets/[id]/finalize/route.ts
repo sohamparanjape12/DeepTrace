@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebase-admin';
 import { setAssetStage, violationIdempotencyKey } from '@/lib/stage';
+import { getBaseUrl } from '@/lib/utils/url';
 
 export async function POST(
   req: NextRequest,
@@ -62,7 +63,7 @@ export async function POST(
     await batch.commit();
 
     // 3. Trigger Resume (which will now skip 'ignored' items)
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const baseUrl = getBaseUrl();
     // We don't wait for this, just fire and forget or call the logic directly
     fetch(`${baseUrl}/api/resume/${assetId}`, {
       method: 'POST',

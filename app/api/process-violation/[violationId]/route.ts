@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebase-admin';
 import { processViolationStage, updateAssetAggregation } from '@/lib/pipeline-executor';
 import { isTerminalViolation } from '@/lib/firestore-schema';
+import { getBaseUrl } from '@/lib/utils/url';
 
 export const maxDuration = 30;
 
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ vio
     if (!isTerminal && !isFailed) {
       if (hops < 5) {
         console.log(`[ProcessViolation] Hopping for ${violationId} (hop ${hops + 1}) - currently ${vData?.stage}`);
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        const baseUrl = getBaseUrl();
         
         // Add small delay in local dev to avoid rate limits
         if (!process.env.UPSTASH_QSTASH_TOKEN) {

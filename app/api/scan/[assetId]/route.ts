@@ -4,6 +4,7 @@ import { db } from '@/lib/firebase-admin';
 import { Asset, Violation, MatchType } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { emitNotification } from '@/lib/notifications/emit';
+import { getBaseUrl } from '@/lib/utils/url';
 
 // Initialize Vision API client
 const visionClient = new ImageAnnotatorClient();
@@ -91,7 +92,7 @@ export async function POST(
     await batch.commit();
 
     // 5. Trigger v2 Classification
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const appUrl = getBaseUrl();
     const classificationPromises = violationsFound.map((violation) => {
       const page = pageMatches.find(p =>
         p.fullMatchingImages?.some(img => img.url === violation.match_url) ||

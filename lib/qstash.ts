@@ -1,4 +1,4 @@
-import { Client } from "@upstash/qstash";
+import { getBaseUrl } from "./utils/url";
 
 export const qstashClient = new Client({
   token: process.env.QSTASH_TOKEN || 'dummy_token_to_prevent_crash_in_dev',
@@ -7,8 +7,7 @@ export const qstashClient = new Client({
 export async function enqueueAsset(payload: any) {
   // Determine the base URL.
   const isDev = process.env.NODE_ENV === 'development';
-  const baseUrl = process.env.NGROK_URL || 
-                  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+  const baseUrl = getBaseUrl();
   const endpoint = `${baseUrl}/api/process`;
 
   if (isDev && !process.env.NGROK_URL) {

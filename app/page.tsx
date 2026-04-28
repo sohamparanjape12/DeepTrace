@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { LandingNav } from '@/components/layout/LandingNav';
+import { LandingFooter } from '@/components/layout/LandingFooter';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -28,24 +29,33 @@ const STATS = [
 const HOW_IT_WORKS = [
   {
     step: '01',
-    title: 'Visual Fingerprinting',
-    description:
-      'Our AI generates a cryptographic fingerprint of your media that survives heavy compression, cropping, and filtering.',
-    icon: Fingerprint,
-  },
-  {
-    step: '02',
-    title: 'Automated Discovery',
-    description:
-      'The global crawler network scans the internet daily, using computer vision to find matches against your official assets.',
+    title: 'Discovery',
+    description: 'Global crawler network scans for unauthorized matches using computer vision.',
     icon: Globe,
   },
   {
+    step: '02',
+    title: 'Gating',
+    description: 'Perceptual filtering drops noise by verifying pHash and dHash distances.',
+    icon: Shield,
+  },
+  {
     step: '03',
-    title: 'Forensic Classification',
-    description:
-      'Autonomous AI audits matches to classify violation types and severity, triggering immediate resolution pathways.',
+    title: 'Scraping',
+    description: 'Automated extraction of page context for deep forensic auditing.',
+    icon: Search,
+  },
+  {
+    step: '04',
+    title: 'Classification',
+    description: 'Autonomous AI classifies violation types and financial impact.',
     icon: Zap,
+  },
+  {
+    step: '05',
+    title: 'Strike',
+    description: 'Immediate resolution pathways for automated takedown enforcement.',
+    icon: Lock,
   },
 ];
 
@@ -122,7 +132,7 @@ function ForensicCard({
       <div className="px-6 py-5 pt-4 space-y-4">
         <div className="flex justify-between items-end">
           <div className="space-y-0.5">
-            <p className="text-[9px] font-black uppercase tracking-widest text-brand-muted">Confidence</p>
+            <p className="text-[9px] font-black tracking-widest text-brand-muted">Confidence</p>
             <p className="text-2xl font-display font-black text-brand-text tracking-tighter">{confidence}</p>
           </div>
           <div className="text-right">
@@ -137,9 +147,9 @@ function ForensicCard({
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-center gap-2">
             <div className={`w-1.5 h-1.5 rounded-full bg-green-500 ${isMain ? 'animate-pulse' : ''}`} />
-            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-brand-text">Verified Secure</span>
+            <span className="text-[9px] font-black tracking-[0.2em] text-brand-text">Verified Secure</span>
           </div>
-          <span className="text-[9px] font-black uppercase tracking-[0.2em] text-brand-muted">{layer}</span>
+          <span className="text-[9px] font-black tracking-[0.2em] text-brand-muted">{layer}</span>
         </div>
       </div>
     </div>
@@ -224,8 +234,8 @@ export default function Home() {
       <section className="macro-spacing px-6 flex flex-col lg:flex-row gap-16 max-w-6xl mx-auto min-h-[92dvh] items-center relative z-10 pt-40 lg:pt-20">
         {/* Left copy */}
         <div className="lg:w-1/2 space-y-10 mt-8">
-          <div className="overflow-hidden">
-            <h1 className="hero-title text-6xl md:text-[4.8rem] font-display font-black leading-[0.88] tracking-[-0.05em] uppercase text-zinc-950 dark:text-white">
+          <div className="overflow-visible py-4 -my-4">
+            <h1 className="hero-title text-6xl md:text-[4.8rem] font-display font-black leading-[0.88] tracking-[-0.05em] text-zinc-950 dark:text-white">
               Protect your <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-zinc-400 via-zinc-950 to-zinc-950 dark:from-white/60 dark:via-white dark:to-white/20">
                 sports media.
@@ -241,23 +251,25 @@ export default function Home() {
             <Link href="/dashboard">
               <Button
                 size="lg"
-                className="h-14 px-10 text-[11px] font-black uppercase tracking-[0.2em] flex items-center gap-3
+                className="h-14 px-10 text-[11px] font-black tracking-[0.2em] flex items-center gap-3
                   rounded-full bg-zinc-950 dark:bg-white text-white dark:text-black
                   hover:bg-brand-accent hover:text-white transition-all shadow-lg"
               >
                 Start Protecting <ArrowUpRight className="w-4 h-4" />
               </Button>
             </Link>
-            <Button
-              variant="secondary"
-              size="lg"
-              className="h-14 px-10 text-[11px] font-black uppercase tracking-[0.2em]
-                rounded-full border-zinc-200 dark:border-white/10 bg-transparent
-                text-zinc-500 dark:text-white/40
-                hover:text-zinc-950 dark:hover:text-white hover:border-zinc-400 dark:hover:border-white/20 transition-all"
-            >
-              See How It Works
-            </Button>
+            <Link href="#how-it-works">
+              <Button
+                variant="secondary"
+                size="lg"
+                className="h-14 px-10 text-[11px] font-black tracking-[0.2em]
+                  rounded-full border-zinc-200 dark:border-white/10 bg-transparent
+                  text-zinc-500 dark:text-white/40
+                  hover:text-zinc-950 dark:hover:text-white hover:border-zinc-400 dark:hover:border-white/20 transition-all"
+              >
+                See How It Works
+              </Button>
+            </Link>
           </div>
 
           {/* Trust micro-badges */}
@@ -265,7 +277,7 @@ export default function Home() {
             {['Visual Fingerprinting', 'Automated Takedowns', 'Rights Intelligence'].map((label) => (
               <span
                 key={label}
-                className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-white/20"
+                className="flex items-center gap-2 text-[10px] font-black tracking-widest text-zinc-400 dark:text-white/20"
               >
                 <CheckCircle className="w-3.5 h-3.5 text-brand-accent shrink-0" />
                 {label}
@@ -328,7 +340,7 @@ export default function Home() {
             ].map((item, i) => (
               <span
                 key={i}
-                className="text-[11px] font-black uppercase tracking-[0.35em] flex items-center gap-4 text-zinc-500 dark:text-white/40 shrink-0"
+                className="text-[11px] font-black tracking-[0.35em] flex items-center gap-4 text-zinc-500 dark:text-white/40 shrink-0"
               >
                 <item.icon className="w-4 h-4 opacity-70" /> {item.label}
               </span>
@@ -339,13 +351,13 @@ export default function Home() {
 
       {/* ── Stats ──────────────────────────────────── */}
       <section className="stats-section py-20 px-6">
-        <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-px bg-zinc-200 dark:bg-white/5 rounded-2xl overflow-hidden border border-zinc-200 dark:border-white/5">
+        <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-px bg-zinc-200 dark:bg-white/5 rounded-2xl overflow-hidden border border-zinc-200 dark:border-white/5">
           {STATS.map((stat, i) => (
             <div key={i} className="stat-item bg-white dark:bg-zinc-950 px-8 py-10 flex flex-col gap-2">
               <p className="text-4xl md:text-5xl font-display font-black tracking-tight text-zinc-950 dark:text-white">
                 {stat.value}
               </p>
-              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-400 dark:text-white/30">
+              <p className="text-[11px] font-black tracking-[0.2em] text-zinc-400 dark:text-white/30">
                 {stat.label}
               </p>
             </div>
@@ -354,10 +366,10 @@ export default function Home() {
       </section>
 
       {/* ── Features Bento ─────────────────────────── */}
-      <section id="features" className="macro-spacing px-6 max-w-6xl mx-auto space-y-12">
+      <section id="features" className="macro-spacing px-6 max-w-7xl mx-auto space-y-12">
         <div className="flex flex-col md:flex-row justify-between items-end gap-10">
           <div className="space-y-4">
-            <h2 className="text-4xl md:text-6xl font-display font-black uppercase leading-none tracking-[-0.05em] text-zinc-950 dark:text-white">
+            <h2 className="text-4xl md:text-6xl font-display font-black leading-none tracking-[-0.05em] text-zinc-950 dark:text-white">
               Full-Scale <br />
               <span className="text-zinc-500 dark:text-white/50">Media Protection.</span>
             </h2>
@@ -365,15 +377,17 @@ export default function Home() {
               Direct action tools to identify and resolve asset theft — from discovery to resolution.
             </p>
           </div>
-          <Button
-            variant="secondary"
-            className="group h-11 px-8 rounded-full text-[11px] font-black uppercase tracking-[0.15em]
-              border-zinc-200 dark:border-white/5 bg-zinc-50 dark:bg-white/5
-              text-zinc-500 dark:text-white/40
-              hover:bg-zinc-100 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white transition-all shrink-0"
-          >
-            View Docs <ArrowUpRight className="ml-2 w-3.5 h-3.5" />
-          </Button>
+          <Link href="/infrastructure">
+            <Button
+              variant="secondary"
+              className="group h-11 px-8 rounded-full text-[11px] font-black tracking-[0.15em]
+                border-zinc-200 dark:border-white/5 bg-zinc-50 dark:bg-white/5
+                text-zinc-500 dark:text-white/40
+                hover:bg-zinc-100 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white transition-all shrink-0"
+            >
+              View Docs <ArrowUpRight className="ml-2 w-3.5 h-3.5" />
+            </Button>
+          </Link>
         </div>
 
         <div className="bento-grid grid grid-cols-12 gap-px bg-zinc-200 dark:bg-white/5 border border-zinc-200 dark:border-white/5 overflow-hidden rounded-[2rem] shadow-2xl">
@@ -384,7 +398,7 @@ export default function Home() {
               <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-zinc-50 dark:bg-white/5 border border-zinc-200 dark:border-white/5 text-zinc-400 dark:text-white/20 group-hover:text-brand-accent group-hover:border-brand-accent/30 transition-all duration-500">
                 <Search className="w-5 h-5" />
               </div>
-              <p className="text-[11px] font-black uppercase tracking-[0.25em] text-brand-accent">Discovery Layer</p>
+              <p className="text-[11px] font-black tracking-[0.25em] text-brand-accent">Discovery Layer</p>
             </div>
 
             {/* Deterministic bar chart */}
@@ -399,7 +413,7 @@ export default function Home() {
             </div>
 
             <div className="space-y-3 mt-auto">
-              <h3 className="text-3xl md:text-5xl font-display font-black uppercase tracking-[-0.05em] text-zinc-950 dark:text-white leading-none">
+              <h3 className="text-3xl md:text-5xl font-display font-black tracking-[-0.05em] text-zinc-950 dark:text-white leading-none">
                 Automated <br />Visual Search
               </h3>
               <p className="text-zinc-500 dark:text-white/40 text-sm font-medium leading-relaxed max-w-sm">
@@ -425,8 +439,8 @@ export default function Home() {
             </div>
             <div className="space-y-5">
               <div className="space-y-1.5">
-                <h4 className="text-[11px] font-black uppercase tracking-[0.25em] text-brand-accent">Forensic Analysis</h4>
-                <h3 className="text-3xl font-display font-black uppercase tracking-[-0.05em] text-zinc-950 dark:text-white leading-none">
+                <h4 className="text-[11px] font-black tracking-[0.25em] text-brand-accent">Forensic Analysis</h4>
+                <h3 className="text-3xl font-display font-black tracking-[-0.05em] text-zinc-950 dark:text-white leading-none">
                   AI Violation <br />Classification
                 </h3>
               </div>
@@ -454,8 +468,8 @@ export default function Home() {
               </div>
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <h4 className="text-[11px] font-black uppercase tracking-[0.25em] text-zinc-400 dark:text-white/30">Infrastructure</h4>
-                  <h3 className="text-3xl font-display font-black uppercase tracking-[-0.05em] text-zinc-950 dark:text-white leading-none">
+                  <h4 className="text-[11px] font-black tracking-[0.25em] text-zinc-400 dark:text-white/30">Infrastructure</h4>
+                  <h3 className="text-3xl font-display font-black tracking-[-0.05em] text-zinc-950 dark:text-white leading-none">
                     Global <br />Network
                   </h3>
                 </div>
@@ -468,15 +482,15 @@ export default function Home() {
 
           {/* Automated Resolution — right bottom, dark */}
           <div id="resolution" className="bento-item col-span-12 md:col-span-7 bg-zinc-950 p-10 lg:p-14 flex items-center gap-10 group hover:bg-black transition-colors duration-700 cursor-pointer min-h-[300px]">
-            <div className="w-16 h-16 shrink-0 flex items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-white/20 group-hover:text-brand-accent group-hover:border-brand-accent/50 transition-all duration-500">
+            <div className="w-16 h-16 shrink-0 flex items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-brand-bg group-hover:text-brand-accent group-hover:border-brand-accent/50 transition-all duration-500">
               <Zap className="w-8 h-8" />
             </div>
             <div className="space-y-3">
               <div className="flex items-center gap-3 flex-wrap">
-                <p className="text-2xl font-display font-black uppercase text-white tracking-[-0.05em]">
+                <p className="text-2xl font-display font-black text-white tracking-[-0.05em]">
                   Automated Takedowns
                 </p>
-                <div className="px-3 py-1 rounded-full bg-brand-accent text-white text-[10px] font-black tracking-widest uppercase shrink-0">
+                <div className="px-3 py-1 rounded-full bg-brand-accent text-white text-[10px] font-black tracking-widest shrink-0">
                   Resumable
                 </div>
               </div>
@@ -487,7 +501,7 @@ export default function Home() {
                 {['Resolution', 'Forensics', 'Intelligence'].map((tag) => (
                   <span
                     key={tag}
-                    className="text-[11px] font-black uppercase tracking-widest text-white/30 border border-white/10 rounded-full px-3 py-1"
+                    className="text-[11px] font-black tracking-widest text-white/30 border border-white/10 rounded-full px-3 py-1"
                   >
                     {tag}
                   </span>
@@ -499,15 +513,15 @@ export default function Home() {
       </section>
 
       {/* ── How It Works ───────────────────────────── */}
-      <section id="how-it-works" className="how-section macro-spacing px-6 max-w-6xl mx-auto">
+      <section id="how-it-works" className="how-section macro-spacing px-6 max-w-7xl mx-auto">
         <div className="space-y-3 mb-16">
-          <h2 className="text-4xl md:text-5xl font-display font-black uppercase tracking-[-0.05em] leading-none text-zinc-950 dark:text-white">
+          <h2 className="text-4xl md:text-5xl font-display font-black tracking-[-0.05em] leading-none text-zinc-950 dark:text-white">
             Forensic Pipeline <br />
-            <span className="text-zinc-500 dark:text-white/50">in three steps.</span>
+            <span className="text-zinc-500 dark:text-white/50">in five steps.</span>
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-zinc-200 dark:bg-white/5 border border-zinc-200 dark:border-white/5 rounded-2xl overflow-hidden">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-px bg-zinc-200 dark:bg-white/5 border border-zinc-200 dark:border-white/5 rounded-2xl overflow-hidden">
           {HOW_IT_WORKS.map((step, i) => (
             <div
               key={i}
@@ -523,7 +537,7 @@ export default function Home() {
                 </span>
               </div>
               <div className="space-y-3 mt-auto">
-                <h3 className="text-xl font-display font-black uppercase tracking-tight text-zinc-950 dark:text-white">
+                <h3 className="text-xl font-display font-black tracking-tight text-zinc-950 dark:text-white">
                   {step.title}
                 </h3>
                 <p className="text-sm font-medium leading-relaxed text-zinc-500 dark:text-white/40">
@@ -536,13 +550,13 @@ export default function Home() {
       </section>
 
       {/* ── Testimonials ───────────────────────────── */}
-      <section id="trust" className="testimonials-section macro-spacing px-6 max-w-6xl mx-auto">
+      <section id="trust" className="testimonials-section macro-spacing px-6 max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-12">
-          <h2 className="text-3xl md:text-4xl font-display font-black uppercase tracking-tight leading-none text-zinc-950 dark:text-white">
+          <h2 className="text-3xl md:text-4xl font-display font-black tracking-tight leading-none text-zinc-950 dark:text-white">
             Trusted by <br />
             <span className="text-zinc-500 dark:text-white/50">IP professionals.</span>
           </h2>
-          <Badge className="text-[11px] font-black uppercase tracking-widest shrink-0">4.9 / 5 Rating</Badge>
+          <Badge className="text-[11px] font-black tracking-widest shrink-0">4.9 / 5 Rating</Badge>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -561,7 +575,7 @@ export default function Home() {
                 <p className={`text-sm font-black ${t.dark ? 'text-white' : 'text-zinc-950 dark:text-white'}`}>
                   {t.author}
                 </p>
-                <p className={`text-[11px] font-bold uppercase tracking-widest ${t.dark ? 'text-white/30' : 'text-zinc-400 dark:text-white/30'}`}>
+                <p className={`text-[11px] font-bold tracking-widest ${t.dark ? 'text-white/30' : 'text-zinc-400 dark:text-white/30'}`}>
                   {t.role}
                 </p>
               </div>
@@ -571,14 +585,14 @@ export default function Home() {
       </section>
 
       {/* ── CTA ────────────────────────────────────── */}
-      <section className="macro-spacing px-6 max-w-6xl mx-auto pb-8">
+      <section className="macro-spacing px-6 max-w-7xl mx-auto pb-8">
         <div className="bg-zinc-950 dark:bg-zinc-900 rounded-3xl p-14 md:p-20 flex flex-col md:flex-row items-center justify-between gap-10 relative overflow-hidden border border-zinc-800">
           {/* Glows */}
           <div className="absolute -top-24 -left-24 w-72 h-72 bg-brand-accent/10 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-24 -right-24 w-72 h-72 bg-brand-accent/5  rounded-full blur-3xl pointer-events-none" />
 
           <div className="space-y-4 relative z-10">
-            <h2 className="text-4xl md:text-5xl font-display font-black uppercase tracking-[-0.05em] leading-none text-white">
+            <h2 className="text-4xl md:text-5xl font-display font-black tracking-[-0.05em] leading-none text-white">
               Start protecting <br />
               <span className="text-white/30">today.</span>
             </h2>
@@ -591,76 +605,20 @@ export default function Home() {
             <Link href="/dashboard">
               <Button
                 size="lg"
-                className="h-14 px-10 text-[11px] font-black uppercase tracking-[0.2em] flex items-center gap-3
+                className="h-14 px-10 text-[11px] font-black tracking-[0.2em] flex items-center gap-3
                   rounded-full bg-white text-black hover:bg-brand-accent hover:text-white transition-all shadow-2xl"
               >
                 Start Free Trial <ArrowUpRight className="w-4 h-4" />
               </Button>
             </Link>
-            <p className="text-[11px] font-bold uppercase tracking-widest text-white/25 text-center">
+            <p className="text-[11px] font-bold tracking-widest text-white/25 text-center">
               No credit card required
             </p>
           </div>
         </div>
       </section>
 
-      {/* ── Footer ─────────────────────────────────── */}
-      <footer className="py-20 px-6 border-t border-brand-border relative overflow-hidden mt-16">
-        <div className="absolute -bottom-20 -right-20 w-96 h-96 bg-brand-accent/[0.02] rounded-full blur-[120px] pointer-events-none" />
-
-        <div className="max-w-6xl mx-auto flex flex-col lg:flex-row justify-between items-start gap-16 relative z-10">
-          {/* Brand */}
-          <div className="space-y-6 max-w-xs">
-            <div className="flex items-center gap-2.5">
-              <div className="w-2 h-2 rounded-full bg-brand-accent" />
-              <h3 className="text-xl font-display font-black uppercase tracking-tighter text-brand-text">DeepTrace</h3>
-            </div>
-            <p className="text-brand-muted text-sm font-medium leading-relaxed">
-              Securing digital media sovereignty through autonomous intelligence.
-            </p>
-            <div className="flex gap-3">
-              {[ArrowUpRight, Globe].map((Icon, i) => (
-                <div
-                  key={i}
-                  className="w-9 h-9 rounded-full border border-brand-border flex items-center justify-center
-                    hover:bg-brand-text hover:text-white hover:border-brand-text transition-all cursor-pointer text-brand-muted"
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Links */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-16 gap-y-10">
-            {[
-              { title: 'Infrastructure', links: ['Forensic Network', 'Gemini Engine', 'CDN Layer'] },
-              { title: 'Intelligence', links: ['Forensics', 'Discovery', 'Pattern Engine'] },
-              { title: 'Legal', links: ['Rights Enforcement', 'Compliance', 'Licensing'] },
-            ].map((col) => (
-              <div key={col.title} className="space-y-4">
-                <h4 className="text-[11px] font-black uppercase tracking-widest text-brand-text">{col.title}</h4>
-                <ul className="space-y-2.5">
-                  {col.links.map((link) => (
-                    <li
-                      key={link}
-                      className="text-[11px] font-bold uppercase tracking-wider text-brand-muted hover:text-brand-text cursor-pointer transition-colors"
-                    >
-                      {link}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Bottom bar */}
-        <div className="max-w-6xl mx-auto mt-20 pt-8 border-t border-brand-border flex flex-col md:flex-row justify-between gap-4 opacity-40">
-          <p className="text-[11px] font-black uppercase tracking-widest text-brand-muted">© 2026 DeepTrace Systems.</p>
-          <p className="text-[11px] font-black uppercase tracking-widest text-brand-muted">Sovereignty through Intelligence.</p>
-        </div>
-      </footer>
+      <LandingFooter />
     </main >
   );
 }

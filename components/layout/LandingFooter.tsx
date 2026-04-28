@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { ArrowUpRight, Globe } from 'lucide-react';
+import Image from 'next/image';
 
 export function LandingFooter() {
   return (
@@ -12,8 +13,8 @@ export function LandingFooter() {
         {/* Brand */}
         <div className="space-y-6 max-w-xs">
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-2 h-2 rounded-full bg-brand-accent group-hover:scale-125 transition-transform" />
-            <h3 className="text-xl font-display font-black uppercase tracking-tighter text-brand-text">DeepTrace</h3>
+            <Image src="/icon.svg" alt="Logo" width={20} height={20} />
+            <h3 className="text-xl font-display font-black tracking-tighter text-brand-text">DeepTrace</h3>
           </Link>
           <p className="text-brand-muted text-sm font-medium leading-relaxed">
             Securing digital media sovereignty through autonomous intelligence.
@@ -34,39 +35,39 @@ export function LandingFooter() {
         {/* Links */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-x-16 gap-y-10">
           {[
-            { 
-              title: 'Infrastructure', 
+            {
+              title: 'Infrastructure',
               links: [
                 { label: 'Forensic Network', href: '/infrastructure#network' },
                 { label: 'Gemini Engine', href: '/infrastructure#gemini' },
                 { label: 'CDN Layer', href: '/infrastructure#cdn' }
-              ] 
+              ]
             },
-            { 
-              title: 'Intelligence', 
+            {
+              title: 'Intelligence',
               links: [
                 { label: 'Pricing', href: '/pricing' },
                 { label: 'Discovery', href: '/#discovery' },
                 { label: 'Pattern Engine', href: '/infrastructure#patterns' }
-              ] 
+              ]
             },
-            { 
-              title: 'Legal', 
+            {
+              title: 'Legal',
               links: [
                 { label: 'Privacy Policy', href: '/legal/privacy' },
                 { label: 'Terms of Service', href: '/legal/terms' },
                 { label: 'Compliance', href: '/legal/compliance' }
-              ] 
+              ]
             },
           ].map((col) => (
             <div key={col.title} className="space-y-4">
-              <h4 className="text-[11px] font-black uppercase tracking-widest text-brand-text">{col.title}</h4>
+              <h4 className="text-[11px] font-black tracking-widest text-brand-text">{col.title}</h4>
               <ul className="space-y-2.5">
                 {col.links.map((link) => (
                   <li key={link.label}>
                     <Link
                       href={link.href}
-                      className="text-[11px] font-bold uppercase tracking-wider text-brand-muted hover:text-brand-text cursor-pointer transition-colors"
+                      className="text-[11px] font-bold tracking-wider text-brand-muted hover:text-brand-text cursor-pointer transition-colors"
                     >
                       {link.label}
                     </Link>
@@ -80,8 +81,8 @@ export function LandingFooter() {
 
       {/* Bottom bar */}
       <div className="max-w-6xl mx-auto mt-20 pt-8 border-t border-brand-border flex flex-col md:flex-row justify-between gap-4 opacity-40">
-        <p className="text-[11px] font-black uppercase tracking-widest text-brand-muted">© 2026 DeepTrace Systems.</p>
-        <p className="text-[11px] font-black uppercase tracking-widest text-brand-muted">Sovereignty through Intelligence.</p>
+        <p className="text-[11px] font-black tracking-widest text-brand-muted">© 2026 DeepTrace Systems.</p>
+        <p className="text-[11px] font-black tracking-widest text-brand-muted">Sovereignty through Intelligence.</p>
       </div>
     </footer>
   );

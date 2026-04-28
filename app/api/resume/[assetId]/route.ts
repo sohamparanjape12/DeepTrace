@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { updateAssetAggregation } from '@/lib/pipeline-executor';
+import { getBaseUrl } from '@/lib/utils/url';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ assetId: string }> }) {
   const { assetId } = await params;
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ass
       .get();
 
     // 3. Trigger reverse search ONLY if no violations exist
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const baseUrl = getBaseUrl();
     if (!assetData.idempotency?.reverse_search_done && violationsSnap.empty) {
       await fetch(`${baseUrl}/api/reverse-search`, {
         method: 'POST',

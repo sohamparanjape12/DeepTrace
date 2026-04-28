@@ -16,10 +16,10 @@ export function LegalPage({ title, lastUpdated, sections }: LegalPageProps) {
     <StaticPageLayout>
       <div className="max-w-4xl mx-auto px-6 py-12 space-y-16">
         <div className="space-y-4">
-          <h1 className="text-5xl md:text-7xl font-display font-black uppercase tracking-tight text-zinc-950 dark:text-white">
+          <h1 className="text-5xl md:text-7xl font-display font-black tracking-tight text-zinc-950 dark:text-white">
             {title}
           </h1>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-accent">
+          <p className="text-[10px] font-black tracking-[0.3em] text-brand-accent">
             Last Updated: {lastUpdated}
           </p>
         </div>
@@ -27,7 +27,7 @@ export function LegalPage({ title, lastUpdated, sections }: LegalPageProps) {
         <div className="space-y-12">
           {sections.map((section, i) => (
             <div key={i} className="space-y-4">
-              <h2 className="text-xl font-display font-black uppercase tracking-tight text-zinc-950 dark:text-white border-b border-zinc-100 dark:border-white/5 pb-4">
+              <h2 className="text-xl font-display font-black tracking-tight text-zinc-950 dark:text-white border-b border-zinc-100 dark:border-white/5 pb-4">
                 {section.title}
               </h2>
               <div className="space-y-4">

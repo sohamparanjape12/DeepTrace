@@ -7,6 +7,7 @@ import { Client } from '@upstash/qstash';
 import { renderNotice } from './template';
 import crypto from 'crypto';
 import { emitNotification } from '../notifications/emit';
+import { getBaseUrl } from '../utils/url';
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -143,7 +144,7 @@ export async function dispatch(noticeId: string, approverId: string, pdfBuffer?:
   // Schedule QStash task for T+7 days
   if (process.env.QSTASH_TOKEN) {
     try {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      const appUrl = getBaseUrl();
       await qstash.publishJSON({
         url: `${appUrl}/api/dmca/status/${noticeId}/verify`,
         body: { noticeId },

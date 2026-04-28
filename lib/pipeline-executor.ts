@@ -9,6 +9,7 @@ import { isTerminalViolation } from './firestore-schema';
 import { RetryableError, PermanentError } from './error-classes';
 import { emitNotification } from './notifications/emit';
 import { severityToEventType } from './notifications/taxonomy';
+import { getBaseUrl } from './utils/url';
 
 
 export async function processViolationStage(violationId: string) {
@@ -144,7 +145,7 @@ export async function processViolationStage(violationId: string) {
         }, { merge: true });
 
         // Phase 4 Sidecar: Evidence Bundle (fire-and-forget, non-blocking)
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        const baseUrl = getBaseUrl();
         fetch(`${baseUrl}/api/generate-evidence`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

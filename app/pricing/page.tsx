@@ -55,10 +55,10 @@ const PLANS = [
 export default function PricingPage() {
   return (
     <StaticPageLayout>
-      <div className="max-w-6xl mx-auto px-6 py-12 space-y-20">
+      <div className="max-w-7xl mx-auto px-6 py-12 space-y-20">
         {/* Header */}
         <div className="text-center space-y-6 max-w-3xl mx-auto">
-          <h1 className="text-5xl md:text-7xl font-display font-black uppercase tracking-tight text-zinc-950 dark:text-white leading-[0.9]">
+          <h1 className="text-5xl md:text-7xl font-display font-black tracking-tight text-zinc-950 dark:text-white leading-[0.9]">
             Predictable <br />
             <span className="text-zinc-400 dark:text-white/20">Media Sovereignty.</span>
           </h1>
@@ -70,21 +70,20 @@ export default function PricingPage() {
         {/* Pricing Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-zinc-200 dark:bg-white/5 border border-zinc-200 dark:border-white/5 rounded-[2.5rem] overflow-hidden shadow-2xl">
           {PLANS.map((plan) => (
-            <div 
-              key={plan.name} 
-              className={`p-10 lg:p-14 flex flex-col justify-between gap-12 relative group ${
-                plan.popular ? 'bg-zinc-50 dark:bg-zinc-900/40' : 'bg-white dark:bg-zinc-950'
-              }`}
+            <div
+              key={plan.name}
+              className={`p-10 lg:p-14 flex flex-col justify-between gap-12 relative group ${plan.popular ? 'bg-zinc-50 dark:bg-zinc-900/40' : 'bg-white dark:bg-zinc-950'
+                }`}
             >
               {plan.popular && (
-                <div className="absolute top-6 right-10 px-3 py-1 rounded-full bg-brand-accent text-white text-[9px] font-black uppercase tracking-widest">
+                <div className="absolute top-6 right-10 px-3 py-1 rounded-full bg-brand-accent text-white text-[9px] font-black tracking-widest">
                   Most Popular
                 </div>
               )}
 
               <div className="space-y-8">
                 <div className="space-y-1">
-                  <h3 className="text-[11px] font-black uppercase tracking-[0.25em] text-brand-accent">{plan.name}</h3>
+                  <h3 className="text-[11px] font-black tracking-[0.25em] text-brand-accent">{plan.name}</h3>
                   <div className="flex items-baseline gap-1">
                     <span className="text-4xl md:text-5xl font-display font-black text-zinc-950 dark:text-white tracking-tighter">
                       {plan.price}
@@ -113,12 +112,11 @@ export default function PricingPage() {
               </div>
 
               <Link href="/dashboard">
-                <Button 
-                  className={`w-full h-14 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${
-                    plan.popular 
-                      ? 'bg-zinc-950 dark:bg-white text-white dark:text-black hover:scale-[1.02] shadow-xl' 
+                <Button
+                  className={`w-full h-14 rounded-2xl text-[11px] font-black tracking-widest transition-all ${plan.popular
+                      ? 'bg-zinc-950 dark:bg-white text-white dark:text-black hover:scale-[1.02] shadow-xl'
                       : 'bg-zinc-100 dark:bg-white/5 text-zinc-500 dark:text-white/40 hover:text-zinc-950 dark:hover:text-white'
-                  }`}
+                    }`}
                 >
                   {plan.cta}
                 </Button>
@@ -130,7 +128,7 @@ export default function PricingPage() {
         {/* FAQ Preview / Trust */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center bg-zinc-950 dark:bg-zinc-900 rounded-[2.5rem] p-12 border border-zinc-800">
           <div className="space-y-6">
-            <h2 className="text-3xl font-display font-black uppercase text-white tracking-tight">
+            <h2 className="text-3xl font-display font-black text-white tracking-tight">
               Ready to deploy <br />DeepTrace?
             </h2>
             <p className="text-white/40 text-sm leading-relaxed max-w-sm">
@@ -153,8 +151,8 @@ export default function PricingPage() {
               { icon: ArrowUpRight, label: 'API Integrations' },
             ].map((item) => (
               <div key={item.label} className="p-6 rounded-2xl bg-white/5 border border-white/5 space-y-3">
-                <item.icon className="w-5 h-5 text-brand-accent" />
-                <p className="text-[10px] font-black uppercase tracking-widest text-white/60 leading-tight">
+                <item.icon className="w-5 h-5 text-brand-bg" />
+                <p className="text-[10px] font-black tracking-widest text-white/60 leading-tight">
                   {item.label}
                 </p>
               </div>

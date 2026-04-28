@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-provider';
 import { Shield } from 'lucide-react';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const { user, loading, signInWithGoogle } = useAuth();
@@ -39,9 +40,7 @@ export default function LoginPage() {
         />
 
         <div className="relative z-10 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-brand-bg/10 flex items-center justify-center">
-            <Shield className="w-4 h-4 text-brand-bg" />
-          </div>
+          <Image src="/icon.svg" alt="Logo" width={20} height={20} />
           <span className="font-display font-black text-lg text-brand-bg tracking-tight">DeepTrace</span>
         </div>
 
