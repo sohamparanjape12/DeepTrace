@@ -251,7 +251,6 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
         </div>
       </section>
 
-      {/* ── DMCA Takedown Module ── */}
       <DMCAPanel
         violationId={violation.violation_id}
         dmcaStatus={(violation as any).dmca_status}
@@ -260,6 +259,7 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
         evidenceBundleUrl={violation.evidence_bundle_url}
         evidenceSha256={violation.evidence_sha256}
         evidenceWarcUrl={violation.evidence_warc_url}
+        evidenceWaybackUrl={(violation as any).evidence_wayback_url}
       />
 
       {/* ── Reliability and Scoring ── */}

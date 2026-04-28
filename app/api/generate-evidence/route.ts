@@ -82,6 +82,21 @@ export async function POST(req: NextRequest) {
       console.error(`[Evidence] WARC capture failed (non-blocking):`, e.message);
     }
 
+    // 6b. Wayback Machine Capture (for high visual fidelity)
+    let waybackUrl = null;
+    try {
+      // Trigger a save on the Wayback Machine
+      await fetch(`https://web.archive.org/save/${violation.match_url}`, { 
+        method: 'GET',
+        signal: AbortSignal.timeout(10000) // Don't block for more than 10s
+      });
+      // Construct the generic timeline URL which will show the latest capture
+      waybackUrl = `https://web.archive.org/web/*/${violation.match_url}`;
+      console.log(`[Evidence] Triggered Wayback Machine capture for ${violation.match_url}`);
+    } catch (e: any) {
+      console.error(`[Evidence] Wayback capture trigger failed:`, e.message);
+    }
+
     // 7. Generate the PDF
     const { buffer, sha256 } = await generateEvidenceBundle(violation, asset, eligibility, warcResult);
     console.log(`[Evidence] PDF generated: ${buffer.length} bytes, SHA-256: ${sha256}`);
@@ -137,6 +152,7 @@ export async function POST(req: NextRequest) {
       evidence_sha256: sha256,
       evidence_generated_at: FieldValue.serverTimestamp(),
       ...(warcUrl ? { evidence_warc_url: warcUrl } : {}),
+      ...(waybackUrl ? { evidence_wayback_url: waybackUrl } : {}),
       ...(warcResult ? {
         evidence_warc_metadata: {
           server_ip: warcResult.serverIp,
@@ -164,6 +180,7 @@ export async function POST(req: NextRequest) {
       bundleUrl,
       sha256,
       warcUrl,
+      waybackUrl,
     });
 
   } catch (error: any) {

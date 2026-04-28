@@ -13,9 +13,10 @@ interface DMCAPanelProps {
   evidenceBundleUrl?: string;
   evidenceSha256?: string;
   evidenceWarcUrl?: string;
+  evidenceWaybackUrl?: string;
 }
 
-export function DMCAPanel({ violationId, dmcaStatus, dmcaNoticeId, evidenceStatus, evidenceBundleUrl, evidenceSha256, evidenceWarcUrl }: DMCAPanelProps) {
+export function DMCAPanel({ violationId, dmcaStatus, dmcaNoticeId, evidenceStatus, evidenceBundleUrl, evidenceSha256, evidenceWarcUrl, evidenceWaybackUrl }: DMCAPanelProps) {
   const router = useRouter();
   const [eligibility, setEligibility] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -147,16 +148,41 @@ export function DMCAPanel({ violationId, dmcaStatus, dmcaNoticeId, evidenceStatu
                     View PDF Bundle
                   </a>
                 )}
-                {evidenceWarcUrl && (
+                {evidenceWaybackUrl && (
                   <a
-                    href={evidenceWarcUrl}
+                    href={evidenceWaybackUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-muted hover:text-brand-text transition-colors"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline transition-colors"
+                    title="View high-fidelity snapshot on Archive.org"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    Download WARC
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Archive.org Snapshot
                   </a>
+                )}
+                {evidenceWarcUrl && (
+                  <>
+                    <a
+                      href={`https://replayweb.page/?source=${encodeURIComponent(evidenceWarcUrl)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-500 hover:text-indigo-400 transition-colors"
+                      title="View WARC archive in the browser via ReplayWeb.page"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      View Raw WARC
+                    </a>
+                    <a
+                      href={evidenceWarcUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-muted hover:text-brand-text transition-colors"
+                      download
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Download WARC
+                    </a>
+                  </>
                 )}
               </div>
             </div>
