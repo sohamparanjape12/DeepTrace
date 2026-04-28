@@ -40,6 +40,45 @@ export const DOMAIN_CLASS_PRIORS: Record<
   'etsy.com': { class: 'ecommerce', piracy_prior: 0.45 },
 };
 
+// ---------------------------------------------------------------------------
+// FIX 1: Rights tier multipliers applied SERVER-SIDE to domain priors.
+// This ensures that restricted assets on commercial platforms always score
+// high regardless of what Gemini returns.
+// ---------------------------------------------------------------------------
+export const RIGHTS_TIER_MULTIPLIERS: Record<string, number> = {
+  internal: 2.5,       // Internal-only: any third-party use is critical
+  'All Rights': 2.0,   // All rights reserved: no third-party use allowed
+  Commercial: 1.0,     // Commercial license: standard scoring
+  Editorial: 0.8,      // Editorial license: news use is expected
+};
+
+/**
+ * Computes an adjusted piracy prior by applying the rights tier multiplier
+ * to the domain's base prior. Result is capped at 0.95 to avoid div-by-zero
+ * downstream and to leave room for Gemini signals.
+ *
+ * Example: amazon.com (0.40) × internal (2.5) = 1.0 → capped at 0.95 → HIGH
+ */
+export function getAdjustedPiracyPrior(
+  domain: string,
+  rightsTier: string
+): number {
+  const domainEntry = DOMAIN_CLASS_PRIORS[domain];
+  const basePrior = domainEntry?.piracy_prior ?? 0.5; // unknown domains default to 0.5
+  const multiplier = RIGHTS_TIER_MULTIPLIERS[rightsTier] ?? 1.0;
+  return Math.min(basePrior * multiplier, 0.95);
+}
+
+// ---------------------------------------------------------------------------
+// FIX 2: Rights tier metadata typed explicitly so the prompt builder and
+// scoring engine share a single source of truth.
+// ---------------------------------------------------------------------------
+export const RESTRICTED_TIERS = new Set(['internal', 'All Rights']);
+
+export function isRestrictedTier(rightsTier: string): boolean {
+  return RESTRICTED_TIERS.has(rightsTier);
+}
+
 export interface MasterPromptParams {
   rightsTier: string;
   tags: string[];

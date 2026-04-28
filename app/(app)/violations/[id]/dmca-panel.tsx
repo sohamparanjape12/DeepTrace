@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 
 interface DMCAPanelProps {
   violationId: string;
+  violationStatus?: string;
   dmcaStatus?: string;
   dmcaNoticeId?: string;
   evidenceStatus?: string;
@@ -40,7 +41,7 @@ export function DMCAPanel({ violationId, dmcaStatus, dmcaNoticeId, evidenceStatu
       }
     }
     checkEligibility();
-  }, [violationId]);
+  }, [violationId, violationStatus]);
 
   const handleGenerateEvidence = async () => {
     setGeneratingEvidence(true);
@@ -82,14 +83,30 @@ export function DMCAPanel({ violationId, dmcaStatus, dmcaNoticeId, evidenceStatu
     }
   };
 
+  // DEBUG: Monitor state changes in production
+  useEffect(() => {
+    console.log('[DMCAPanel] State:', { 
+      violationId, 
+      violationStatus, 
+      isManualOverride: violationStatus === 'disputed',
+      eligible: eligibility?.eligible,
+      blocked: eligibility?.blocked_by
+    });
+  }, [violationId, violationStatus, eligibility]);
+
   if (loading) return (
     <div className="bento-card p-8 flex items-center justify-center">
       <Loader2 className="w-6 h-6 animate-spin text-brand-muted" />
     </div>
   );
 
-  const isEligible = eligibility?.eligible;
+  const isManualOverride = violationStatus === 'disputed';
   const needsOnboarding = eligibility?.blocked_by?.includes('missing_attestation');
+  
+  // Now that the backend library handles the manual override, we primarily trust the eligibility flag.
+  // We keep the client-side isManualOverride check for instant UI feedback if the fetch is still pending.
+  const isEligible = eligibility?.eligible || (isManualOverride && (eligibility ? !needsOnboarding : true));
+  
   const hasEvidence = !!(localEvidenceUrl || evidenceStatus === 'generated');
   const evidenceUrl = localEvidenceUrl || evidenceBundleUrl;
 
@@ -114,6 +131,15 @@ export function DMCAPanel({ violationId, dmcaStatus, dmcaNoticeId, evidenceStatu
           <Button onClick={() => router.push(`/dmca/${dmcaNoticeId}`)} variant="secondary" className="border-indigo-200 text-indigo-900 hover:bg-indigo-100 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-900/50">
             View Notice Details
           </Button>
+        </div>
+      )}
+
+      {isManualOverride && !isActive && (
+        <div className="p-3 bg-brand-amber-muted border border-brand-amber-text/20 rounded-lg flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-brand-amber-text" />
+          <p className="text-[10px] font-bold text-brand-amber-text uppercase tracking-wider">
+            Manual Override Active — Eligibility criteria bypassed via dispute
+          </p>
         </div>
       )}
 

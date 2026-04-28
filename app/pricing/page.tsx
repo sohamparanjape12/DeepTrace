@@ -8,7 +8,7 @@ import Link from 'next/link';
 const PLANS = [
   {
     name: 'Standard',
-    price: '$499',
+    price: '₹41,900',
     description: 'Essential protection for independent creators and boutique agencies.',
     features: [
       'Up to 500 Managed Assets',
@@ -22,7 +22,7 @@ const PLANS = [
   },
   {
     name: 'Professional',
-    price: '$1,299',
+    price: '₹1,09,100',
     description: 'Advanced forensics and automated resolution for high-volume studios.',
     features: [
       'Up to 2,500 Managed Assets',

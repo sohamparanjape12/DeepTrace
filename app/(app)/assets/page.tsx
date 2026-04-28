@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Plus, Info, Library, ShieldAlert, Loader2, CheckCircle, Clock, ChevronDown, ChevronUp, Search, Brain, Zap } from 'lucide-react';
+import { Plus, Info, Library, ShieldAlert, Loader2, CheckCircle, Clock, ChevronDown, ChevronUp, Search, Brain, Zap, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { AssetCard } from '@/components/shared/AssetCard';
 import { FilterTabs } from '@/components/shared/FilterTabs';
@@ -21,6 +21,9 @@ export default function AssetsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkLoading, setIsBulkLoading] = useState(false);
 
   useEffect(() => {
     // Auth State Check: Ensure listener only starts after user is fully authenticated
@@ -47,6 +50,45 @@ export default function AssetsPage() {
     return () => unsubscribe();
   }, [user, sortOrder, authLoading]);
 
+  const handleSelect = (id: string, selected: boolean) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (selected) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map(a => a.asset_id || a.id)));
+    }
+  };
+
+  const bulkDelete = async () => {
+    if (!user || selectedIds.size === 0) return;
+    if (!confirm(`Are you sure you want to delete ${selectedIds.size} assets?`)) return;
+
+    setIsBulkLoading(true);
+    try {
+      await Promise.all(Array.from(selectedIds).map(id =>
+        fetch(`/api/assets/${id}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.uid })
+        })
+      ));
+      setSelectedIds(new Set());
+    } catch (e) {
+      console.error(e);
+      alert('Failed to delete some assets');
+    } finally {
+      setIsBulkLoading(false);
+    }
+  };
+
   const TABS = [
     { key: 'all', label: 'All', count: assets.length },
     { key: 'violations_found', label: 'Violations', count: assets.filter(a => a.scan_status === 'violations_found').length },
@@ -60,14 +102,14 @@ export default function AssetsPage() {
     : assets.filter(a => a.scan_status === activeTab);
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-12 pb-24 relative">
       <PageHeader
         title="Asset Library"
         size="xl"
         subtitle="All registered media assets and their current scan status."
         actions={
           <Link href="/assets/upload">
-            <Button size="lg" className="flex items-center gap-2">
+            <Button size="lg" className="flex items-center gap-2 shadow-lg shadow-brand-accent/20">
               <Plus className="w-4 h-4" /> Register New Asset
             </Button>
           </Link>
@@ -174,7 +216,17 @@ export default function AssetsPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <FilterTabs tabs={TABS} active={activeTab} onChange={setActiveTab} />
+        <div className="flex items-center gap-6">
+          <FilterTabs tabs={TABS} active={activeTab} onChange={setActiveTab} />
+          {filtered.length > 0 && (
+            <button
+              onClick={handleSelectAll}
+              className="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-text transition-colors"
+            >
+              {selectedIds.size === filtered.length ? 'Deselect All' : `Select All (${filtered.length})`}
+            </button>
+          )}
+        </div>
         <div className="flex items-center gap-2 bg-brand-surface border border-brand-border px-3 py-1.5 rounded-lg">
           <span className="text-[10px] font-black uppercase tracking-widest text-brand-muted">Sort</span>
           <select
@@ -205,12 +257,59 @@ export default function AssetsPage() {
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-5 gap-y-8">
           {filtered.map((asset) => (
-            <Link key={asset.asset_id} href={`/assets/${asset.asset_id}`} className="block">
-              <AssetCard asset={asset} />
-            </Link>
+            <AssetCard
+              key={asset.asset_id || asset.id}
+              asset={asset}
+              isSelected={selectedIds.has(asset.asset_id || asset.id)}
+              onSelect={handleSelect}
+              onClick={() => !isBulkLoading && window.location.assign(`/assets/${asset.asset_id || asset.id}`)}
+            />
           ))}
+        </div>
+      )}
+
+      {/* ─── Bulk Actions Toolbar ─── */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-8 duration-500">
+          <div className="bg-brand-text text-brand-bg px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-8 border border-white/10 backdrop-blur-xl">
+            <div className="flex flex-col">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50">Selected Assets</p>
+              <p className="text-lg font-display font-black leading-none">{selectedIds.size}</p>
+            </div>
+
+            <div className="h-8 w-px bg-white/10" />
+
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-brand-bg hover:bg-white/10 flex items-center gap-2"
+                onClick={() => alert('Exporting forensic data...')}
+              >
+                <Library className="w-3.5 h-3.5" />
+                Export Data
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-red-400 hover:bg-red-500/20 flex items-center gap-2"
+                onClick={bulkDelete}
+                disabled={isBulkLoading}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete
+              </Button>
+            </div>
+
+            <button
+              className="ml-4 p-2 hover:bg-white/10 rounded-full transition-colors"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              <Plus className="w-4 h-4 rotate-45" />
+            </button>
+          </div>
         </div>
       )}
     </div>

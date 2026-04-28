@@ -27,7 +27,7 @@ export interface EvidenceQuality {
   original_image_loaded: boolean;
   suspect_image_loaded: boolean;
   both_images_available: boolean;
-  match_type_strength: number; // full_match=1.0, partial=0.7, visually_similar=0.4
+  match_type_strength: number;
 }
 
 export interface ClassifyParams extends MasterPromptParams {

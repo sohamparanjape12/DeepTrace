@@ -36,7 +36,7 @@ export function StatCard({ label, value, icon, trend, trendUp, isNegative, class
         )}
       </div>
       <div className="space-y-1">
-        <p className="text-5xl font-display font-black tracking-tighter text-brand-text">{value}</p>
+        <p className="text-4xl font-display font-black tracking-tighter text-brand-text">{value}</p>
         <p className="text-brand-muted">{label}</p>
       </div>
     </div>
