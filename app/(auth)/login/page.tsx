@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-provider';
 import { Shield } from 'lucide-react';
 import Image from 'next/image';
+import { auth } from '@/lib/firebase';
 
 export default function LoginPage() {
   const { user, loading, signInWithGoogle } = useAuth();
@@ -14,8 +15,10 @@ export default function LoginPage() {
 
   // Redirect to dashboard if already signed in
   useEffect(() => {
+    console.log('[Login] State change:', { hasUser: !!user, loading });
     if (!loading && user) {
-      router.replace('/dashboard');
+      console.log('[Login] Authenticated, redirecting to dashboard...');
+      router.push('/dashboard');
     }
   }, [user, loading, router]);
 
@@ -83,7 +86,21 @@ export default function LoginPage() {
 
           <div className="space-y-4">
             <button
-              onClick={signInWithGoogle}
+              onClick={async () => {
+                try {
+                  console.log('[Login] Starting Google Sign-In...');
+                  await signInWithGoogle();
+                  console.log('[Login] Sign-In provider call resolved');
+                  // The useEffect will handle the redirect once onAuthStateChanged fires,
+                  // but we can also check here if user is already populated
+                  if (auth.currentUser) {
+                    console.log('[Login] User found immediately after provider call, pushing...');
+                    router.push('/dashboard');
+                  }
+                } catch (err) {
+                  console.error('[Login] Sign-in error:', err);
+                }
+              }}
               className="w-full flex items-center justify-center gap-4 px-6 py-4 rounded-xl border-2 border-brand-border bg-brand-surface hover:border-brand-text hover:shadow-soft-lg transition-all duration-300 group"
             >
               {/* Google SVG icon */}

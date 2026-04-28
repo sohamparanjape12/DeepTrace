@@ -36,23 +36,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       if (u) {
-        // User is signed in, sync with server session
+        console.log('[Auth] Syncing session...');
         try {
           const idToken = await u.getIdToken();
-          await fetch('/api/auth/login', {
+          const res = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ idToken }),
           });
+          
+          if (res.ok) {
+            console.log('[Auth] Session synced successfully');
+          } else {
+            console.error('[Auth] Session sync failed:', await res.text());
+          }
         } catch (err) {
-          console.error('Failed to sync session:', err);
+          console.error('[Auth] Error during session sync:', err);
         }
       } else {
-        // User is signed out, clear server session
         try {
           await fetch('/api/auth/logout', { method: 'POST' });
         } catch (err) {
-          console.error('Failed to clear session:', err);
+          console.error('[Auth] Logout sync failed:', err);
         }
       }
       
