@@ -1,3 +1,4 @@
+import { Client } from "@upstash/qstash";
 import { getBaseUrl } from "./utils/url";
 
 export const qstashClient = new Client({
