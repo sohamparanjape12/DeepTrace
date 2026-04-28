@@ -3,20 +3,21 @@
 import { useState, useEffect, use, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { ArrowLeft, ExternalLink, Calendar, Globe, Cpu, CheckCircle, Shield } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Calendar, Globe, Cpu, CheckCircle, Shield, Trash2, Loader2, RotateCcw } from 'lucide-react';
 import { SeverityChip } from '@/components/shared/SeverityChip';
 import { Button } from '@/components/ui/Button';
 import { clsx } from 'clsx';
 import type { Violation } from '@/types';
 import { useAuth } from '@/lib/auth-context';
 import { db, auth } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { TriageActions } from './TriageActions';
 import { ReliabilityRing } from '@/components/shared/ReliabilityRing';
 import { ExplainabilityList } from '@/components/shared/ExplainabilityList';
 import { ContradictionBanner } from '@/components/shared/ContradictionBanner';
 import { Badge } from '@/components/ui/Badge';
 import { DMCAPanel } from './dmca-panel';
+import { useRouter } from 'next/navigation';
 
 const classConfig: Record<string, { label: string; classes: string }> = {
   UNAUTHORIZED: { label: 'Unauthorized', classes: 'text-brand-red-text bg-brand-red-muted border-brand-red-text/20' },
@@ -40,8 +41,12 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
   const [asset, setAsset] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUnauthorized, setIsUnauthorized] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isRescanning, setIsRescanning] = useState(false);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const dmcaRef = useRef<HTMLDivElement>(null);
   const action = searchParams.get('action');
+  const router = useRouter();
 
   useEffect(() => {
     if (action === 'dmca' && !isLoading && violation) {
@@ -89,6 +94,35 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
     fetchData();
   }, [id, user, authLoading]);
 
+  const handleDelete = async () => {
+    if (!id || !user) return;
+    setIsDeleting(true);
+    try {
+      await deleteDoc(doc(db, 'violations', id));
+      router.push(fromAsset ? `/assets/${fromAsset}` : '/violations');
+    } catch (err) {
+      console.error('Delete failed:', err);
+      alert('Failed to delete violation');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleRescan = async () => {
+    if (!id || isRescanning) return;
+    setIsRescanning(true);
+    try {
+      const res = await fetch(`/api/process-violation/${id}`, { method: 'POST' });
+      if (!res.ok) throw new Error('Rescan failed');
+      setTimeout(() => window.location.reload(), 2000);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to trigger re-audit');
+    } finally {
+      setIsRescanning(false);
+    }
+  };
+
   if (isLoading) return <div className="p-12 animate-pulse space-y-8">
     <div className="h-10 w-48 bg-brand-border rounded-lg" />
     <div className="h-96 bg-brand-border rounded-2xl" />
@@ -129,8 +163,8 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
   return (
     <div className="space-y-12 w-full pb-24">
       {/* Back & Status Header */}
-      <div className="flex flex-col gap-6">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+        <div className="space-y-4">
           <Link href={fromAsset ? `/assets/${fromAsset}` : "/violations"}>
             <Button variant="secondary" size="sm" className="flex items-center gap-2">
               <ArrowLeft className="w-3.5 h-3.5" /> {fromAsset ? "Back to Asset" : "Violations"}
@@ -148,7 +182,63 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
             )}
           </div>
         </div>
+
+        <div className="flex items-center gap-3">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleRescan}
+            disabled={isRescanning}
+            className="text-brand-muted hover:text-brand-text transition-all group"
+          >
+            {isRescanning ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <RotateCcw className="w-3.5 h-3.5 mr-2 group-hover:rotate-180 transition-transform duration-500" />}
+            Re-audit Violation
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setShowConfirmDelete(true)}
+            className="text-brand-muted hover:text-brand-red-text transition-all group"
+          >
+            <Trash2 className="w-3.5 h-3.5 mr-2 group-hover:scale-110 transition-transform" />
+            Delete
+          </Button>
+        </div>
       </div>
+
+      {/* Deletion Overlay */}
+      {showConfirmDelete && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-white/80 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bento-card p-8 max-w-sm w-full text-center space-y-6 shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="w-16 h-16 rounded-full bg-brand-red-muted flex items-center justify-center mx-auto text-brand-red-text">
+              <Trash2 className="w-8 h-8" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-display font-black uppercase tracking-tight text-brand-text">Purge Record?</h2>
+              <p className="text-sm text-brand-muted leading-relaxed">
+                This will permanently remove this violation record from the forensic registry. This action cannot be reversed.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => setShowConfirmDelete(false)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-brand-red-text hover:opacity-90 text-white border-transparent"
+                onClick={handleDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm Purge'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Side-by-Side Comparison ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -254,6 +344,7 @@ export default function ViolationDetailPage({ params }: { params: Promise<{ id: 
       {/* ── DMCA Takedown Module ── */}
       <DMCAPanel
         violationId={violation.violation_id}
+        violationStatus={violation.status}
         dmcaStatus={(violation as any).dmca_status}
         dmcaNoticeId={(violation as any).dmca_notice_id}
         evidenceStatus={violation.evidence_status}

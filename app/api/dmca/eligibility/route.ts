@@ -20,6 +20,8 @@ export async function GET(req: NextRequest) {
     const cDoc = await db.collection('organizations').doc(violation.owner_id).get();
     let customer = cDoc.exists ? cDoc.data() as CustomerProfile : null;
     
+    console.log(`[Eligibility] Org ${violation.owner_id}: exists=${cDoc.exists}, signed=${customer?.dmca_attestation_signed}, data=${JSON.stringify(customer)}`);
+    
     // Fallback stub if customer profile not fully setup for DMCA MVP
     if (!customer) {
       customer = { id: violation.owner_id, org_name: 'Unknown', dmca_attestation_signed: false };

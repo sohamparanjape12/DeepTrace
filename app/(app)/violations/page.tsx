@@ -94,8 +94,8 @@ export default function ViolationsPage() {
       </div>
 
       {isLoading ? (
-        <div className="space-y-5">
-          {[1, 2, 3].map(i => (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {[1, 2, 3, 4].map(i => (
             <div key={i} className="h-40 bg-brand-bg rounded-2xl animate-pulse" />
           ))}
         </div>
@@ -105,7 +105,7 @@ export default function ViolationsPage() {
           <p className="text-brand-muted text-sm">No violations match this filter.</p>
         </div>
       ) : (
-        <div className="space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {filtered.map(v => (
             <Link key={v.violation_id} href={`/violations/${v.violation_id}`} className="block">
               <ViolationCard

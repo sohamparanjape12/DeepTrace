@@ -19,7 +19,7 @@ export interface EvidenceQuality {
   original_image_loaded: boolean;
   suspect_image_loaded: boolean;
   both_images_available: boolean;
-  match_type_strength: number; // full_match=1.0, partial=0.7, visually_similar=0.4
+  match_type_strength: number;
 }
 
 export interface ClassifyParams extends MasterPromptParams {
@@ -27,39 +27,28 @@ export interface ClassifyParams extends MasterPromptParams {
   originalAssetUrl?: string;
   violationImageUrl?: string;
   assetFirstPublishUrl?: string;
-  /** Raw suspect image bytes if the worker already downloaded them (e.g. for pHash). Avoids a second fetch. */
   violationImageBuffer?: Buffer;
-  /** Mime type to pair with violationImageBuffer. Defaults to 'image/jpeg' if omitted. */
   violationImageMime?: string;
-  /** Similarity score (0..1) from the perceptual-filter gate. Blended into relevancy as a sanity check. */
   gateSimilarity?: number;
-  /** Gate tier label, forwarded into explainability bullets only. */
   gateTier?: 'NEAR_IDENTICAL' | 'TRANSFORMED' | 'HIGH_RISK_OVERRIDE' | 'DROPPED_LOW_SIM' | 'DROPPED_NO_HASH';
 }
 
 export interface ClassificationResult {
-  // Three axes
-  relevancy: number;           // 0.0–1.0 — "is this my image?"
-  confidence: number;          // 0.0–1.0 — "how sure are we?"
-  reliability_score: number;   // 0–100 — dashboard-friendly version
+  relevancy: number;
+  confidence: number;
+  reliability_score: number;
   reliability_tier: 'HIGH' | 'MEDIUM' | 'LOW';
-
-  // Classification
   classification: Classification;
   severity: Severity;
   recommended_action: 'escalate' | 'human_review' | 'monitor' | 'no_action';
-
-  // Evidence
   domain_class: DomainClass;
   evidence_quality: EvidenceQuality;
   contradiction_flag: boolean;
   contradictions: string[];
   abstained: boolean;
   explainability_bullets: string[];
-
-  // Raw signals from Gemini
   visual_match_score: number;
-  contextual_match_score: number; // mapped from context_authenticity_score
+  contextual_match_score: number;
   commercial_exploitation: boolean;
   is_derivative_work: boolean;
   watermark_intact: boolean;
@@ -71,19 +60,117 @@ export interface ClassificationResult {
   sentiment: 'positive' | 'neutral' | 'negative';
   brand_safety_risk: 'safe' | 'low' | 'medium' | 'high' | 'critical';
   risk_factors: string[];
-
-  // Adaptive weights used (for audit trail)
-  applied_weights: Record<string, number | boolean>;
-
-  // Business Impact
+  applied_weights: Record<string, number | boolean | string>;
   region: string;
   revenue_risk: number;
-
-  // Legacy compatibility fields
   commercial_signal: boolean;
   watermark_likely_removed: boolean;
   scores: Record<string, number>;
   signals: Record<string, boolean | string>;
+}
+
+// ── FIX 1: Centralized rights tier config ──────────────────────────────────
+// Single source of truth for all restricted tiers and their scoring impact.
+// Previously isStrictlyRestricted only checked 'no_reuse' | 'internal_use_only'
+// but the multiplier table in prompts.v2.ts also had 'internal' | 'All Rights'.
+// This unifies them and adds severityFloor so severity and classification
+// can never disagree.
+
+const RIGHTS_TIER_CONFIG: Record<string, {
+  isRestricted: boolean;
+  piracyMultiplier: number;
+  severityFloor: Severity;
+}> = {
+  'no_reuse': { isRestricted: true, piracyMultiplier: 2.5, severityFloor: 'CRITICAL' },
+  'internal_use_only': { isRestricted: true, piracyMultiplier: 2.5, severityFloor: 'CRITICAL' },
+  'internal': { isRestricted: true, piracyMultiplier: 2.5, severityFloor: 'CRITICAL' },
+  'All Rights': { isRestricted: true, piracyMultiplier: 2.0, severityFloor: 'HIGH' },
+  'Commercial': { isRestricted: false, piracyMultiplier: 1.0, severityFloor: 'MEDIUM' },
+  'Editorial': { isRestricted: false, piracyMultiplier: 0.8, severityFloor: 'LOW' },
+};
+
+function getRightsTierConfig(rightsTier: string) {
+  return RIGHTS_TIER_CONFIG[rightsTier] ?? {
+    isRestricted: false,
+    piracyMultiplier: 1.0,
+    severityFloor: 'MEDIUM' as Severity,
+  };
+}
+
+// ── FIX 2: Domain prior lookup by URL, not by DomainClass ─────────────────
+// The old getPiracyPrior(domainClass) iterated Object.values() and returned
+// the FIRST domain it found with that class — so ebay.com (0.50) could
+// shadow amazon.com (0.45), and any class lookup was non-deterministic.
+// Now we match the actual hostname directly.
+
+function getPiracyPriorForUrl(url: string): number {
+  try {
+    const hostname = new URL(url).hostname.replace(/^www\./, '');
+    for (const [domain, config] of Object.entries(DOMAIN_CLASS_PRIORS)) {
+      if (hostname === domain || hostname.endsWith('.' + domain)) {
+        return config.piracy_prior;
+      }
+    }
+  } catch (_) { }
+
+  // Fallback by class if domain isn't in the table
+  const domainClass = classifyDomain(url);
+  switch (domainClass) {
+    case 'wire_service': return 0.01;
+    case 'major_news': return 0.05;
+    case 'social': return 0.25;
+    case 'betting': return 0.85;
+    case 'piracy': return 0.95;
+    case 'ecommerce': return 0.45;
+    default: return 0.50;
+  }
+}
+
+// ── FIX 3: getAdjustedPiracyPrior is now ACTUALLY CALLED in scoring ────────
+// In the previous version this function was defined but never invoked —
+// severity was computed from the raw piracy prior with no tier multiplier.
+
+function getAdjustedPiracyPrior(url: string, rightsTier: string): number {
+  const basePrior = getPiracyPriorForUrl(url);
+  const { piracyMultiplier } = getRightsTierConfig(rightsTier);
+  return Math.min(basePrior * piracyMultiplier, 0.95);
+}
+
+// ── FIX 4: computeSeverity applies the hard severityFloor ─────────────────
+// The old logic had no floor, so a restricted-tier UNAUTHORIZED result on
+// amazon.com would still land at MEDIUM because severityRaw ≈ 0.43.
+// Now: if classification === UNAUTHORIZED, severity can never fall below
+// the tier's defined floor (CRITICAL for no_reuse, HIGH for All Rights).
+
+const SEVERITY_ORDER: Severity[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+
+function computeSeverity(
+  adjustedPrior: number,
+  relevancyAdjusted: number,
+  commercialExploitation: boolean,
+  classification: Classification,
+  rightsTier: string,
+): Severity {
+  const commercialMultiplier = commercialExploitation ? 1.2 : 0.8;
+  const severityRaw = Math.min(
+    1.0,
+    adjustedPrior * commercialMultiplier * (0.5 + relevancyAdjusted * 0.5)
+  );
+
+  let severity: Severity =
+    severityRaw >= 0.80 ? 'CRITICAL' :
+      severityRaw >= 0.50 ? 'HIGH' :
+        severityRaw >= 0.30 ? 'MEDIUM' : 'LOW';
+
+  // Hard floor: UNAUTHORIZED + restricted tier → severity can never go below floor
+  if (classification === 'UNAUTHORIZED') {
+    const { severityFloor } = getRightsTierConfig(rightsTier);
+    if (SEVERITY_ORDER.indexOf(severity) < SEVERITY_ORDER.indexOf(severityFloor)) {
+      severity = severityFloor;
+    }
+  }
+
+  return severity;
 }
 
 // ── Helpers ──
@@ -96,84 +183,37 @@ export function classifyDomain(url: string): DomainClass {
         return config.class;
       }
     }
-  } catch (e) {
-    // invalid URL
-  }
+  } catch (_) { }
   return 'unknown';
-}
-
-function getPiracyPrior(domainClass: DomainClass): number {
-  // Find a matching prior or use defaults
-  for (const config of Object.values(DOMAIN_CLASS_PRIORS)) {
-    if (config.class === domainClass) return config.piracy_prior;
-  }
-
-  switch (domainClass) {
-    case 'wire_service': return 0.01;
-    case 'major_news': return 0.05;
-    case 'social': return 0.25;
-    case 'betting': return 0.85;
-    case 'piracy': return 0.95;
-    case 'ecommerce': return 0.45;
-    default: return 0.50; // unknown
-  }
 }
 
 function estimateRegion(url: string, domainClass: DomainClass): string {
   try {
     const hostname = new URL(url).hostname;
     const tld = hostname.split('.').pop()?.toLowerCase();
-
-    // Simple TLD mapping
     const regions: Record<string, string> = {
-      'com': 'North America',
-      'net': 'Global',
-      'org': 'Global',
-      'io': 'North America',
-      'uk': 'Western Europe',
-      'de': 'Western Europe',
-      'fr': 'Western Europe',
-      'it': 'Western Europe',
-      'es': 'Western Europe',
-      'nl': 'Western Europe',
-      'cn': 'APAC',
-      'jp': 'APAC',
-      'in': 'APAC',
-      'br': 'LATAM',
-      'mx': 'LATAM',
-      'ru': 'Eastern Europe',
+      'com': 'North America', 'net': 'Global', 'org': 'Global',
+      'io': 'North America', 'uk': 'Western Europe', 'de': 'Western Europe',
+      'fr': 'Western Europe', 'it': 'Western Europe', 'es': 'Western Europe',
+      'nl': 'Western Europe', 'cn': 'APAC', 'jp': 'APAC', 'in': 'APAC',
+      'br': 'LATAM', 'mx': 'LATAM', 'ru': 'Eastern Europe',
     };
-
     if (tld && regions[tld]) return regions[tld];
-
-    // Fallback based on domain class
     if (domainClass === 'major_news' || domainClass === 'social') return 'Global';
     if (domainClass === 'piracy' || domainClass === 'betting') return 'Offshore/Emerging';
-
-  } catch (e) { }
+  } catch (_) { }
   return 'International';
 }
 
 function calculateRevenueRisk(severity: Severity, domainClass: DomainClass): number {
   const baseRates: Record<Severity, number> = {
-    'CRITICAL': 850,
-    'HIGH': 350,
-    'MEDIUM': 120,
-    'LOW': 45
+    'CRITICAL': 850, 'HIGH': 350, 'MEDIUM': 120, 'LOW': 45
   };
-
   const multipliers: Record<DomainClass, number> = {
-    'piracy': 2.5,
-    'major_news': 1.8,
-    'social': 1.2,
-    'betting': 2.0,
-    'wire_service': 0.8,
-    'ecommerce': 3.0,
-    'unknown': 1.0,
-    'stock_photo': 0.5,
-    'portfolio': 0.3
+    'piracy': 2.5, 'major_news': 1.8, 'social': 1.2, 'betting': 2.0,
+    'wire_service': 0.8, 'ecommerce': 3.0, 'unknown': 1.0,
+    'stock_photo': 0.5, 'portfolio': 0.3
   };
-
   return Math.round(baseRates[severity] * (multipliers[domainClass] || 1));
 }
 
@@ -184,20 +224,20 @@ function bufferToGenerativePart(buf: Buffer, mime = 'image/jpeg') {
 // ── Main Classifier ──
 
 export async function classifyViolation(params: ClassifyParams): Promise<ClassificationResult> {
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY || "");
+  const genAI = new GoogleGenerativeAI(
+    process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY || ""
+  );
   const modelName = (process.env.GEMINI_MODEL || "gemini-1.5-flash").trim();
   const model = genAI.getGenerativeModel({
     model: modelName,
     generationConfig: { responseMimeType: "application/json" } as any
   });
 
-  // 1. Scrape Page Context (Jina Reader) if not provided
+  // 1. Scrape Page Context
   let scraped = { title: '', description: '', bodyText: '' };
   if (!params.pageTitle || !params.pageDescription) {
     scraped = await scrapePage(params.matchUrl);
   }
-
-  // Update params with scraped context if original fields are missing
   const enrichedParams = {
     ...params,
     pageTitle: params.pageTitle || scraped.title,
@@ -205,17 +245,18 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
     pageBody: params.pageBody || scraped.bodyText
   };
 
-  // 2. Evidence Quality Check
+  // 2. Evidence Quality
   const evidenceQuality: EvidenceQuality = {
     original_image_loaded: !!params.originalAssetUrl,
     suspect_image_loaded: !!params.violationImageUrl,
     both_images_available: !!(params.originalAssetUrl && params.violationImageUrl),
-    match_type_strength: params.matchType === 'full_match' ? 1.0 : params.matchType === 'partial_match' ? 0.7 : 0.4
+    match_type_strength: params.matchType === 'full_match' ? 1.0
+      : params.matchType === 'partial_match' ? 0.7 : 0.4
   };
 
   const domainClass = classifyDomain(enrichedParams.matchUrl);
 
-  // 3. Gemini Evidence Gathering
+  // 3. Build prompt and image parts
   const textPrompt = buildMasterPrompt(enrichedParams);
   const promptParts: any[] = [{ text: textPrompt }];
 
@@ -261,9 +302,9 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
   evidenceQuality.both_images_available =
     evidenceQuality.original_image_loaded && evidenceQuality.suspect_image_loaded;
 
+  // 4. Call Gemini
   let jsonResp: any;
   try {
-    // 2. Enforcement of Rate Limit (pacing)
     const now = Date.now();
     const timeSinceLast = now - lastGeminiRequestAt;
     if (timeSinceLast < MIN_GEMINI_GAP) {
@@ -272,69 +313,42 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
     lastGeminiRequestAt = Date.now();
 
     const result = await model.generateContent(promptParts);
-    const response = await result.response;
-    const text = response.text();
+    const text = result.response.text();
     if (!text || text.length < 5) throw new RetryableError('Empty Gemini response');
     jsonResp = JSON.parse(text);
   } catch (error: any) {
     if (error instanceof RetryableError || error instanceof PermanentError) throw error;
-
-    // Check for safety blocks or rate limits
     const msg = error.message?.toLowerCase() || '';
     const code = error.code || (error.status === 'RESOURCE_EXHAUSTED' ? 8 : 0);
-
     if (code === 8 || msg.includes('429') || msg.includes('quota') || msg.includes('rate limit')) {
       throw new RetryableError('Gemini rate limit exceeded (Quota Exhausted)');
     }
-
     if (msg.includes('safety') || msg.includes('blocked')) {
-      throw new RetryableError('Gemini safety block (Inappropriate content or filter trigger)');
+      throw new RetryableError('Gemini safety block');
     }
-
     throw new RetryableError(`Gemini Error: ${error.message || 'Unknown failure'}`);
   }
 
-  // 3. Adaptive Weighting Logic
-  let wVisual = 0.60;
-  let wContext = 0.30;
-  let wAttribution = 0.10;
-
+  // 5. Adaptive Weights
+  let wVisual = 0.60, wContext = 0.30, wAttribution = 0.10;
   if (!evidenceQuality.both_images_available) {
-    wVisual = 0.10; // Collapse visual weight
-    wContext = 0.70;
-    wAttribution = 0.20;
+    wVisual = 0.10; wContext = 0.70; wAttribution = 0.20;
   } else if (params.matchType === 'visually_similar') {
-    wVisual = 0.40;
-    wContext = 0.50;
-    wAttribution = 0.10;
+    wVisual = 0.40; wContext = 0.50; wAttribution = 0.10;
   }
 
-  const applied_weights = { visual: wVisual, context: wContext, attribution: wAttribution };
-
-  // 4. Three-Axis Scoring
-
-  // Relevancy: "Is this my image?" (Heavily weighted towards visual)
+  // 6. Three-Axis Scoring
   const gateSim = typeof params.gateSimilarity === 'number'
-    ? Math.max(0, Math.min(1, params.gateSimilarity))
-    : null;
+    ? Math.max(0, Math.min(1, params.gateSimilarity)) : null;
 
   const relevancy = gateSim !== null
-    ? (jsonResp.visual_match_score * 0.7)
-    + (evidenceQuality.match_type_strength * 0.2)
-    + (gateSim * 0.1)
-    : (jsonResp.visual_match_score * 0.8)
-    + (evidenceQuality.match_type_strength * 0.2);
+    ? (jsonResp.visual_match_score * 0.7) + (evidenceQuality.match_type_strength * 0.2) + (gateSim * 0.1)
+    : (jsonResp.visual_match_score * 0.8) + (evidenceQuality.match_type_strength * 0.2);
 
-  // Guardrail: if Gemini reports a very high visual match but the gate
-  // saw a very low similarity, penalise relevancy — one of them is wrong
-  // and we prefer the deterministic signal.
-  const relevancyAdjusted = (gateSim !== null
-    && jsonResp.visual_match_score >= 0.9
-    && gateSim <= 0.4)
-    ? relevancy * 0.6
-    : relevancy;
+  const relevancyAdjusted = (
+    gateSim !== null && jsonResp.visual_match_score >= 0.9 && gateSim <= 0.4
+  ) ? relevancy * 0.6 : relevancy;
 
-  // Confidence: "How sure are we?"
   let signalsCount = 0;
   if (jsonResp.visual_match_score > 0) signalsCount++;
   if (jsonResp.context_authenticity_score > 0) signalsCount++;
@@ -343,38 +357,20 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
   const baseConfidence = (signalsCount / 3) * (evidenceQuality.both_images_available ? 1.0 : 0.6);
   const confidence = Math.max(0.1, baseConfidence - (jsonResp.contradictions?.length ? 0.2 : 0));
 
-  // Reliability Score (0–100)
   const reliability_score = Math.round(((relevancyAdjusted * 0.5) + (confidence * 0.5)) * 100);
   const reliability_tier = reliability_score >= 80 ? 'HIGH' : reliability_score >= 50 ? 'MEDIUM' : 'LOW';
 
-  // Severity: "How bad is this?" (Domain prior * commercial signal * relevancy)
-  const piracyPrior = getPiracyPrior(domainClass);
-  const commercialMultiplier = jsonResp.commercial_exploitation ? 1.2 : 0.8;
-  const severityRaw = Math.min(1.0, piracyPrior * commercialMultiplier * (0.5 + (relevancyAdjusted * 0.5)));
-
-  let severity: Severity = 'LOW';
-  if (severityRaw >= 0.8) severity = 'CRITICAL';
-  else if (severityRaw >= 0.5) severity = 'HIGH';
-  else if (severityRaw >= 0.3) severity = 'MEDIUM';
-
-  // 5. Classification with Hard Rules
-  let classification: Classification = jsonResp.visual_match_score >= 0.7 ? 'UNAUTHORIZED' : 'NEEDS_REVIEW';
-
+  // 7. Classification
+  const { isRestricted } = getRightsTierConfig(params.rightsTier);
   const abstain = !evidenceQuality.both_images_available && jsonResp.context_authenticity_score < 0.4;
-  const contradiction_flag = (jsonResp.visual_match_score >= 0.8 && jsonResp.context_authenticity_score <= 0.3) || (jsonResp.contradictions?.length > 0);
+  const contradiction_flag = (jsonResp.visual_match_score >= 0.8 && jsonResp.context_authenticity_score <= 0.3)
+    || (jsonResp.contradictions?.length > 0);
 
-  // Rights-tier override: these tiers forbid ALL external reuse — editorial fair use is not a valid
-  // classification regardless of what Gemini detects in the page context.
-  const isStrictlyRestricted = (
-    params.rightsTier === 'no_reuse' ||
-    params.rightsTier === 'internal_use_only'
-  );
+  let classification: Classification = jsonResp.visual_match_score >= 0.7 ? 'UNAUTHORIZED' : 'NEEDS_REVIEW';
 
   if (abstain) {
     classification = 'INSUFFICIENT_EVIDENCE';
-  } else if (isStrictlyRestricted) {
-    // No external use is permissible — any detected usage is unauthorized by definition.
-    // Wire-service credit and editorial context are irrelevant overrides for this tier.
+  } else if (isRestricted) {
     classification = jsonResp.visual_match_score >= 0.5 ? 'UNAUTHORIZED' : 'NEEDS_REVIEW';
   } else if (domainClass === 'wire_service' && jsonResp.credit_present) {
     classification = 'AUTHORIZED';
@@ -384,21 +380,26 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
     classification = 'NEEDS_REVIEW';
   }
 
-  // 6. Temporal Impossibility Check
+  // Temporal impossibility
   if (params.pagePublishedAt && params.assetCaptureDate) {
     const pub = new Date(params.pagePublishedAt);
     const cap = new Date(params.assetCaptureDate);
-    if (pub < cap) {
-      classification = 'AUTHORIZED'; // Pre-dates asset
-    }
+    if (pub < cap) classification = 'AUTHORIZED';
   }
 
-  // 7. Recommended Action
+  // 8. Severity — FIX 3+4 applied here
+  const adjustedPrior = getAdjustedPiracyPrior(enrichedParams.matchUrl, params.rightsTier);
+  const severity = computeSeverity(
+    adjustedPrior,
+    relevancyAdjusted,
+    jsonResp.commercial_exploitation,
+    classification,
+    params.rightsTier,
+  );
+
+  // 9. Recommended Action
   let recommended_action: ClassificationResult['recommended_action'] = 'monitor';
-  if (classification === 'UNAUTHORIZED' && (
-    (severity === 'CRITICAL' && reliability_score >= 80) ||
-    isStrictlyRestricted  // no_reuse / internal_use_only: all detected use is a violation, escalate immediately
-  )) {
+  if (classification === 'UNAUTHORIZED' && (severity === 'CRITICAL' && reliability_score >= 80 || isRestricted)) {
     recommended_action = 'escalate';
   } else if (classification === 'UNAUTHORIZED' || classification === 'NEEDS_REVIEW') {
     recommended_action = 'human_review';
@@ -406,11 +407,14 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
     recommended_action = 'no_action';
   }
 
-  // 8. Explainability Bullets
+  // 10. Explainability Bullets
   const explainability_bullets: string[] = [];
-  if (jsonResp.visual_match_score >= 0.8) explainability_bullets.push(`✔ High visual match detected (${Math.round(jsonResp.visual_match_score * 100)}%)`);
-  else if (jsonResp.visual_match_score >= 0.4) explainability_bullets.push(`⚠ Moderate visual similarity`);
-  else explainability_bullets.push(`✖ Low visual match`);
+  if (jsonResp.visual_match_score >= 0.8)
+    explainability_bullets.push(`✔ High visual match detected (${Math.round(jsonResp.visual_match_score * 100)}%)`);
+  else if (jsonResp.visual_match_score >= 0.4)
+    explainability_bullets.push(`⚠ Moderate visual similarity`);
+  else
+    explainability_bullets.push(`✖ Low visual match`);
 
   if (jsonResp.commercial_exploitation) explainability_bullets.push(`→ Commercial context identified`);
   if (jsonResp.credit_present) explainability_bullets.push(`ℹ Creator attribution found on page`);
@@ -418,9 +422,9 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
   if (contradiction_flag) explainability_bullets.push(`⚠ Conflicting signals detected`);
   if (jsonResp.is_derivative_work) explainability_bullets.push(`→ Transformation: ${jsonResp.transformation_type}`);
 
-  // Rights-tier override audit trail
-  if (isStrictlyRestricted) {
+  if (isRestricted) {
     explainability_bullets.push(`⛔ Rights tier override: "${params.rightsTier}" prohibits all external reuse`);
+    explainability_bullets.push(`⛔ Severity floor applied: minimum ${getRightsTierConfig(params.rightsTier).severityFloor}`);
     if (jsonResp.context_type === 'editorial' || jsonResp.context_type === 'meme_parody') {
       explainability_bullets.push(`⚠ Gemini detected editorial context — overridden by rights tier restriction`);
     }
@@ -468,22 +472,24 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
       attribution: wAttribution,
       gate_similarity_used: gateSim !== null,
       gate_similarity_value: gateSim ?? 0,
+      adjusted_piracy_prior: adjustedPrior,
+      rights_tier_floor: getRightsTierConfig(params.rightsTier).severityFloor,
     },
     region: estimateRegion(enrichedParams.matchUrl, domainClass),
     revenue_risk: calculateRevenueRisk(severity, domainClass),
-    // Legacy mapping
     commercial_signal: jsonResp.commercial_exploitation,
     watermark_likely_removed: jsonResp.is_derivative_work && !jsonResp.watermark_intact,
     scores: {
       visual: jsonResp.visual_match_score,
       context: jsonResp.context_authenticity_score,
-      attribution: jsonResp.attribution_licensing_score
+      attribution: jsonResp.attribution_licensing_score,
+      adjusted_prior: adjustedPrior,
     },
     signals: {
       commercial: jsonResp.commercial_exploitation,
       derivative: jsonResp.is_derivative_work,
       watermark_intact: jsonResp.watermark_intact,
-      credit: jsonResp.credit_present
+      credit: jsonResp.credit_present,
     }
   };
 }

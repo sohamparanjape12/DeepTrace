@@ -58,17 +58,22 @@ export async function POST(req: NextRequest) {
       ? (cDoc.data() as CustomerProfile)
       : { id: violation.owner_id, org_name: asset.owner_org || 'Unknown', dmca_attestation_signed: false };
 
-    // 5. Evaluate eligibility — exclude 'already_in_flight' since evidence generation
-    //    must be possible even when a DMCA draft is active (that's when it's needed).
-    const eligibility = evaluateEligibility(violation, asset, customer);
-    const hardBlockers = (eligibility.blocked_by || []).filter(
-      (b: string) => b !== 'already_in_flight'
-    );
-    if (hardBlockers.length > 0) {
-      console.log(`[Evidence] Violation ${violationId} not eligible:`, hardBlockers);
+    // 5. Evaluate eligibility — evidence generation must be possible even if a DMCA draft exists.
+    //    The library function already handles the manual override for 'disputed' status.
+    const eligibility = evaluateEligibility(violation, asset, customer, { allowInFlight: true });
+    
+    // We allow evidence generation if the engine says it's eligible.
+    // Note: The library already ignores forensic blockers if status === 'disputed'.
+    if (!eligibility.eligible) {
+      console.log(`[Evidence] Violation ${violationId} not eligible:`, eligibility.blocked_by);
+      
+      const isMissingAttestation = eligibility.blocked_by?.includes('missing_attestation');
+      
       return NextResponse.json({
-        error: 'Violation does not meet DMCA eligibility criteria',
-        blocked_by: hardBlockers,
+        error: isMissingAttestation
+          ? 'Onboarding required: You must sign the legal attestation before generating evidence.' 
+          : 'Violation does not meet DMCA eligibility criteria',
+        blocked_by: eligibility.blocked_by,
         reasons: eligibility.reasons,
       }, { status: 400 });
     }

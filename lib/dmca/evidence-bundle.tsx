@@ -295,6 +295,12 @@ const EvidenceBundleDocument = ({
           <EligibilityItem label="Perjury Attestation Signed" passed={!blocked.has('missing_attestation')} />
           <EligibilityItem label="No Contradictions in Evidence" passed={!blocked.has('contradictions_present')} />
           <EligibilityItem label="No Active DMCA Notice" passed={!blocked.has('already_in_flight')} />
+          {violation.status === 'disputed' && (
+            <View style={{ ...s.eligibilityRow, marginTop: 4, paddingTop: 4, borderTop: `1px solid ${colors.faint}` }}>
+              <Text style={s.checkmark}>✓</Text>
+              <Text style={{ ...s.eligibilityLabel, fontWeight: 'bold' }}>MANUAL OVERRIDE: Analyst Dispute Resolved</Text>
+            </View>
+          )}
         </View>
 
         {warc && (
