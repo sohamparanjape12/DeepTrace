@@ -454,18 +454,36 @@ export async function generateEvidenceBundle(
   // Pre-fetch images to ensure they display in PDF
   const fetchAsBase64 = async (url?: string) => {
     if (!url) return undefined;
-    // Don't try to fetch non-image URLs
-    if (url.startsWith('http') && !url.match(/\.(jpg|jpeg|png|gif|webp|svg)/i) && !url.includes('firebasestorage') && !url.includes('cloudinary')) {
-      return undefined;
-    }
+    
+    // basic sanitization of the URL
+    const targetUrl = url.trim().replace(/ /g, '%20');
+
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-      if (!res.ok) return undefined;
+      const res = await fetch(targetUrl, { 
+        signal: AbortSignal.timeout(12000), // increased timeout
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 DeepTrace-Forensic-Archiver/1.0',
+          'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+        }
+      });
+      
+      if (!res.ok) {
+        console.warn(`[PDF] Image fetch failed (${res.status}): ${targetUrl}`);
+        return undefined;
+      }
+      
       const buffer = Buffer.from(await res.arrayBuffer());
       const contentType = res.headers.get('content-type') || 'image/png';
+      
+      // Verification: Ensure it's actually an image
+      if (!contentType.startsWith('image/') && !targetUrl.includes('firebasestorage') && !targetUrl.includes('cloudinary')) {
+        console.warn(`[PDF] URL returned non-image content-type (${contentType}): ${targetUrl}`);
+        return undefined;
+      }
+
       return `data:${contentType};base64,${buffer.toString('base64')}`;
     } catch (e) {
-      console.warn(`[PDF] Failed to pre-fetch image: ${url}`, e);
+      console.warn(`[PDF] Error pre-fetching image: ${targetUrl}`, e);
       return undefined;
     }
   };
