@@ -91,9 +91,9 @@ const RIGHTS_TIER_CONFIG: Record<string, {
   'no_reuse': { isRestricted: true, piracyMultiplier: 2.5, severityFloor: 'CRITICAL' },
   'internal_use_only': { isRestricted: true, piracyMultiplier: 2.5, severityFloor: 'CRITICAL' },
   'internal': { isRestricted: true, piracyMultiplier: 2.5, severityFloor: 'CRITICAL' },
-  'All Rights': { isRestricted: true, piracyMultiplier: 2.0, severityFloor: 'HIGH' },
-  'Commercial': { isRestricted: false, piracyMultiplier: 1.0, severityFloor: 'MEDIUM' },
-  'Editorial': { isRestricted: false, piracyMultiplier: 0.8, severityFloor: 'LOW' },
+  'all_rights': { isRestricted: true, piracyMultiplier: 2.0, severityFloor: 'HIGH' },
+  'commercial': { isRestricted: false, piracyMultiplier: 1.0, severityFloor: 'MEDIUM' },
+  'editorial': { isRestricted: false, piracyMultiplier: 0.8, severityFloor: 'LOW' },
 };
 
 function getRightsTierConfig(rightsTier: string) {

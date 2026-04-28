@@ -73,11 +73,6 @@ export function getAdjustedPiracyPrior(
 // FIX 2: Rights tier metadata typed explicitly so the prompt builder and
 // scoring engine share a single source of truth.
 // ---------------------------------------------------------------------------
-export const RESTRICTED_TIERS = new Set(['internal', 'All Rights']);
-
-export function isRestrictedTier(rightsTier: string): boolean {
-  return RESTRICTED_TIERS.has(rightsTier);
-}
 
 export interface MasterPromptParams {
   rightsTier: string;

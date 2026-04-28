@@ -18,7 +18,11 @@ import {
   AlertTriangle, 
   Loader2, 
   ImageIcon,
-  Fingerprint
+  Fingerprint,
+  Newspaper,
+  ShoppingBag,
+  ShieldCheck,
+  ShieldAlert
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
@@ -31,10 +35,46 @@ import { ExplainabilityList } from '@/components/shared/ExplainabilityList';
 import { ContradictionBanner } from '@/components/shared/ContradictionBanner';
 
 const RIGHTS_TIERS = [
-  { value: 'editorial', label: 'Editorial — News reporting use only' },
-  { value: 'commercial', label: 'Commercial — Licensed commercial use' },
-  { value: 'all_rights', label: 'All Rights Reserved — No external use' },
-  { value: 'no_reuse', label: 'No Reuse — Internal only' },
+  { 
+    value: 'editorial', 
+    label: 'Editorial', 
+    description: 'News & Reporting Only', 
+    longDescription: 'Permitted on verified journalism outlets. High tolerance for fair use and historical documentation.',
+    icon: Newspaper,
+    color: 'text-blue-500',
+    bg: 'bg-blue-500/10',
+    border: 'border-blue-500/20'
+  },
+  { 
+    value: 'commercial', 
+    label: 'Commercial', 
+    description: 'Licensed Distribution', 
+    longDescription: 'Authorized for paid partners, marketing, and marketplaces. Requires valid sublicense proof.',
+    icon: ShoppingBag,
+    color: 'text-emerald-500',
+    bg: 'bg-emerald-500/10',
+    border: 'border-emerald-500/20'
+  },
+  { 
+    value: 'all_rights', 
+    label: 'All Rights', 
+    description: 'Strict Protection', 
+    longDescription: 'No third-party use allowed without explicit direct contract. High severity for unauthorized leaks.',
+    icon: ShieldCheck,
+    color: 'text-amber-500',
+    bg: 'bg-amber-500/10',
+    border: 'border-amber-500/20'
+  },
+  { 
+    value: 'no_reuse', 
+    label: 'No Reuse', 
+    description: 'Sensitive / Internal', 
+    longDescription: 'Absolute zero-tolerance. Any public appearance is a critical breach of internal policy.',
+    icon: ShieldAlert,
+    color: 'text-red-500',
+    bg: 'bg-red-500/10',
+    border: 'border-red-500/20'
+  },
 ];
 
 const SPORTS_TAGS = ['Football', 'Basketball', 'Cricket', 'Tennis', 'F1', 'Golf', 'Rugby', 'Cycling', 'Swimming', 'Athletics'];
@@ -721,25 +761,60 @@ export default function UploadPage() {
             </div>
           </div>
 
-          {/* Rights Tier */}
-          <div className="space-y-3">
-            <label className="text-meta">Rights Tier *</label>
-            <p className="text-[10px] text-zinc-400 -mt-1">Select the license type — AI checks if web usage aligns with this tier.</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {RIGHTS_TIERS.map(({ value, label }) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setRightsTier(value)}
-                  className={`p-4 rounded-xl border-2 text-left transition-all duration-200 ${rightsTier === value
-                    ? 'border-brand-text bg-white dark:bg-white/5 shadow-soft'
-                    : 'border-brand-border dark:border-neutral-800 bg-brand-bg dark:bg-black/20 text-brand-text hover:border-brand-muted'
+          <div className="space-y-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-meta">Rights Tier *</label>
+              <p className="text-[10px] text-zinc-400">Select the license type — AI checks if web usage aligns with this tier.</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {RIGHTS_TIERS.map((tier) => {
+                const Icon = tier.icon;
+                const isSelected = rightsTier === tier.value;
+                return (
+                  <button
+                    key={tier.value}
+                    type="button"
+                    onClick={() => setRightsTier(tier.value)}
+                    className={`relative p-5 rounded-2xl border-2 text-left transition-all duration-300 group hover:shadow-soft-lg ${
+                      isSelected
+                        ? `border-brand-text ${tier.bg} shadow-soft`
+                        : 'border-brand-border dark:border-neutral-800 bg-brand-bg/50 hover:border-brand-muted/50'
                     }`}
-                >
-                  <p className="text-[10px] font-black uppercase tracking-tight text-brand-text">{value.replace('_', ' ')}</p>
-                  <p className="text-[10px] text-brand-muted mt-1 leading-tight">{label.split(' — ')[1]}</p>
-                </button>
-              ))}
+                  >
+                    <div className="flex flex-col h-full gap-4">
+                      <div className={`p-2.5 rounded-xl w-fit transition-transform duration-300 group-hover:scale-110 ${
+                        isSelected ? 'bg-brand-text text-white dark:text-black' : `${tier.bg} ${tier.color}`
+                      }`}>
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <p className={`text-[11px] font-black uppercase tracking-tight ${
+                          isSelected ? 'text-brand-text' : 'text-brand-text/70'
+                        }`}>{tier.label}</p>
+                        <p className={`text-[10px] font-bold ${
+                          isSelected ? 'text-brand-text/60' : 'text-brand-muted'
+                        }`}>{tier.description}</p>
+                      </div>
+
+                      <p className={`text-[10px] leading-relaxed transition-opacity duration-300 ${
+                        isSelected ? 'text-brand-text/50 opacity-100' : 'text-brand-muted/40 opacity-0 group-hover:opacity-100'
+                      }`}>
+                        {tier.longDescription}
+                      </p>
+                    </div>
+
+                    {isSelected && (
+                      <motion.div 
+                        layoutId="active-tier"
+                        className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-brand-text flex items-center justify-center shadow-lg border-2 border-brand-surface"
+                      >
+                        <CheckCircle className="w-3.5 h-3.5 text-white dark:text-black" />
+                      </motion.div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

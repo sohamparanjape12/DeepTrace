@@ -17,7 +17,7 @@ interface DMCAPanelProps {
   evidenceWaybackUrl?: string;
 }
 
-export function DMCAPanel({ violationId, dmcaStatus, dmcaNoticeId, evidenceStatus, evidenceBundleUrl, evidenceSha256, evidenceWarcUrl, evidenceWaybackUrl }: DMCAPanelProps) {
+export function DMCAPanel({ violationId, violationStatus, dmcaStatus, dmcaNoticeId, evidenceStatus, evidenceBundleUrl, evidenceSha256, evidenceWarcUrl, evidenceWaybackUrl }: DMCAPanelProps) {
   const router = useRouter();
   const [eligibility, setEligibility] = useState<any>(null);
   const [loading, setLoading] = useState(true);
