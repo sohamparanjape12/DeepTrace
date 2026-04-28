@@ -231,9 +231,19 @@ interface EvidenceBundleProps {
   eligibility: EligibilityResult;
   warc: WARCCaptureResult | null;
   generatedAt: string;
+  assetImage?: string; // base64
+  matchImage?: string; // base64
 }
 
-const EvidenceBundleDocument = ({ violation, asset, eligibility, warc, generatedAt }: EvidenceBundleProps) => {
+const EvidenceBundleDocument = ({ 
+  violation, 
+  asset, 
+  eligibility, 
+  warc, 
+  generatedAt,
+  assetImage,
+  matchImage 
+}: EvidenceBundleProps) => {
   const blocked = new Set(eligibility.blocked_by || []);
   const matchDomain = (() => {
     try { return new URL(violation.match_url).hostname; }
@@ -319,16 +329,16 @@ const EvidenceBundleDocument = ({ violation, asset, eligibility, warc, generated
         <View style={s.imageRow}>
           <View style={s.imageBlock}>
             <Text style={s.imageLabel}>Original Asset</Text>
-            {(asset.storageUrl || asset.url) ? (
-              <Image src={asset.storageUrl || asset.url} style={s.image} />
+            {assetImage ? (
+              <Image src={assetImage} style={s.image} />
             ) : (
               <Text style={{ fontSize: 9, color: colors.light }}>Image not available</Text>
             )}
           </View>
           <View style={s.imageBlock}>
             <Text style={s.imageLabel}>Infringing Match</Text>
-            {(violation.assetThumbnailUrl || violation.match_url) ? (
-              <Image src={violation.assetThumbnailUrl || violation.match_url} style={s.image} />
+            {matchImage ? (
+              <Image src={matchImage} style={s.image} />
             ) : (
               <Text style={{ fontSize: 9, color: colors.light }}>Image not available</Text>
             )}
@@ -441,6 +451,30 @@ export async function generateEvidenceBundle(
 ): Promise<EvidenceBundleOutput> {
   const generatedAt = new Date().toISOString();
 
+  // Pre-fetch images to ensure they display in PDF
+  const fetchAsBase64 = async (url?: string) => {
+    if (!url) return undefined;
+    // Don't try to fetch non-image URLs
+    if (url.startsWith('http') && !url.match(/\.(jpg|jpeg|png|gif|webp|svg)/i) && !url.includes('firebasestorage') && !url.includes('cloudinary')) {
+      return undefined;
+    }
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      if (!res.ok) return undefined;
+      const buffer = Buffer.from(await res.arrayBuffer());
+      const contentType = res.headers.get('content-type') || 'image/png';
+      return `data:${contentType};base64,${buffer.toString('base64')}`;
+    } catch (e) {
+      console.warn(`[PDF] Failed to pre-fetch image: ${url}`, e);
+      return undefined;
+    }
+  };
+
+  const [assetImage, matchImage] = await Promise.all([
+    fetchAsBase64(asset.storageUrl || asset.url),
+    fetchAsBase64(violation.assetThumbnailUrl || (violation.match_url?.match(/\.(jpg|jpeg|png|webp)/i) ? violation.match_url : undefined))
+  ]);
+
   const pdfBuffer = await renderToBuffer(
     <EvidenceBundleDocument
       violation={violation}
@@ -448,6 +482,8 @@ export async function generateEvidenceBundle(
       eligibility={eligibility}
       warc={warc}
       generatedAt={generatedAt}
+      assetImage={assetImage}
+      matchImage={matchImage}
     /> as any
   );
 

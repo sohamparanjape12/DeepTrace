@@ -61,7 +61,7 @@ export async function captureAsWarc(targetUrl: string): Promise<WARCCaptureResul
     ]);
 
     // 4. Create a WARC response record
-    const record = WARCRecord.create({
+    const record = await WARCRecord.create({
       url: targetUrl,
       date: capturedAt,
       type: 'response',
@@ -72,11 +72,23 @@ export async function captureAsWarc(targetUrl: string): Promise<WARCCaptureResul
       },
       httpHeaders: Object.fromEntries(response.headers.entries()),
       statusline: `HTTP/1.1 ${response.status} ${response.statusText}`,
-    }, new Blob([bodyBuffer]) as any);
+    }, [bodyBuffer]);
 
     // 5. Serialize to buffer
-    const serialized = await WARCSerializer.serialize(record, { gzip: false });
-    const warcBuffer = Buffer.from(serialized as unknown as ArrayBuffer);
+    // For warcio 2.x, serialize returns an AsyncIterable<Uint8Array>
+    const chunks: Uint8Array[] = [];
+    const stream = WARCSerializer.serialize(record, { gzip: false }) as any;
+    
+    if (stream[Symbol.asyncIterator]) {
+      for await (const chunk of stream) {
+        chunks.push(chunk);
+      }
+    } else {
+      // Fallback for non-streaming environments or types
+      chunks.push(await stream);
+    }
+    
+    const warcBuffer = Buffer.concat(chunks.map(c => Buffer.from(c)));
 
     return {
       warcBuffer,
