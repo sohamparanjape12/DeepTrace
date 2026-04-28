@@ -140,6 +140,7 @@ export async function processViolationStage(violationId: string) {
           gemini_reasoning: result.reasoning,
           classification_schema_version: 2,
           stage: 'classified',
+          status: result.classification === 'NOT_A_MATCH' ? 'dropped' : 'open',
           stage_updated_at: FieldValue.serverTimestamp(),
           updated_at: FieldValue.serverTimestamp(),
         }, { merge: true });

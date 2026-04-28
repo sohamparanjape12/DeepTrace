@@ -1,7 +1,12 @@
 import { Asset, Violation } from '../../types';
 import { CustomerProfile, EligibilityResult } from './types';
 
-export function evaluateEligibility(violation: Violation, asset: Asset, customer: CustomerProfile): EligibilityResult {
+export function evaluateEligibility(
+  violation: Violation, 
+  asset: Asset, 
+  customer: CustomerProfile,
+  options: { allowInFlight?: boolean } = {}
+): EligibilityResult {
   const reasons: string[] = [];
   const blocked_by: string[] = [];
 
@@ -29,13 +34,8 @@ export function evaluateEligibility(violation: Violation, asset: Asset, customer
     reasons.push(`Severity is ${violation.severity}.`);
   }
 
-  // 4. Rights-tier mismatch (If asset is no_reuse or editorial and being used commercially)
-  // For simplicity: as long as it's not explicitly 'all_rights'
+  // 4. Rights-tier mismatch
   if (asset.rightsTier === 'general' && !violation.commercial_signal) {
-    // This is a simplistic check: if it's general rights, maybe non-commercial use is fine?
-    // Let's rely on the unauthorized classification for the actual right tier violation,
-    // but just ensure it's not all_rights. (Wait, the schema says: no_reuse | editorial | general)
-    // Actually PRD says: the observed usage violates asset.rights_tier
     reasons.push(`Rights tier: ${asset.rightsTier}.`);
   } else if (asset.rightsTier === 'general') {
      reasons.push(`Rights tier: ${asset.rightsTier}.`);
@@ -57,16 +57,39 @@ export function evaluateEligibility(violation: Violation, asset: Asset, customer
     reasons.push('No contradictions in evidence.');
   }
 
-  // 7. Not already in flight
-  if ((violation as any).dmca_status && (violation as any).dmca_status !== 'none' && (violation as any).dmca_status !== 'withdrawn') {
+  // 7. Not already in flight (unless allowed, e.g. for evidence regeneration)
+  const dmcaStatus = (violation as any).dmca_status;
+  if (dmcaStatus && dmcaStatus !== 'none' && dmcaStatus !== 'withdrawn') {
     blocked_by.push('already_in_flight');
-    reasons.push(`DMCA status is currently '${(violation as any).dmca_status}'.`);
+    reasons.push(`DMCA status is currently '${dmcaStatus}'.`);
   } else {
     reasons.push('No existing DMCA notice is active.');
   }
 
+  // 8. Manual Override Check
+  const isManualOverride = violation.status === 'disputed';
+  
+  // Decide if we are truly eligible
+  // Forensics are bypassed if disputed.
+  // missing_attestation is ALWAYS a blocker.
+  // already_in_flight is a blocker UNLESS options.allowInFlight is true.
+  
+  const hasMissingAttestation = blocked_by.includes('missing_attestation');
+  const isInFlight = blocked_by.includes('already_in_flight');
+  
+  let eligible = false;
+  
+  if (isManualOverride) {
+    // Override forensic checks, but respect attestation and in-flight (if not allowed)
+    eligible = !hasMissingAttestation && (options.allowInFlight || !isInFlight);
+  } else {
+    // Standard path: no blockers except potentially in-flight (if allowed)
+    const effectiveBlockers = blocked_by.filter(b => options.allowInFlight ? b !== 'already_in_flight' : true);
+    eligible = effectiveBlockers.length === 0;
+  }
+
   return {
-    eligible: blocked_by.length === 0,
+    eligible,
     reasons,
     blocked_by
   };

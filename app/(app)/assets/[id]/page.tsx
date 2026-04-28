@@ -16,6 +16,7 @@ import { doc, collection, query, where, orderBy, onSnapshot, Unsubscribe } from 
 import { PipelineProgress } from '@/components/shared/PipelineProgress';
 import { useRef } from 'react';
 import { isTerminalViolation } from '@/lib/firestore-schema';
+import clsx from 'clsx';
 
 const scanStatusConfig = {
   pending: { label: 'Pending', variant: 'default' as const },
@@ -90,9 +91,22 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
       console.error(`[FirebaseError] Permission denied or listener failed at /violations (asset:${id}) for user ${user.uid}:`, err.code, err.message);
     });
 
+    // 4. Subscribe to Scans
+    const sQuery = query(
+      collection(db, 'scans'),
+      where('asset_id', '==', id),
+      orderBy('timestamp', 'desc')
+    );
+    const unsubscribeScans = onSnapshot(sQuery, (snap) => {
+      setScans(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => {
+      console.warn(`[Firebase] Scans collection listener failed or empty (asset:${id}):`, err.message);
+    });
+
     return () => {
       unsubscribeAsset.current?.();
       unsubscribeViolations.current?.();
+      unsubscribeScans();
     };
   }, [id, user, sortOrder, authLoading]);
 
@@ -385,7 +399,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
               <p className="text-brand-muted text-sm">No violations detected for this asset.</p>
             </div>
           ) : (
-            <div className="space-y-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {filteredViolations.map(v => (
                 <div key={v.violation_id} className="relative group">
                   <Link key={v.violation_id} href={`/violations/${v.violation_id}?fromAsset=${id}`}>
@@ -426,29 +440,45 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
         <div className="space-y-6">
           <h2 className="font-display font-black uppercase text-xl text-brand-text">Scan History</h2>
           <div className="bento-card overflow-hidden divide-y divide-brand-border">
-            {scans.length === 0 ? (
-              <div className="p-8 text-center text-meta uppercase tracking-widest">No scans recorded</div>
-            ) : (
-              scans.map((scan) => (
-                <div key={scan.id} className="p-4 flex gap-4 hover:bg-brand-surface transition-colors group">
-                  <div className="mt-1 flex flex-col items-center">
-                    <div className={`w-2 h-2 rounded-full ${scan.status === 'clean' ? 'bg-brand-green-text' : 'bg-brand-accent'}`} />
-                    <div className="w-px flex-1 bg-brand-border my-1" />
-                  </div>
-                  <div className="space-y-1 flex-1">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-brand-muted">
-                        {new Date(scan.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                      </p>
-                      <Badge variant={scan.status === 'clean' ? 'success' : 'error'} className="scale-75 origin-right">
-                        {scan.status === 'clean' ? 'Clean' : 'Alert'}
-                      </Badge>
+            {(() => {
+              const displayScans = scans.length > 0 ? scans : [
+                {
+                  id: 'initial',
+                  status: 'clean',
+                  timestamp: asset.uploaded_at || new Date().toISOString(),
+                  results: 'Initial Asset Ingestion'
+                }
+              ];
+
+              return displayScans.map((scan) => {
+                const date = scan.timestamp?.toDate ? scan.timestamp.toDate() : new Date(scan.timestamp);
+                const isValid = !isNaN(date.getTime());
+
+                return (
+                  <div key={scan.id} className="p-4 flex gap-4 hover:bg-brand-surface transition-colors group">
+                    <div className="mt-1 flex flex-col items-center">
+                      <div className={clsx(
+                        "w-2 h-2 rounded-full",
+                        scan.status === 'clean' ? 'bg-brand-green-text' :
+                          scan.status === 'scanning' ? 'bg-brand-blue-text animate-pulse' : 'bg-brand-red-text'
+                      )} />
+                      <div className="w-px flex-1 bg-brand-border my-1" />
                     </div>
-                    <p className="text-xs font-bold text-brand-text">{scan.results}</p>
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-brand-muted">
+                          {isValid ? date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Pending'}
+                        </p>
+                        <Badge variant={scan.status === 'clean' ? 'success' : scan.status === 'scanning' ? 'info' : 'error'} className="scale-75 origin-right px-2 py-0.5">
+                          {scan.status === 'clean' ? 'Clean' : scan.status === 'scanning' ? 'In Progress' : 'Alert'}
+                        </Badge>
+                      </div>
+                      <p className="text-xs font-bold text-brand-text">{scan.results}</p>
+                    </div>
                   </div>
-                </div>
-              ))
-            )}
+                );
+              });
+            })()}
             <div className="p-4 bg-brand-surface border-t border-brand-border">
               <p className="text-[10px] font-bold text-brand-muted uppercase tracking-widest text-center">Scan Frequency: Every 24 Hours</p>
             </div>

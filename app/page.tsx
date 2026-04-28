@@ -69,7 +69,7 @@ const TESTIMONIALS = [
   },
   {
     quote:
-      'We recovered $180k in licensing fees in Q1 alone. This is the infrastructure every creative agency needs.',
+      'We recovered ₹1.5 Cr in licensing fees in Q1 alone. This is the infrastructure every creative agency needs.',
     author: 'James Okafor',
     role: 'COO, Vantage Media',
     dark: true,

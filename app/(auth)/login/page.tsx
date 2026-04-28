@@ -15,12 +15,11 @@ export default function LoginPage() {
 
   // Redirect to dashboard if already signed in
   useEffect(() => {
-    console.log('[Login] State change:', { hasUser: !!user, loading });
     if (!loading && user) {
-      console.log('[Login] Authenticated, redirecting to dashboard...');
-      router.push('/dashboard');
+      console.log('[Login] Authenticated, forcing navigation to dashboard...');
+      window.location.href = '/dashboard';
     }
-  }, [user, loading, router]);
+  }, [user, loading]);
 
   if (loading) {
     return (
@@ -94,8 +93,8 @@ export default function LoginPage() {
                   // The useEffect will handle the redirect once onAuthStateChanged fires,
                   // but we can also check here if user is already populated
                   if (auth.currentUser) {
-                    console.log('[Login] User found immediately after provider call, pushing...');
-                    router.push('/dashboard');
+                    console.log('[Login] User found immediately after provider call, forcing navigation...');
+                    window.location.href = '/dashboard';
                   }
                 } catch (err) {
                   console.error('[Login] Sign-in error:', err);

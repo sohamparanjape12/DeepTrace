@@ -22,6 +22,8 @@ const config: Config = {
           "blue-text": "var(--brand-blue-text)",
           "green-muted": "var(--brand-green-muted)",
           "green-text": "var(--brand-green-text)",
+          "amber-muted": "var(--brand-amber-muted)",
+          "amber-text": "var(--brand-amber-text)",
         },
       },
       fontFamily: {

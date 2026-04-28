@@ -1,8 +1,9 @@
 import { clsx } from 'clsx';
-import { ExternalLink, CheckCircle, XCircle, AlertTriangle, ShieldCheck, Info, ShieldAlert } from 'lucide-react';
+import { ExternalLink, CheckCircle, XCircle, AlertTriangle, ShieldCheck, Info, ShieldAlert, ChevronDown, ChevronUp } from 'lucide-react';
 import { SeverityChip } from './SeverityChip';
 import { ReliabilityRing } from './ReliabilityRing';
 import type { Violation } from '@/types';
+import { useState } from 'react';
 
 interface ViolationCardProps {
   violation: Violation;
@@ -25,15 +26,16 @@ const classConfig: Record<string, { label: string; variant: string }> = {
 };
 
 export function ViolationCard({ violation, className, onResolve, onDispute, onFalsePositive, onDMCA, onViewDMCA }: ViolationCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const config = classConfig[violation.gemini_class] ?? classConfig.NEEDS_REVIEW;
   const domain = (() => { try { return new URL(violation.match_url).hostname; } catch { return violation.match_url; } })();
 
-  const isEligible = 
-    (violation.gemini_class === 'UNAUTHORIZED' || violation.gemini_class?.toUpperCase() === 'UNAUTHORIZED') && 
-    ((violation.reliability_score || 0) >= 80 || (violation.reliability_score || 0) >= 0.8) && 
+  const isEligible =
+    (violation.gemini_class === 'UNAUTHORIZED' || violation.gemini_class?.toUpperCase() === 'UNAUTHORIZED') &&
+    ((violation.reliability_score || 0) >= 80 || (violation.reliability_score || 0) >= 0.8) &&
     (violation.severity === 'CRITICAL' || violation.severity === 'HIGH' || violation.severity?.toUpperCase() === 'HIGH' || violation.severity?.toUpperCase() === 'CRITICAL') &&
-    violation.status !== 'resolved' && 
-    violation.status !== 'disputed' && 
+    violation.status !== 'resolved' &&
+    violation.status !== 'disputed' &&
     violation.status !== 'false_positive' &&
     (!violation.dmca_status || violation.dmca_status === 'none' || violation.dmca_status === 'withdrawn' || violation.dmca_status === 'uninitiated');
 
@@ -41,14 +43,14 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
 
   return (
     <div className={clsx(
-      'group relative bento-card p-0 flex flex-col md:flex-row gap-0 overflow-hidden transition-all duration-300 hover:shadow-soft-xl border-brand-border hover:border-brand-text/20',
+      'group relative bento-card p-0 flex flex-col h-full overflow-hidden transition-all duration-300 hover:shadow-soft-xl border-brand-border hover:border-brand-text/20',
       violation.status !== 'open' && 'opacity-60 grayscale-[0.2]',
       isEligible && 'border-red-500/60 shadow-[0_0_25px_rgba(239,68,68,0.15)] ring-1 ring-red-500/30 bg-red-50/10 dark:bg-red-500/5',
       hasDMCA && 'border-indigo-500/60 shadow-[0_0_25px_rgba(99,102,241,0.15)] ring-1 ring-indigo-500/30 bg-indigo-50/10 dark:bg-indigo-500/5',
       className,
     )}>
       {/* 1. Visual Evidence Section */}
-      <div className="w-full md:w-56 lg:w-64 shrink-0 bg-brand-surface relative overflow-hidden aspect-video md:aspect-auto border-r border-brand-border/50 dark:border-zinc-900">
+      <div className="w-full bg-brand-surface relative overflow-hidden aspect-video border-b border-brand-border/50 dark:border-zinc-900">
         {violation.assetThumbnailUrl ? (
           <img
             src={violation.assetThumbnailUrl}
@@ -64,13 +66,6 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
         {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80" />
 
-        {/* Reliability Indicator */}
-        {violation.reliability_score !== undefined && (
-          <div className="absolute bottom-3 left-3 bg-white/95 dark:bg-black/90 backdrop-blur-md rounded-full p-1 shadow-soft border border-white/20 scale-75 origin-bottom-left">
-            <ReliabilityRing score={violation.reliability_score} tier={violation.reliability_tier || 'LOW'} />
-          </div>
-        )}
-
         {/* Match Type Overlay */}
         <div className="absolute top-3 left-3 px-2 py-1 bg-black/40 backdrop-blur-sm rounded text-[8px] font-black uppercase tracking-widest text-white border border-white/10">
           {violation.match_type.replace('_', ' ')}
@@ -78,40 +73,46 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
       </div>
 
       {/* 2. Intelligence Section */}
-      <div className="flex-1 p-5 md:p-6 flex flex-col justify-between gap-6 min-w-0">
-        <div className="space-y-4">
-          {/* Header: Status & Severity */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <SeverityChip severity={violation.severity} />
+      <div className="flex-1 p-6 flex flex-col gap-5 min-w-0">
+        {/* Header: Key-Value Badges & Reliability */}
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <div className={clsx(
-                'px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border flex items-center gap-1.5 transition-colors',
-                config.variant === 'error' && 'bg-red-500/5 text-red-600 border-red-500/10 group-hover:bg-red-500/10',
-                config.variant === 'success' && 'bg-emerald-500/5 text-emerald-600 border-emerald-500/10 group-hover:bg-emerald-500/10',
-                config.variant === 'warning' && 'bg-amber-500/5 text-amber-600 border-amber-500/10 group-hover:bg-amber-500/10',
-                config.variant === 'info' && 'bg-blue-500/5 text-blue-600 border-blue-500/10 group-hover:bg-blue-500/10',
-                config.variant === 'default' && 'bg-zinc-500/5 text-zinc-600 border-zinc-500/10 group-hover:bg-zinc-500/10',
+                'px-2.5 py-1 rounded-md text-[9px] font-bold border flex items-center gap-1.5 transition-colors uppercase',
+                config.variant === 'error' && 'bg-red-500/5 text-red-600 border-red-500/10',
+                config.variant === 'success' && 'bg-emerald-500/5 text-emerald-600 border-emerald-500/10',
+                config.variant === 'warning' && 'bg-amber-500/5 text-amber-600 border-amber-500/10',
+                config.variant === 'info' && 'bg-blue-500/5 text-blue-600 border-blue-500/10',
+                config.variant === 'default' && 'bg-zinc-500/5 text-zinc-600 border-zinc-500/10',
               )}>
-                {violation.gemini_class === 'UNAUTHORIZED' ? <AlertTriangle className="w-2.5 h-2.5" /> :
-                  violation.gemini_class === 'AUTHORIZED' ? <ShieldCheck className="w-2.5 h-2.5" /> : <Info className="w-2.5 h-2.5" />}
+                <span className="opacity-60 uppercase tracking-widest text-[8px] font-black">Status:</span>
                 {config.label}
               </div>
-              {violation.asset_name && (
-                <span className="px-2 py-1 rounded bg-brand-bg border border-brand-border/50 text-[8px] font-black uppercase tracking-tight text-brand-muted/60 truncate max-w-[120px]" title={violation.asset_name}>
-                  {violation.asset_name}
-                </span>
-              )}
+              <div className="px-2.5 py-1 rounded-md text-[9px] font-bold bg-zinc-500/5 text-zinc-500 border border-zinc-500/10 flex items-center gap-1.5">
+                <span className="opacity-60 uppercase tracking-widest text-[8px] font-black">Severity:</span>
+                {violation.severity}
+              </div>
+              <div className="px-2.5 py-1 rounded-md text-[9px] font-bold bg-zinc-500/5 text-zinc-500 border border-zinc-500/10 flex items-center gap-1.5">
+                <span className="opacity-60 uppercase tracking-widest text-[8px] font-black">Type:</span>
+                {violation.match_type.includes('video') ? 'Video' : 'Image'}
+                {violation.domain_class && violation.domain_class.toLowerCase() !== 'unknown' && (
+                  <span className="ml-1 opacity-40">({violation.domain_class})</span>
+                )}
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 text-brand-muted">
-              <span className="text-[10px] font-bold tabular-nums">
-                {new Date(violation.detected_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
-              </span>
-            </div>
+            {/* Reliability Inline */}
+            {violation.reliability_score !== undefined && (
+              <div className="flex items-center gap-2 shrink-0 justify-center">
+                <div className="scale-60 origin-center">
+                  <ReliabilityRing score={violation.reliability_score} tier={violation.reliability_tier || 'LOW'} />
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Main Info: Source & Reasoning */}
-          <div className="space-y-2">
+          <div className="flex items-center justify-between">
             <div
               onClick={(e) => {
                 e.preventDefault();
@@ -120,86 +121,68 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
               }}
               className="group/link inline-flex items-center gap-1.5 max-w-full cursor-pointer"
             >
-              <h3 className="text-base font-bold text-brand-text truncate border-b-2 border-transparent group-hover/link:border-brand-text transition-all">
+              <h3 className="text-sm font-black text-brand-text truncate border-b border-transparent group-hover/link:border-brand-text transition-all uppercase tracking-tight">
                 {domain}
               </h3>
               <ExternalLink className="w-3.5 h-3.5 text-brand-muted group-hover/link:text-brand-text transition-colors shrink-0" />
             </div>
-
-            {violation.gemini_reasoning ? (
-              <p className="text-sm text-brand-muted leading-relaxed line-clamp-2 font-medium">
-                {violation.gemini_reasoning}
-              </p>
-            ) : (
-              <p className="text-sm text-zinc-400 italic">Analysis in progress...</p>
-            )}
+            <span className="text-[10px] font-bold tabular-nums text-brand-muted">
+              {new Date(violation.detected_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
+            </span>
           </div>
+        </div>
 
-          {/* Forensic Detail Bar */}
-          {violation.visual_match_score !== undefined && (
-            <div className="grid grid-cols-2 gap-6 pt-2">
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center px-0.5">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-brand-muted/60">Visual Integrity</span>
-                  <span className="text-[10px] font-bold text-brand-text">{(violation.visual_match_score * 100).toFixed(0)}%</span>
-                </div>
-                <div className="h-1 bg-brand-bg rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-brand-text transition-all duration-1000 ease-out"
-                    style={{ width: `${violation.visual_match_score * 100}%` }}
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center px-0.5">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-brand-muted/60">Context Alignment</span>
-                  <span className="text-[10px] font-bold text-brand-text">{((violation.contextual_match_score || 0) * 100).toFixed(0)}%</span>
-                </div>
-                <div className="h-1 bg-brand-bg rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-brand-muted transition-all duration-1000 ease-out"
-                    style={{ width: `${(violation.contextual_match_score || 0) * 100}%` }}
-                  />
-                </div>
-              </div>
+        {/* Content: Description & Metrics */}
+        <div className="space-y-4 py-2 border-y border-brand-border/30">
+          <div className="flex gap-x-4 gap-y-1 items-center justify-center text-[10px] font-bold">
+            <div className="flex items-center gap-1.5 justify-between w-full">
+              <span className="text-brand-muted uppercase tracking-widest text-[8px] font-black">Visual Integrity:</span>
+              <span className="text-brand-text">{(violation.visual_match_score || 0 * 100).toFixed(0)}%</span>
             </div>
-          )}
+            <div className="flex items-center gap-1.5 justify-between border-l border-brand-border/50 pl-4 w-full">
+              <span className="text-brand-muted uppercase tracking-widest text-[8px] font-black">Context Alignment:</span>
+              <span className="text-brand-text">{((violation.contextual_match_score || 0) * 100).toFixed(0)}%</span>
+            </div>
+          </div>
         </div>
 
         {/* 3. Operational Section */}
-        <div className="pt-4 border-t border-brand-border/50 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-4">
+        <div className="pt-2 flex flex-wrap items-center justify-between">
           {(violation.status === 'open' || !violation.status) ? (
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onResolve?.(violation.violation_id);
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 transition-all active:scale-95 shadow-sm dark:text-emerald-300 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 dark:border-emerald-500/20"
-              >
-                <CheckCircle className="w-3.5 h-3.5" /> Resolve
-              </button>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onDispute?.(violation.violation_id);
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-100 transition-all active:scale-95 shadow-sm dark:text-amber-300 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 dark:border-amber-500/20"
-              >
-                <AlertTriangle className="w-3.5 h-3.5" /> Dispute
-              </button>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onFalsePositive?.(violation.violation_id);
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-text hover:bg-brand-surface border border-transparent hover:border-brand-border transition-all active:scale-95 dark:text-brand-muted dark:hover:text-brand-text dark:hover:bg-brand-surface dark:border-brand-border"
-              >
-                <XCircle className="w-3.5 h-3.5" /> False Positive
-              </button>
+            <div className="flex items-center gap-1 w-full justify-center flex-col">
+              <div className="flex items-center gap-2 w-full justify-center">
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onResolve?.(violation.violation_id);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[8px] font-black uppercase tracking-widest text-white bg-brand-text dark:bg-brand-surface hover:bg-brand-text/90 transition-all active:scale-95 shadow-sm"
+                >
+                  <CheckCircle className="w-3.5 h-3.5" /> Resolve
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onDispute?.(violation.violation_id);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[8px] font-black uppercase tracking-widest text-brand-text bg-transparent hover:bg-brand-surface border border-brand-border transition-all active:scale-95 shadow-sm"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" /> Dispute
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onFalsePositive?.(violation.violation_id);
+                  }}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[8px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-text transition-all active:scale-95"
+                >
+                  <XCircle className="w-3.5 h-3.5" /> False Positive
+                </button>
+              </div>
+
               {isEligible && (
                 <button
                   onClick={(e) => {
@@ -207,7 +190,7 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
                     e.stopPropagation();
                     onDMCA?.(violation.violation_id);
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-red-600 hover:bg-red-700 transition-all active:scale-95 shadow-sm ml-auto"
+                  className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-red-600 hover:bg-red-700 transition-all active:scale-95 shadow-sm mt-2"
                 >
                   <ShieldAlert className="w-3.5 h-3.5" /> DMCA Takedown
                 </button>
@@ -219,26 +202,20 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
                     e.stopPropagation();
                     onViewDMCA?.(violation.dmca_notice_id!);
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 transition-all active:scale-95 shadow-sm ml-auto dark:text-indigo-300 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 dark:border-indigo-500/20"
+                  className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[8px] font-black uppercase tracking-widest text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 transition-all active:scale-95 shadow-sm mt-2 dark:text-indigo-300 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 dark:border-indigo-500/20"
                 >
                   <ShieldCheck className="w-3.5 h-3.5" /> View DMCA
                 </button>
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-3">
-              <div className="px-3 py-1.5 rounded-lg bg-brand-surface border border-brand-border text-[10px] font-black uppercase tracking-widest text-brand-muted">
+            <div className="flex items-center gap-3 w-full">
+              <div className="flex-1 px-3 py-2 rounded-lg bg-brand-surface border border-brand-border text-[10px] font-black uppercase tracking-widest text-brand-muted">
                 Status: <span className="text-brand-text ml-1">{violation.status}</span>
               </div>
               {violation.reviewed_by && (
-                <span className="text-[10px] text-zinc-400 font-medium">Reviewer: {violation.reviewed_by}</span>
+                <span className="text-[10px] text-zinc-400 font-medium shrink-0">Reviewer: {violation.reviewed_by}</span>
               )}
-            </div>
-          )}
-
-          {violation.domain_class && violation.domain_class.toLowerCase() !== 'unknown' && (
-            <div className="ml-auto px-2 py-0.5 rounded bg-brand-surface border border-brand-border text-[8px] font-black uppercase tracking-widest text-brand-muted">
-              {violation.domain_class}
             </div>
           )}
         </div>

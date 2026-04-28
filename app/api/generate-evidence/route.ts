@@ -58,17 +58,22 @@ export async function POST(req: NextRequest) {
       ? (cDoc.data() as CustomerProfile)
       : { id: violation.owner_id, org_name: asset.owner_org || 'Unknown', dmca_attestation_signed: false };
 
-    // 5. Evaluate eligibility — exclude 'already_in_flight' since evidence generation
-    //    must be possible even when a DMCA draft is active (that's when it's needed).
-    const eligibility = evaluateEligibility(violation, asset, customer);
-    const hardBlockers = (eligibility.blocked_by || []).filter(
-      (b: string) => b !== 'already_in_flight'
-    );
-    if (hardBlockers.length > 0) {
-      console.log(`[Evidence] Violation ${violationId} not eligible:`, hardBlockers);
+    // 5. Evaluate eligibility — evidence generation must be possible even if a DMCA draft exists.
+    //    The library function already handles the manual override for 'disputed' status.
+    const eligibility = evaluateEligibility(violation, asset, customer, { allowInFlight: true });
+    
+    // We allow evidence generation if the engine says it's eligible.
+    // Note: The library already ignores forensic blockers if status === 'disputed'.
+    if (!eligibility.eligible) {
+      console.log(`[Evidence] Violation ${violationId} not eligible:`, eligibility.blocked_by);
+      
+      const isMissingAttestation = eligibility.blocked_by?.includes('missing_attestation');
+      
       return NextResponse.json({
-        error: 'Violation does not meet DMCA eligibility criteria',
-        blocked_by: hardBlockers,
+        error: isMissingAttestation
+          ? 'Onboarding required: You must sign the legal attestation before generating evidence.' 
+          : 'Violation does not meet DMCA eligibility criteria',
+        blocked_by: eligibility.blocked_by,
         reasons: eligibility.reasons,
       }, { status: 400 });
     }
@@ -80,6 +85,21 @@ export async function POST(req: NextRequest) {
       console.log(`[Evidence] WARC captured: status=${warcResult.httpStatus}, server=${warcResult.serverIp}`);
     } catch (e: any) {
       console.error(`[Evidence] WARC capture failed (non-blocking):`, e.message);
+    }
+
+    // 6b. Wayback Machine Capture (for high visual fidelity)
+    let waybackUrl = null;
+    try {
+      // Trigger a save on the Wayback Machine
+      await fetch(`https://web.archive.org/save/${violation.match_url}`, { 
+        method: 'GET',
+        signal: AbortSignal.timeout(10000) // Don't block for more than 10s
+      });
+      // Construct the generic timeline URL which will show the latest capture
+      waybackUrl = `https://web.archive.org/web/*/${violation.match_url}`;
+      console.log(`[Evidence] Triggered Wayback Machine capture for ${violation.match_url}`);
+    } catch (e: any) {
+      console.error(`[Evidence] Wayback capture trigger failed:`, e.message);
     }
 
     // 7. Generate the PDF
@@ -137,6 +157,7 @@ export async function POST(req: NextRequest) {
       evidence_sha256: sha256,
       evidence_generated_at: FieldValue.serverTimestamp(),
       ...(warcUrl ? { evidence_warc_url: warcUrl } : {}),
+      ...(waybackUrl ? { evidence_wayback_url: waybackUrl } : {}),
       ...(warcResult ? {
         evidence_warc_metadata: {
           server_ip: warcResult.serverIp,
@@ -164,6 +185,7 @@ export async function POST(req: NextRequest) {
       bundleUrl,
       sha256,
       warcUrl,
+      waybackUrl,
     });
 
   } catch (error: any) {

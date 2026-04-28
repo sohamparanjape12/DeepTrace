@@ -1,0 +1,56 @@
+Error: 5 NOT_FOUND: No document to update: projects/deeptracemain/databases/(default)/documents/assets/some-dummy-id-12345
+    at callErrorFromStatus (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/google-gax/node_modules/@grpc/grpc-js/build/src/call.js:32:19)
+    at Object.onReceiveStatus (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/google-gax/node_modules/@grpc/grpc-js/build/src/client.js:193:76)
+    at Object.onReceiveStatus (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/google-gax/node_modules/@grpc/grpc-js/build/src/client-interceptors.js:367:141)
+    at Object.onReceiveStatus (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/google-gax/node_modules/@grpc/grpc-js/build/src/client-interceptors.js:327:181)
+    at /Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/google-gax/node_modules/@grpc/grpc-js/build/src/resolving-call.js:135:78
+    at process.processTicksAndRejections (node:internal/process/task_queues:85:11)
+for call at
+    at ServiceClientImpl.makeUnaryRequest (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/google-gax/node_modules/@grpc/grpc-js/build/src/client.js:161:32)
+    at ServiceClientImpl.<anonymous> (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/google-gax/node_modules/@grpc/grpc-js/build/src/make-client.js:105:19)
+    at /Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/@google-cloud/firestore/build/src/v1/firestore_client.js:242:33
+    at /Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/google-gax/build/src/normalCalls/timeout.js:44:16
+    at repeat (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/google-gax/build/src/normalCalls/retries.js:82:25)
+    at /Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/google-gax/build/src/normalCalls/retries.js:125:13
+    at OngoingCallPromise.call (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/google-gax/build/src/call.js:67:27)
+    at NormalApiCaller.call (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/google-gax/build/src/normalCalls/normalApiCaller.js:34:19)
+    at /Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/google-gax/build/src/createApiCall.js:112:30
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+Caused by: Error: 
+    at _firestore._traceUtil.startActiveSpan (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/@google-cloud/firestore/build/src/write-batch.js:438:27)
+    at /Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/@google-cloud/firestore/build/src/telemetry/enabled-trace-util.js:110:30
+    at NoopContextManager.with (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/@opentelemetry/api/build/src/context/NoopContextManager.js:14:19)
+    at ContextAPI.with (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/@opentelemetry/api/build/src/api/context.js:51:46)
+    at NoopTracer.startActiveSpan (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/@opentelemetry/api/build/src/trace/NoopTracer.js:54:31)
+    at ProxyTracer.startActiveSpan (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/@opentelemetry/api/build/src/trace/ProxyTracer.js:27:24)
+    at EnabledTraceUtil.startActiveSpan (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/@google-cloud/firestore/build/src/telemetry/enabled-trace-util.js:102:28)
+    at WriteBatch.commit (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/@google-cloud/firestore/build/src/write-batch.js:436:43)
+    at /Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/@google-cloud/firestore/build/src/reference/document-reference.js:392:18
+    at /Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/@google-cloud/firestore/build/src/telemetry/enabled-trace-util.js:110:30
+    at NoopContextManager.with (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/@opentelemetry/api/build/src/context/NoopContextManager.js:14:19)
+    at ContextAPI.with (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/@opentelemetry/api/build/src/api/context.js:51:46)
+    at NoopTracer.startActiveSpan (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/@opentelemetry/api/build/src/trace/NoopTracer.js:54:31)
+    at ProxyTracer.startActiveSpan (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/@opentelemetry/api/build/src/trace/ProxyTracer.js:27:24)
+    at EnabledTraceUtil.startActiveSpan (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/@google-cloud/firestore/build/src/telemetry/enabled-trace-util.js:102:28)
+    at DocumentReference.update (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/@google-cloud/firestore/build/src/reference/document-reference.js:386:43)
+    at POST (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/.next/dev/server/chunks/[root-of-the-server]__07ej5p_._.js:120:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async AppRouteRouteModule.do (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.dev.js:5:40115)
+    at async AppRouteRouteModule.handle (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.dev.js:5:47321)
+    at async responseGenerator (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/.next/dev/server/chunks/[root-of-the-server]__1359g~l._.js:18465:38)
+    at async AppRouteRouteModule.handleResponse (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.dev.js:1:227216)
+    at async handleResponse (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/.next/dev/server/chunks/[root-of-the-server]__1359g~l._.js:18528:32)
+    at async Module.handler (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/.next/dev/server/chunks/[root-of-the-server]__1359g~l._.js:18582:13)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/next/dist/server/base-server.js:1454:9)
+    at async DevServer.renderPageComponent (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/next/dist/server/base-server.js:1506:24)
+    at async DevServer.renderToResponseImpl (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/next/dist/server/base-server.js:1556:32)
+    at async DevServer.pipeImpl (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/next/dist/server/base-server.js:1043:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/next/dist/server/next-server.js:338:17)
+    at async DevServer.handleRequestImpl (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/next/dist/server/base-server.js:934:17)
+    at async /Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/next/dist/server/dev/next-dev-server.js:394:20
+    at async Span.traceAsyncFn (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/next/dist/trace/trace.js:164:20)
+    at async DevServer.handleRequest (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/next/dist/server/dev/next-dev-server.js:390:24)
+    at async invokeRender (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/next/dist/server/lib/router-server.js:266:21)
+    at async handleRequest (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/next/dist/server/lib/router-server.js:465:24)
+    at async requestHandlerImpl (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/next/dist/server/lib/router-server.js:514:13)
+    at async Server.requestListener (/Users/aarush/Desktop/DeepTracePrototype/DeepTrace/node_modules/next/dist/server/lib/start-server.js:225:13)

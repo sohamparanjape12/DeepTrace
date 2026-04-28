@@ -7,15 +7,17 @@ import { useRouter } from 'next/navigation';
 
 interface DMCAPanelProps {
   violationId: string;
+  violationStatus?: string;
   dmcaStatus?: string;
   dmcaNoticeId?: string;
   evidenceStatus?: string;
   evidenceBundleUrl?: string;
   evidenceSha256?: string;
   evidenceWarcUrl?: string;
+  evidenceWaybackUrl?: string;
 }
 
-export function DMCAPanel({ violationId, dmcaStatus, dmcaNoticeId, evidenceStatus, evidenceBundleUrl, evidenceSha256, evidenceWarcUrl }: DMCAPanelProps) {
+export function DMCAPanel({ violationId, violationStatus, dmcaStatus, dmcaNoticeId, evidenceStatus, evidenceBundleUrl, evidenceSha256, evidenceWarcUrl, evidenceWaybackUrl }: DMCAPanelProps) {
   const router = useRouter();
   const [eligibility, setEligibility] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -39,7 +41,7 @@ export function DMCAPanel({ violationId, dmcaStatus, dmcaNoticeId, evidenceStatu
       }
     }
     checkEligibility();
-  }, [violationId]);
+  }, [violationId, violationStatus]);
 
   const handleGenerateEvidence = async () => {
     setGeneratingEvidence(true);
@@ -81,14 +83,30 @@ export function DMCAPanel({ violationId, dmcaStatus, dmcaNoticeId, evidenceStatu
     }
   };
 
+  // DEBUG: Monitor state changes in production
+  useEffect(() => {
+    console.log('[DMCAPanel] State:', { 
+      violationId, 
+      violationStatus, 
+      isManualOverride: violationStatus === 'disputed',
+      eligible: eligibility?.eligible,
+      blocked: eligibility?.blocked_by
+    });
+  }, [violationId, violationStatus, eligibility]);
+
   if (loading) return (
     <div className="bento-card p-8 flex items-center justify-center">
       <Loader2 className="w-6 h-6 animate-spin text-brand-muted" />
     </div>
   );
 
-  const isEligible = eligibility?.eligible;
+  const isManualOverride = violationStatus === 'disputed';
   const needsOnboarding = eligibility?.blocked_by?.includes('missing_attestation');
+  
+  // Now that the backend library handles the manual override, we primarily trust the eligibility flag.
+  // We keep the client-side isManualOverride check for instant UI feedback if the fetch is still pending.
+  const isEligible = eligibility?.eligible || (isManualOverride && (eligibility ? !needsOnboarding : true));
+  
   const hasEvidence = !!(localEvidenceUrl || evidenceStatus === 'generated');
   const evidenceUrl = localEvidenceUrl || evidenceBundleUrl;
 
@@ -113,6 +131,15 @@ export function DMCAPanel({ violationId, dmcaStatus, dmcaNoticeId, evidenceStatu
           <Button onClick={() => router.push(`/dmca/${dmcaNoticeId}`)} variant="secondary" className="border-indigo-200 text-indigo-900 hover:bg-indigo-100 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-900/50">
             View Notice Details
           </Button>
+        </div>
+      )}
+
+      {isManualOverride && !isActive && (
+        <div className="p-3 bg-brand-amber-muted border border-brand-amber-text/20 rounded-lg flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-brand-amber-text" />
+          <p className="text-[10px] font-bold text-brand-amber-text uppercase tracking-wider">
+            Manual Override Active — Eligibility criteria bypassed via dispute
+          </p>
         </div>
       )}
 
@@ -147,16 +174,41 @@ export function DMCAPanel({ violationId, dmcaStatus, dmcaNoticeId, evidenceStatu
                     View PDF Bundle
                   </a>
                 )}
-                {evidenceWarcUrl && (
+                {evidenceWaybackUrl && (
                   <a
-                    href={evidenceWarcUrl}
+                    href={evidenceWaybackUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-muted hover:text-brand-text transition-colors"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline transition-colors"
+                    title="View high-fidelity snapshot on Archive.org"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    Download WARC
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Archive.org Snapshot
                   </a>
+                )}
+                {evidenceWarcUrl && (
+                  <>
+                    <a
+                      href={`https://replayweb.page/?source=${encodeURIComponent(evidenceWarcUrl)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-500 hover:text-indigo-400 transition-colors"
+                      title="View WARC archive in the browser via ReplayWeb.page"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      View Raw WARC
+                    </a>
+                    <a
+                      href={evidenceWarcUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-muted hover:text-brand-text transition-colors"
+                      download
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Download WARC
+                    </a>
+                  </>
                 )}
               </div>
             </div>

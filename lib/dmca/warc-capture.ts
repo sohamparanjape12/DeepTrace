@@ -48,7 +48,28 @@ export async function captureAsWarc(targetUrl: string): Promise<WARCCaptureResul
       || null;
 
     // 2. Read response body
-    const bodyBuffer = Buffer.from(await response.arrayBuffer());
+    let bodyBuffer = Buffer.from(await response.arrayBuffer());
+
+    // ── FIX: Inject <base> tag for high-fidelity browser viewing ──
+    // This allows ReplayWeb.page to fetch missing CSS/Images from the live site
+    // while keeping the archived HTML as the primary source of truth.
+    if (contentType?.includes('text/html')) {
+      try {
+        let html = bodyBuffer.toString('utf-8');
+        const baseTag = `<base href="${targetUrl}">`;
+        
+        if (html.includes('<head>')) {
+          html = html.replace('<head>', `<head>\n    ${baseTag}`);
+        } else if (html.includes('<html>')) {
+          html = html.replace('<html>', `<html>\n<head>${baseTag}</head>`);
+        } else {
+          html = baseTag + html;
+        }
+        bodyBuffer = Buffer.from(html, 'utf-8');
+      } catch (e) {
+        console.warn('[WARC] Failed to inject base tag:', e);
+      }
+    }
 
     // 3. Construct HTTP status line + headers for the WARC payload
     const statusLine = `HTTP/1.1 ${response.status} ${response.statusText}\r\n`;

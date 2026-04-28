@@ -31,8 +31,8 @@ const ACTIONS: ActionDef[] = [
     key: 'resolved',
     label: 'Mark Resolved',
     icon: <CheckCircle2 className="w-3.5 h-3.5" />,
-    idle: 'border-brand-border bg-brand-surface text-brand-text hover:border-brand-text hover:bg-brand-bg',
-    busy: 'border-brand-border bg-brand-surface text-brand-muted cursor-wait',
+    idle: 'border-brand-green-text/20 bg-brand-green-muted text-brand-green-text hover:border-brand-green-text/50 hover:bg-brand-green-muted/80',
+    busy: 'border-brand-green-text/10 bg-brand-green-muted/40 text-brand-green-text/60 cursor-wait',
     done: 'border-brand-green-text/30 bg-brand-green-muted text-brand-green-text',
     doneBg: 'bg-brand-green-muted border border-brand-green-text/20 text-brand-green-text',
     doneText: 'Marked as Resolved',
@@ -41,20 +41,20 @@ const ACTIONS: ActionDef[] = [
     key: 'disputed',
     label: 'Raise Dispute',
     icon: <AlertTriangle className="w-3.5 h-3.5" />,
-    idle: 'border-brand-border bg-brand-surface text-brand-text hover:border-brand-text hover:bg-brand-bg',
-    busy: 'border-brand-border bg-brand-surface text-brand-muted cursor-wait',
-    done: 'border-brand-blue-text/30 bg-brand-blue-muted text-brand-blue-text',
-    doneBg: 'bg-brand-blue-muted border border-brand-blue-text/20 text-brand-blue-text',
-    doneText: 'Dispute Raised',
+    idle: 'border-brand-amber-text/20 bg-brand-amber-muted text-brand-amber-text hover:border-brand-amber-text/50 hover:bg-brand-amber-muted/80',
+    busy: 'border-brand-amber-text/10 bg-brand-amber-muted/40 text-brand-amber-text/60 cursor-wait',
+    done: 'border-brand-amber-text/30 bg-brand-amber-muted text-brand-amber-text',
+    doneBg: 'bg-brand-amber-muted border border-brand-amber-text/20 text-brand-amber-text',
+    doneText: 'Dispute Raised — Manual Override Enabled',
   },
   {
     key: 'false_positive',
     label: 'False Positive',
     icon: <XCircle className="w-3.5 h-3.5" />,
-    idle: 'border-brand-border bg-brand-surface text-brand-muted hover:text-brand-text hover:border-brand-muted',
-    busy: 'border-brand-border bg-brand-surface text-brand-muted cursor-wait',
-    done: 'border-brand-border bg-brand-bg text-brand-muted',
-    doneBg: 'bg-brand-bg border border-brand-border text-brand-muted',
+    idle: 'border-brand-red-text/20 bg-brand-red-muted text-brand-red-text hover:border-brand-red-text/50 hover:bg-brand-red-muted/80',
+    busy: 'border-brand-red-text/10 bg-brand-red-muted/40 text-brand-red-text/60 cursor-wait',
+    done: 'border-brand-red-text/30 bg-brand-red-muted text-brand-red-text',
+    doneBg: 'bg-brand-red-muted border border-brand-red-text/20 text-brand-red-text',
     doneText: 'Flagged as False Positive',
   },
 ];
@@ -80,8 +80,9 @@ export function TriageActions({ violation, onUpdate }: TriageActionsProps) {
 
   // Which button is currently in-flight
   const [loadingKey, setLoadingKey] = useState<ActionKey | null>(null);
-  // Dedicated flag for the reopen flow (keeps action buttons unaffected)
+  // Dedicated flags for flow control
   const [isReopening, setIsReopening] = useState(false);
+  const [isRescanning, setIsRescanning] = useState(false);
   // Inline error message
   const [error, setError] = useState<string | null>(null);
 
@@ -96,7 +97,7 @@ export function TriageActions({ violation, onUpdate }: TriageActionsProps) {
 
   // ── Handle a triage action ───────────────────────────────────────────────
   const handleAction = async (action: ActionDef) => {
-    if (!isReady || loadingKey || isReopening) return;
+    if (!isReady || loadingKey || isReopening || isRescanning) return;
     setError(null);
     setLoadingKey(action.key);
     try {
