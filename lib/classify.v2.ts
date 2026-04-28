@@ -7,6 +7,7 @@ import {
 } from "./prompts.v2";
 import { scrapePage } from "./jina";
 import { RetryableError, PermanentError } from "./error-classes";
+import { calculateRevenueRisk as getRevenueRisk } from "./revenue";
 
 // ── Rate limiting ──
 let lastGeminiRequestAt = 0;
@@ -249,17 +250,6 @@ function estimateRegion(url: string, domainClass: DomainClass): string {
   return 'International';
 }
 
-function calculateRevenueRisk(severity: Severity, domainClass: DomainClass): number {
-  const baseRates: Record<Severity, number> = {
-    'CRITICAL': 850, 'HIGH': 350, 'MEDIUM': 120, 'LOW': 45
-  };
-  const multipliers: Record<DomainClass, number> = {
-    'piracy': 2.5, 'major_news': 1.8, 'social': 1.2, 'betting': 2.0,
-    'wire_service': 0.8, 'ecommerce': 3.0, 'unknown': 1.0,
-    'stock_photo': 0.5, 'portfolio': 0.3
-  };
-  return Math.round(baseRates[severity] * (multipliers[domainClass] ?? 1));
-}
 
 function bufferToGenerativePart(buf: Buffer, mime = 'image/jpeg') {
   return { inlineData: { data: buf.toString('base64'), mimeType: mime } };
@@ -601,7 +591,13 @@ export async function classifyViolation(params: ClassifyParams): Promise<Classif
       editorial_domain_eligible: isEditorialEligible(domainClass),
     },
     region: estimateRegion(enrichedParams.matchUrl, domainClass),
-    revenue_risk: calculateRevenueRisk(severity, domainClass),
+    revenue_risk: getRevenueRisk({
+      severity,
+      domainClass,
+      rightsTier: params.rightsTier,
+      commercialExploitation: jsonResp.commercial_exploitation,
+      isDerivativeWork: jsonResp.is_derivative_work,
+    }),
     // Legacy
     commercial_signal: jsonResp.commercial_exploitation,
     watermark_likely_removed: jsonResp.is_derivative_work && !jsonResp.watermark_intact,

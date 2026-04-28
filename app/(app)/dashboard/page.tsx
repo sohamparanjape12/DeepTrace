@@ -106,10 +106,20 @@ export default function DashboardPage() {
         if (v.status === 'open') {
           activeCount++;
 
-          if (v.severity === 'CRITICAL') { critical++; totalRisk += 105000; }
-          else if (v.severity === 'HIGH') { high++; totalRisk += 37800; }
-          else if (v.severity === 'MEDIUM') { medium++; totalRisk += 12600; }
-          else if (v.severity === 'LOW') { low++; totalRisk += 4200; }
+          // Use pre-calculated risk if available (v2 pipeline), otherwise fallback to standard baseline
+          if (v.revenue_risk) {
+            totalRisk += v.revenue_risk;
+          } else {
+            if (v.severity === 'CRITICAL') totalRisk += 85000;
+            else if (v.severity === 'HIGH') totalRisk += 35000;
+            else if (v.severity === 'MEDIUM') totalRisk += 12000;
+            else if (v.severity === 'LOW') totalRisk += 4000;
+          }
+
+          if (v.severity === 'CRITICAL') critical++;
+          else if (v.severity === 'HIGH') high++;
+          else if (v.severity === 'MEDIUM') medium++;
+          else if (v.severity === 'LOW') low++;
 
           try {
             const url = new URL(v.match_url);
@@ -324,7 +334,7 @@ export default function DashboardPage() {
                         {v.asset_name || 'Generic Asset'}
                       </p>
                       <p className="text-[10px] font-black text-brand-text shrink-0">
-                        {v.revenue_risk ? `₹${(v.revenue_risk * 84).toLocaleString()}` : 'Calculating...'}
+                        {v.revenue_risk ? `₹${v.revenue_risk.toLocaleString()}` : 'Calculating...'}
                       </p>
                     </div>
                     {isAnalyzing ? (

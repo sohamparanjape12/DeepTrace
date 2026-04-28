@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Plus, Info, Library, ShieldAlert, Loader2, CheckCircle, Clock, ChevronDown, ChevronUp, Search, Brain, Zap, Trash2 } from 'lucide-react';
+import { Plus, Info, Library, ShieldAlert, Loader2, CheckCircle, Clock, ChevronDown, ChevronUp, Search, Brain, Zap, Trash2, Download } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { AssetCard } from '@/components/shared/AssetCard';
 import { FilterTabs } from '@/components/shared/FilterTabs';
@@ -87,6 +87,43 @@ export default function AssetsPage() {
     } finally {
       setIsBulkLoading(false);
     }
+  };
+
+  const handleExport = () => {
+    if (selectedIds.size === 0) return;
+    
+    const selectedAssets = assets.filter(a => selectedIds.has(a.asset_id || a.id));
+    
+    // CSV Header
+    const headers = ['Asset ID', 'Name', 'Status', 'Rights Tier', 'Violations', 'Uploaded At', 'Storage URL'];
+    
+    // CSV Content
+    const rows = selectedAssets.map(a => [
+      a.asset_id || a.id,
+      `"${a.name?.replace(/"/g, '""') || 'Untitled'}"`,
+      a.scan_status || 'pending',
+      a.rights_tier || 'editorial',
+      a.totals?.classified ?? a.totals?.reverse_hits ?? 0,
+      a.uploaded_at ? new Date(a.uploaded_at).toISOString() : '',
+      a.storageUrl || ''
+    ]);
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `deeptrace_assets_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    setSelectedIds(new Set());
   };
 
   const TABS = [
@@ -270,44 +307,47 @@ export default function AssetsPage() {
         </div>
       )}
 
-      {/* ─── Bulk Actions Toolbar ─── */}
+      {/* ─── Bulk Actions ─── */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-8 duration-500">
-          <div className="bg-brand-text text-brand-bg px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-8 border border-white/10 backdrop-blur-xl">
-            <div className="flex flex-col">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50">Selected Assets</p>
-              <p className="text-lg font-display font-black leading-none">{selectedIds.size}</p>
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-8 duration-500">
+          <div className="bg-neutral-900/90 dark:bg-black/80 backdrop-blur-xl border border-white/10 px-6 py-3 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center gap-6">
+            <div className="flex items-center gap-3 pr-6 border-r border-white/10">
+              <div className="w-8 h-8 rounded-full bg-brand-text flex items-center justify-center text-brand-bg font-black text-xs">
+                {selectedIds.size}
+              </div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-white/70">Assets Selected</p>
             </div>
-
-            <div className="h-8 w-px bg-white/10" />
-
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-brand-bg hover:bg-white/10 flex items-center gap-2"
-                onClick={() => alert('Exporting forensic data...')}
+            
+            <div className="flex items-center gap-2">
+              <Button 
+                onClick={handleExport}
+                variant="ghost" 
+                size="sm" 
+                className="text-white hover:bg-white/5 rounded-full px-4 gap-2 h-9 border border-white/5"
               >
-                <Library className="w-3.5 h-3.5" />
-                Export Data
+                <Download className="w-3.5 h-3.5" />
+                <span className="text-[11px] font-black uppercase tracking-tight">Export Forensic CSV</span>
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-red-400 hover:bg-red-500/20 flex items-center gap-2"
+              
+              <Button 
                 onClick={bulkDelete}
                 disabled={isBulkLoading}
+                variant="ghost" 
+                size="sm" 
+                className="text-red-400 hover:bg-red-500/10 rounded-full px-4 gap-2 h-9 border border-red-500/10"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                Delete
+                <span className="text-[11px] font-black uppercase tracking-tight">Bulk Delete</span>
               </Button>
             </div>
 
-            <button
-              className="ml-4 p-2 hover:bg-white/10 rounded-full transition-colors"
+            <div className="h-4 w-px bg-white/10 mx-2" />
+
+            <button 
               onClick={() => setSelectedIds(new Set())}
+              className="text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors"
             >
-              <Plus className="w-4 h-4 rotate-45" />
+              Cancel
             </button>
           </div>
         </div>
@@ -315,4 +355,3 @@ export default function AssetsPage() {
     </div>
   );
 }
-

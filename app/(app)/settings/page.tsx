@@ -120,9 +120,9 @@ export default function SettingsPage() {
             </div>
             <button
               onClick={() => setEmailAlerts(p => !p)}
-              className={`w-12 h-6 rounded-full transition-all duration-300 relative ${emailAlerts ? 'bg-brand-text' : 'bg-brand-muted/20'}`}
+              className={`w-12 h-6 rounded-full transition-all duration-300 relative border ${emailAlerts ? 'bg-brand-text border-brand-text' : 'bg-brand-muted/10 border-brand-text'}`}
             >
-              <div className={`absolute w-5 h-5 rounded-full bg-brand-bg shadow top-0.5 transition-all duration-300 ${emailAlerts ? 'left-6.5' : 'left-0.5'}`} />
+              <div className={`absolute w-5 h-5 rounded-full bg-brand-bg shadow-sm top-[1px] left-[1px] transition-transform duration-300 ${emailAlerts ? 'translate-x-6 bg-brand-bg' : 'translate-x-0 bg-brand-text'}`} />
             </button>
           </div>
 
@@ -134,9 +134,9 @@ export default function SettingsPage() {
             </div>
             <button
               onClick={() => setDigest(p => !p)}
-              className={`w-12 h-6 rounded-full transition-all duration-300 relative ${digest ? 'bg-brand-text' : 'bg-brand-muted/20'}`}
+              className={`w-12 h-6 rounded-full transition-all duration-300 relative border ${digest ? 'bg-brand-text border-brand-text' : 'bg-brand-muted/10 border-brand-text'}`}
             >
-              <div className={`absolute w-5 h-5 rounded-full bg-brand-bg shadow top-0.5 transition-all duration-300 ${digest ? 'left-6.5' : 'left-0.5'}`} />
+              <div className={`absolute w-5 h-5 rounded-full bg-brand-bg shadow-sm top-[1px] left-[1px] transition-transform duration-300 ${digest ? 'translate-x-6 bg-brand-bg' : 'translate-x-0 bg-brand-text'}`} />
             </button>
           </div>
 
