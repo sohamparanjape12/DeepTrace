@@ -68,7 +68,8 @@ Upload an official asset once. DeepTrace then:
 - Scrapes each matched page with Jina Reader.
 - Audits each match with **Gemini 3.1 Flash** using our **Reliability Scoring Engine v2**.
 - Emits a 0–100 reliability score, a severity tier, and a rupee-denominated revenue-at-risk number.
-- Generates a legally compliant DMCA takedown notice on demand.
+- Generates a legally compliant DMCA takedown notice with a **forensic evidence bundle** (PDF + WARC + Archive.org).
+- Supports **Manual Overrides** via an escalation/dispute workflow.
 
 Every stage is checkpointed in Firestore, so the pipeline is fully resumable across API timeouts and quota walls.
 
@@ -80,14 +81,7 @@ Every stage is checkpointed in Firestore, so the pipeline is fully resumable acr
 
 | Resource | Link |
 |---|---|
-| MVP | https://deeptrace.vercel.app |
-| Demo video (≤ 3 min) | _coming soon_ |
-| Project deck | _coming soon_ |
-| GitHub repository | _this repo_ |
-| PRD | [./PRD.md](./PRD.md) |
-
-**Test credentials**
-A demo Google Workspace account is provided in the project deck for evaluation.
+| MVP | https://deeptrace-h2s.vercel.app |
 
 ---
 
@@ -111,29 +105,7 @@ A demo Google Workspace account is provided in the project deck for evaluation.
 ## Architecture
 
 ```
-┌─────────────────────────── Client (Browser) ──────────────────────────┐
-│                                                                       │
-│   Next.js App Router  •  Bento UI  •  Firebase Auth                   │
-│                                                                       │
-└──────────────┬──────────────────────────────────────┬─────────────────┘
-               │                                      │
-   1. Upload   │                                      │  12. Realtime
-   asset      ▼                                      ▲   sync
-┌─── Edge / Vercel ──────────────────────┐  ┌──── Google Cloud ─────────┐
-│                                        │  │                            │
-│  Next.js API Routes                    │  │  Firebase Auth             │
-│  Upstash QStash (durable queue)        │  │  Cloud Firestore           │
-│                                        │  │  Gemini 3.1 Flash          │
-└────────┬─────────────────────┬─────────┘  │                            │
-         │                     │            └────────────┬───────────────┘
-   3-5.  │              13.    │                         │
-   scan  │             dispatch│                         │ 4-11.
-         ▼                     ▼                         ▼
-┌─── External APIs ─────────┐         ┌─── Worker Layer ───────────────┐
-│  SerpAPI (Google Lens)    │ ─────▶ │  Perceptual Gate (pHash+dHash)  │
-│  Jina Reader              │ ─────▶ │  RSE v2 Engine                  │
-│  Cloudinary CDN           │ ─────▶ │  DMCA Dispatcher                │
-└───────────────────────────┘         └─────────────────────────────────┘
+![Architecture Diagram](https://res.cloudinary.com/dqpt61klr/image/upload/v1777548562/architecture_sax1lq.png)
 ```
 
 Five layers, fully resumable, real-time on the client.
@@ -164,6 +136,7 @@ Five layers, fully resumable, real-time on the client.
 
 ### Detection
 - Asset registration with **pHash + dHash + wHash** fingerprinting
+- **One-click "Quick Start" samples** for instant pipeline demonstration
 - SerpAPI Google Lens discovery
 - Tiered perceptual gate: NEAR_IDENTICAL · TRANSFORMED · HIGH_RISK_OVERRIDE · DROP
 - Jina Reader page scraping with token budgeting
@@ -182,9 +155,11 @@ Five layers, fully resumable, real-time on the client.
 
 ### Operations
 - **Durable resumable pipeline** with stage enum + idempotency keys
-- Real-time pipeline pulse banner via Firestore `onSnapshot`
-- Side-by-side violation viewer with full audit trail
-- Templated **DMCA takedown dispatcher**
+- **Global Progress Banner**: Real-time cross-app tracking of all active forensic scans
+- **Glassy Accuracy Metrics**: High-fidelity, translucent UI overlays on asset thumbnails for instant quality assessment
+- **Manual Override Workflow**: Dispute-driven forensic bypass for legal escalation
+- **Forensic Bundle Sidecar**: One-click generation of PDF evidence, WARC archives, and Archive.org snapshots
+- Templated **DMCA takedown dispatcher** with Resend integration
 - Real-time in-app + email notification system (per-user preferences, daily digests)
 
 ---
@@ -242,9 +217,9 @@ See [`lib/dmca/`](./lib/dmca) for the implementation.
 
 ```bash
 # 1. Clone and install
-git clone https://github.com/<your-org>/deeptrace.git
+git clone https://github.com/sohamparanjape12/deeptrace.git
 cd deeptrace
-pnpm install
+npm install
 
 # 2. Copy environment template
 cp .env.example .env.local
@@ -253,7 +228,7 @@ cp .env.example .env.local
 $EDITOR .env.local
 
 # 4. Start the dev server
-pnpm dev
+npm run dev
 ```
 
 Visit [http://localhost:3000](http://localhost:3000).
@@ -261,16 +236,8 @@ Visit [http://localhost:3000](http://localhost:3000).
 ### Production build
 
 ```bash
-pnpm build
-pnpm start
-```
-
-### Tests
-
-```bash
-pnpm test          # unit tests
-pnpm test:e2e      # Playwright end-to-end
-pnpm test:visual   # visual regression (light + dark)
+npm run build
+npm start
 ```
 
 ---
@@ -280,33 +247,34 @@ pnpm test:visual   # visual regression (light + dark)
 ```
 deeptrace/
 ├── app/                              # Next.js App Router
-│   ├── (dashboard)/                  # Authenticated dashboard
-│   │   ├── assets/                   # Asset library + upload
-│   │   ├── violations/               # Violation feed + detail
-│   │   ├── dmca/                     # DMCA notice management
-│   │   └── notifications/            # Notification feed + preferences
-│   └── api/                          # API routes
-│       ├── scan/                     # SerpAPI scan trigger
-│       ├── classify/                 # RSE v2 endpoint
-│       ├── dmca/                     # DMCA module endpoints
-│       └── notifications/            # Notification endpoints
-├── components/                       # Bento UI components
-│   ├── ui/                           # Primitives
-│   ├── dmca/                         # DMCA-specific components
-│   └── notifications/                # Bell, panel, toast
-├── lib/                              # Server logic
-│   ├── classify.v2.ts                # RSE v2 classifier
-│   ├── prompts.v2.ts                 # Gemini system prompts
-│   ├── perceptual-filter.ts          # Tiered hash gate
-│   ├── jina.ts                       # Page scraper
-│   ├── revenue.ts                    # Revenue-at-risk model
-│   ├── dmca/                         # DMCA module
-│   └── notifications/                # Notification emit + delivery
-├── data/
-│   └── dmca-agents.json              # Curated agent directory
-├── emails/                           # React Email templates
-├── styles/
-│   └── globals.css                   # Design tokens, light + dark
+│   ├── (app)/                        # Authenticated dashboard (Assets, Violations, DMCA)
+│   ├── (auth)/                       # Authentication flow (Login, Onboarding)
+│   ├── api/                          # Backend API routes
+│   │   ├── dmca/                     # Takedown & Eligibility endpoints
+│   │   ├── evidence/                 # Forensic bundle generation
+│   │   ├── scan/                     # SerpAPI integration
+│   │   └── violations/               # Triage & Status updates
+│   ├── infrastructure/               # QStash & Pipeline workers
+│   └── pricing/                      # Subscription plans
+├── components/                       # Bento UI Design System
+│   ├── shared/                       # Global components (Card, PageHeader, Banner)
+│   ├── ui/                           # Base primitives
+│   └── dmca/                         # Notice-specific UI
+├── lib/                              # Core Forensic Engine
+│   ├── dmca/                         # PDF generation, dispatch, host resolution
+│   ├── notifications/                # Real-time event emission
+│   ├── utils/                        # Formatting, URLs, math
+│   ├── classify.v2.ts                # Reliability Scoring Engine (RSE)
+│   ├── perceptual-filter.ts          # Tiered pHash/dHash gating
+│   ├── pipeline-executor.ts          # Orchestration of scan/scrape/classify
+│   ├── prompts.v2.ts                 # Gemini forensic system prompts
+│   └── qstash.ts                     # Serverless job scheduling
+├── types/                            # Central TypeScript definitions
+├── public/                           # Static assets & Icons
+├── styles/                           # Global CSS & Design Tokens
+├── firebase.json                     # Firebase Hosting & Functions config
+├── firestore.rules                   # Security rules for IP data
+└── package.json                      # Project dependencies
 ├── PRD.md                            # Full product spec
 └── README.md
 ```
@@ -389,12 +357,12 @@ A full template is committed as [`.env.example`](./.env.example).
 
 Built at MIT Pune for **Build with AI: Solution Challenge 2026**.
 
-| Member | Role |
-|---|---|
-| **Soham Paranjape** *(team lead)* | Full-stack, AI pipeline, RSE v2, DMCA module |
-| Mitansh | _role_ |
-| Aarush | _role_ |
-| Patil | _role_ |
+| Member |
+|---|
+| **Soham Paranjape** |
+| Mitansh |
+| Aarush |
+| Patil |
 
 ---
 
@@ -406,7 +374,7 @@ Built at MIT Pune for **Build with AI: Solution Challenge 2026**.
 - **Jina AI** for the Reader API
 - **Hack2Skill × GDG** for organizing the Solution Challenge
 
-This project was created as a hackathon submission. The codebase is open-sourced under the MIT License — see [LICENSE](./LICENSE).
+This project was created as a hackathon submission.
 
 ---
 
