@@ -104,9 +104,7 @@ Every stage is checkpointed in Firestore, so the pipeline is fully resumable acr
 
 ## Architecture
 
-```
 ![Architecture Diagram](https://res.cloudinary.com/dqpt61klr/image/upload/v1777548562/architecture_sax1lq.png)
-```
 
 Five layers, fully resumable, real-time on the client.
 
