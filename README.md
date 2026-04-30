@@ -6,7 +6,7 @@
 
 Built for **Build with AI: Solution Challenge 2026** by Hack2Skill × GDG.
 
-[Live Demo](#) · [Demo Video](#) · [Project Deck](#) · [PRD](./PRD.md)
+[Live Demo](https://deeptrace-h2s.vercel.app)
 
 ![Next.js](https://img.shields.io/badge/Next.js-15-000?logo=nextdotjs)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
