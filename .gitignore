@@ -7,3 +7,8 @@ node_modules
 service-account.json
 skills-lock.json
 PRD.md
+
+firestore.rules
+firestore-schema.md
+firebase.json
+package-lock.json
