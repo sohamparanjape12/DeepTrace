@@ -357,10 +357,10 @@ Built at MIT Pune for **Build with AI: Solution Challenge 2026**.
 
 | Member |
 |---|
-| **Soham Paranjape** |
-| Mitansh |
-| Aarush |
-| Patil |
+| Soham Paranjape |
+| Mitansh Bheda |
+| Aarush Majumdar |
+| Ishaan Patil |
 
 ---
 
