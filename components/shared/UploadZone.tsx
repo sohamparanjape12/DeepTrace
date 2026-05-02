@@ -1,25 +1,34 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Upload, ImageIcon, X } from 'lucide-react';
 import { clsx } from 'clsx';
 
 interface UploadZoneProps {
-  onFileSelect: (file: File) => void;
+  onFileSelect: (file: File | null) => void;
   isUploading?: boolean;
   uploadProgress?: number;
   className?: string;
+  file?: File | null;
 }
 
-export function UploadZone({ onFileSelect, isUploading, uploadProgress = 0, className }: UploadZoneProps) {
+export function UploadZone({ onFileSelect, isUploading, uploadProgress = 0, className, file }: UploadZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setPreview(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setPreview(null);
+    }
+  }, [file]);
+
   const handleFile = (file: File) => {
     if (!file.type.startsWith('image/')) return;
-    const url = URL.createObjectURL(file);
-    setPreview(url);
     onFileSelect(file);
   };
 
@@ -31,7 +40,7 @@ export function UploadZone({ onFileSelect, isUploading, uploadProgress = 0, clas
   };
 
   const reset = () => {
-    setPreview(null);
+    onFileSelect(null);
     if (inputRef.current) inputRef.current.value = '';
   };
 
@@ -45,7 +54,7 @@ export function UploadZone({ onFileSelect, isUploading, uploadProgress = 0, clas
         onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
       />
       {preview ? (
-        <div className="relative rounded-xl overflow-hidden border border-brand-border aspect-video">
+        <div className="w-[50vw] relative rounded-xl overflow-hidden border border-brand-border aspect-video self-center mx-auto">
           <img src={preview} alt="Preview" className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-black/20" />
           <button
@@ -79,7 +88,7 @@ export function UploadZone({ onFileSelect, isUploading, uploadProgress = 0, clas
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
           className={clsx(
-            'w-full aspect-video rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-6 transition-all duration-300',
+            'w-[50vw] aspect-video rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-6 transition-all duration-300 self-center mx-auto',
             dragOver
               ? 'border-brand-text bg-brand-bg scale-[1.01]'
               : 'border-brand-border bg-brand-bg hover:border-brand-muted hover:bg-brand-surface',

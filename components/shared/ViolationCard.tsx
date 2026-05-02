@@ -30,12 +30,15 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
   const config = classConfig[violation.gemini_class] ?? classConfig.NEEDS_REVIEW;
   const domain = (() => { try { return new URL(violation.match_url).hostname; } catch { return violation.match_url; } })();
 
-  const isEligible =
+  const isForensicallyEligible =
     (violation.gemini_class === 'UNAUTHORIZED' || violation.gemini_class?.toUpperCase() === 'UNAUTHORIZED') &&
     ((violation.reliability_score || 0) >= 80 || (violation.reliability_score || 0) >= 0.8) &&
     (violation.severity === 'CRITICAL' || violation.severity === 'HIGH' || violation.severity?.toUpperCase() === 'HIGH' || violation.severity?.toUpperCase() === 'CRITICAL') &&
+    !violation.contradiction_flag;
+
+  const isEligible =
+    (isForensicallyEligible || violation.status === 'disputed') &&
     violation.status !== 'resolved' &&
-    violation.status !== 'disputed' &&
     violation.status !== 'false_positive' &&
     (!violation.dmca_status || violation.dmca_status === 'none' || violation.dmca_status === 'withdrawn' || violation.dmca_status === 'uninitiated');
 
@@ -66,50 +69,49 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
         {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80" />
 
-        {/* Match Type Overlay */}
-        <div className="absolute top-3 left-3 px-2 py-1 bg-black/40 backdrop-blur-sm rounded text-[8px] font-black uppercase tracking-widest text-white border border-white/10">
-          {violation.match_type.replace('_', ' ')}
-        </div>
+        {/* Reliability Overlay */}
+        {violation.reliability_score !== undefined && (
+          <div className="absolute top-3 right-3 px-2 py-1 bg-zinc-950/20 dark:bg-zinc-950/40 backdrop-blur-md rounded-full border border-white/10 flex items-center gap-1.5 shadow-sm">
+            <div className={clsx(
+              "w-1 h-1 rounded-full",
+              violation.reliability_tier === 'HIGH' ? "bg-emerald-400" : violation.reliability_tier === 'MEDIUM' ? "bg-amber-400" : "bg-rose-400"
+            )} />
+            <span className="text-[8px] font-black text-white/90 uppercase tracking-wider">
+              {violation.reliability_score}% Accuracy
+            </span>
+          </div>
+        )}
       </div>
 
       {/* 2. Intelligence Section */}
-      <div className="flex-1 p-6 flex flex-col gap-5 min-w-0">
+      <div className="flex-1 p-6 flex flex-col gap-3 min-w-0">
         {/* Header: Key-Value Badges & Reliability */}
         <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-start">
+            <div className="flex flex-wrap items-center gap-2 w-full">
               <div className={clsx(
-                'px-2.5 py-1 rounded-md text-[9px] font-bold border flex items-center gap-1.5 transition-colors uppercase',
+                'px-2.5 py-1 rounded-md text-[9px] font-black border transition-colors uppercase tracking-tight',
                 config.variant === 'error' && 'bg-red-500/5 text-red-600 border-red-500/10',
                 config.variant === 'success' && 'bg-emerald-500/5 text-emerald-600 border-emerald-500/10',
                 config.variant === 'warning' && 'bg-amber-500/5 text-amber-600 border-amber-500/10',
                 config.variant === 'info' && 'bg-blue-500/5 text-blue-600 border-blue-500/10',
                 config.variant === 'default' && 'bg-zinc-500/5 text-zinc-600 border-zinc-500/10',
               )}>
-                <span className="opacity-60 uppercase tracking-widest text-[8px] font-black">Status:</span>
                 {config.label}
               </div>
-              <div className="px-2.5 py-1 rounded-md text-[9px] font-bold bg-zinc-500/5 text-zinc-500 border border-zinc-500/10 flex items-center gap-1.5">
-                <span className="opacity-60 uppercase tracking-widest text-[8px] font-black">Severity:</span>
-                {violation.severity}
-              </div>
-              <div className="px-2.5 py-1 rounded-md text-[9px] font-bold bg-zinc-500/5 text-zinc-500 border border-zinc-500/10 flex items-center gap-1.5">
-                <span className="opacity-60 uppercase tracking-widest text-[8px] font-black">Type:</span>
+              <SeverityChip severity={violation.severity} />
+              <div className="px-2.5 py-1 rounded-md text-[9px] font-black bg-zinc-500/5 text-zinc-500 border border-zinc-500/10 uppercase tracking-tight">
                 {violation.match_type.includes('video') ? 'Video' : 'Image'}
                 {violation.domain_class && violation.domain_class.toLowerCase() !== 'unknown' && (
                   <span className="ml-1 opacity-40">({violation.domain_class})</span>
                 )}
               </div>
-            </div>
-
-            {/* Reliability Inline */}
-            {violation.reliability_score !== undefined && (
-              <div className="flex items-center gap-2 shrink-0 justify-center">
-                <div className="scale-60 origin-center">
-                  <ReliabilityRing score={violation.reliability_score} tier={violation.reliability_tier || 'LOW'} />
+              {violation.match_type !== 'visually_similar' && (
+                <div className="px-2.5 py-1 rounded-md text-[9px] font-black bg-zinc-500/5 text-zinc-500 border border-zinc-500/10 uppercase tracking-tight">
+                  {violation.match_type.replace('_', ' ')}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           <div className="flex items-center justify-between">
@@ -133,13 +135,13 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
         </div>
 
         {/* Content: Description & Metrics */}
-        <div className="space-y-4 py-2 border-y border-brand-border/30">
+        <div className="space-y-4 py-2 border-y border-neutral-300 dark:border-neutral-600">
           <div className="flex gap-x-4 gap-y-1 items-center justify-center text-[10px] font-bold">
             <div className="flex items-center gap-1.5 justify-between w-full">
               <span className="text-brand-muted uppercase tracking-widest text-[8px] font-black">Visual Integrity:</span>
-              <span className="text-brand-text">{(violation.visual_match_score || 0 * 100).toFixed(0)}%</span>
+              <span className="text-brand-text">{((violation.visual_match_score || 0) * 100).toFixed(0)}%</span>
             </div>
-            <div className="flex items-center gap-1.5 justify-between border-l border-brand-border/50 pl-4 w-full">
+            <div className="flex items-center gap-1.5 justify-between border-l border-neutral-300 dark:border-neutral-600 pl-4 w-full">
               <span className="text-brand-muted uppercase tracking-widest text-[8px] font-black">Context Alignment:</span>
               <span className="text-brand-text">{((violation.contextual_match_score || 0) * 100).toFixed(0)}%</span>
             </div>
@@ -147,10 +149,10 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
         </div>
 
         {/* 3. Operational Section */}
-        <div className="pt-2 flex flex-wrap items-center justify-between">
-          {(violation.status === 'open' || !violation.status) ? (
+        <div className="pt-2 flex flex-wrap items-center justify-between h-full">
+          {(violation.status === 'open' || !violation.status || violation.status === 'disputed') ? (
             <div className="flex items-center gap-1 w-full justify-center flex-col">
-              <div className="flex items-center gap-2 w-full justify-center">
+              <div className="flex items-center gap-2 w-full justify-center items-end">
                 <button
                   onClick={(e) => {
                     e.preventDefault();
@@ -167,9 +169,14 @@ export function ViolationCard({ violation, className, onResolve, onDispute, onFa
                     e.stopPropagation();
                     onDispute?.(violation.violation_id);
                   }}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[8px] font-black uppercase tracking-widest text-brand-text bg-transparent hover:bg-brand-surface border border-brand-border transition-all active:scale-95 shadow-sm"
+                  className={clsx(
+                    "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm",
+                    violation.status === 'disputed'
+                      ? "bg-brand-amber-muted text-brand-amber-text border border-brand-amber-text/20"
+                      : "text-brand-text bg-transparent hover:bg-brand-surface border border-brand-border"
+                  )}
                 >
-                  <AlertTriangle className="w-3.5 h-3.5" /> Dispute
+                  <AlertTriangle className="w-3.5 h-3.5" /> {violation.status === 'disputed' ? 'Disputed' : 'Dispute'}
                 </button>
                 <button
                   onClick={(e) => {

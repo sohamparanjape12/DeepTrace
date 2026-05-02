@@ -65,6 +65,7 @@ export interface Violation {
   detected_at: string;        // ISO string
   match_url: string;
   match_image_url?: string;
+  scraped_image_url?: string;
   dmca_status?: string;
   dmca_notice_id?: string;
   match_type: MatchType;

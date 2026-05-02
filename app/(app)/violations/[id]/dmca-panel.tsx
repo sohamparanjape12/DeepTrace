@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Shield, FileText, CheckCircle, AlertTriangle, Loader2, Download, ExternalLink, FileCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { clsx } from 'clsx';
 
 interface DMCAPanelProps {
   violationId: string;
@@ -243,8 +244,23 @@ export function DMCAPanel({ violationId, violationStatus, dmcaStatus, dmcaNotice
              </p>
 
              {error && (
-               <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded text-xs">
-                 Error: {error}
+               <div className={clsx(
+                 "p-4 rounded-xl text-xs border flex items-start gap-3 transition-all",
+                 error.includes('high demand') || error.includes('503')
+                   ? "bg-amber-50/50 text-amber-800 border-amber-200 dark:bg-amber-900/10 dark:text-amber-300 dark:border-amber-900/50"
+                   : "bg-red-50/50 text-red-700 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-900/50"
+               )}>
+                 <AlertTriangle className={clsx("w-4 h-4 shrink-0 mt-0.5", error.includes('high demand') || error.includes('503') ? "text-amber-500" : "text-red-500")} />
+                 <div className="space-y-1">
+                   <p className="font-display font-black uppercase tracking-widest text-[9px]">
+                     {error.includes('high demand') || error.includes('503') ? 'Forensic Engine Overloaded' : 'Action Failed'}
+                   </p>
+                   <p className="opacity-90 font-medium leading-relaxed">
+                     {error.includes('high demand') || error.includes('503')
+                       ? "Our AI models are currently experiencing high demand. This is usually temporary—please wait 30 seconds and try again."
+                       : error}
+                   </p>
+                 </div>
                </div>
              )}
 
